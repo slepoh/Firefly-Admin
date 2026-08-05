@@ -270,5 +270,25 @@ export async function onRequest(
     }
   }
 
+  // ---- 上传文件（图片 / 资源）到仓库 public/uploads ----
+  if (seg === "upload" && method === "POST") {
+    let body: any = {};
+    try { body = await request.json(); } catch { return json({ error: "请求体错误" }, 400); }
+    const contentB64 = (body.content || "").split(",").pop() || ""; // 容忍 data URI 前缀
+    const name = (body.name || "file").replace(/[^\w.\-\u4e00-\u9fa5]+/g, "_");
+    if (!contentB64) return json({ error: "缺少文件内容" }, 400);
+    const dir = body.dir || "public/uploads";
+    const p = dir + "/" + name;
+    const payload = {
+      message: body.message || "Upload " + p + " via Firefly-Admin",
+      content: contentB64,
+    };
+    const { status, data } = await ghApi("PUT", p, env, payload);
+    if (status >= 300) return json({ error: (data && data.message) || "上传失败" }, status);
+    const raw = `https://raw.githubusercontent.com/${env.GH_OWNER}/${env.GH_REPO}/${env.GH_BRANCH}/${p}`;
+    const web = "/" + p.split("/").slice(1).join("/"); // public/uploads/x -> /uploads/x
+    return json({ ok: true, path: p, url: raw, web, sha: data && data.content ? data.content.sha : undefined });
+  }
+
   return json({ error: "Not Found" }, 404);
 }

@@ -167,6 +167,34 @@ textarea { resize: vertical; }
 
 /* 富文本编辑器宿主：填满剩余高度 */
 .editor-host { flex: 1; min-height: 0; display: flex; }
+
+/* 编辑主区：左上传面板 + 右编辑器（横向两栏） */
+.editor-main { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.upload-panel {
+  width: 210px; min-width: 210px; flex: none;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: #fafbfc; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto;
+}
+.upload-panel.drag { border-color: var(--primary); background: #fff4e9; }
+.up-head { font-weight: 600; font-size: 14px; }
+.up-hint {
+  font-size: 12px; color: var(--muted); line-height: 1.5; text-align: center;
+  border: 1px dashed var(--border); border-radius: 8px; padding: 14px 8px;
+}
+.up-list { display: flex; flex-direction: column; gap: 8px; }
+.up-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px;
+  border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 12px;
+}
+.up-item img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; flex: none; }
+.up-item .up-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-item .up-insert {
+  border: none; background: var(--primary); color: #fff; border-radius: 6px;
+  padding: 4px 9px; cursor: pointer; font-size: 12px; flex: none;
+}
+.up-item .up-insert:hover { background: var(--primary-d); }
+.up-item .up-err { color: var(--danger); font-size: 11px; }
 #editor { flex: 1; min-height: 0; }
 /* 让 ToastUI 默认 UI 占满高度并内部滚动 */
 #editor .toastui-editor-defaultUI { height: 100%; }
@@ -216,6 +244,8 @@ textarea { resize: vertical; }
   .editor { min-height: 0; }
   .post-fields, .dynamic-fields { grid-template-columns: 1fr; }
   .panel-body { max-height: 46vh; }
+  .editor-main { flex-direction: column; }
+  .upload-panel { width: auto; min-width: 0; }
   .edit-header { flex-wrap: wrap; }
   .edit-actions { width: 100%; }
 }

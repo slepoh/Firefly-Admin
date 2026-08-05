@@ -90,9 +90,18 @@
           <button class="seg" id="modeRaw" data-mode="raw">源代码</button>
         </div>
 
-        <!-- 富文本编辑器挂载点 -->
-        <div class="editor-host" id="editorHost">
-          <div id="editor"></div>
+        <!-- 编辑主区：左侧上传面板 + 右侧编辑器 -->
+        <div class="editor-main" id="editorMain">
+          <aside class="upload-panel" id="uploadPanel">
+            <div class="up-head">📤 资源上传</div>
+            <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
+            <input type="file" id="fileInput" multiple hidden />
+            <div class="up-hint">点击「选择文件」或把文件拖到此处<br>自动上传到 public/uploads</div>
+            <div class="up-list" id="upList"></div>
+          </aside>
+          <div class="editor-host" id="editorHost">
+            <div id="editor"></div>
+          </div>
         </div>
 
         <!-- 源代码模式：整文件编辑 -->

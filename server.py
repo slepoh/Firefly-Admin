@@ -447,24 +447,32 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"ok": True, "path": path})
 
     def api_upload(self):
-        """上传二进制资源（图片等），content 已是 base64 字符串。"""
+        """上传二进制资源（图片等）到仓库 public/uploads，content 已是 base64 字符串。"""
         cfg = self._require_cfg()
         if cfg is None:
             return
         body = self._read_body()
+        content_b64 = (body.get("content") or "").split(",")[-1] or ""
+        name = (body.get("name") or "").strip()
         path = (body.get("path") or "").strip()
-        content_b64 = body.get("content") or ""
+        if not name and not path:
+            self._send(400, {"error": "缺少 name 或 path"})
+            return
+        if not content_b64:
+            self._send(400, {"error": "缺少 content"})
+            return
+        if not path:
+            path = "public/uploads/" + name
         message = body.get("message") or f"Upload {os.path.basename(path)} via FireflyCMS"
         sha = body.get("sha") or None
-        if not path or not content_b64:
-            self._send(400, {"error": "缺少 path 或 content"})
-            return
         code, resp = gh_put_contents(cfg, path, content_b64, message, cfg["branch"], sha)
         if code not in (200, 201):
             self._send(code, resp if isinstance(resp, dict) else {"message": str(resp)})
             return
         new_sha = (resp.get("content") or {}).get("sha") if isinstance(resp, dict) else None
-        self._send(200, {"ok": True, "sha": new_sha, "path": path})
+        raw = f"https://raw.githubusercontent.com/{cfg['owner']}/{cfg['repo']}/{cfg['branch']}/{path}"
+        web = "/" + "/".join(path.split("/")[1:])
+        self._send(200, {"ok": True, "sha": new_sha, "path": path, "url": raw, "web": web})
 
 
 def main():

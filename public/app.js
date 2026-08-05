@@ -375,6 +375,7 @@
     }
 
     // 先让容器可见，再创建/填充富文本编辑器，避免初次创建时高度为 0
+    $("editorMain").hidden = false;
     $("editorHost").hidden = false;
     $("rawEditor").hidden = true;
     setBodyMarkdown(body);
@@ -451,11 +452,12 @@
   }
 
   function applyMode(mode) {
-    if (mode === "raw") {
-      $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
-      $("rawEditor").hidden = false;
-      $("editorHost").hidden = true;
-    } else {
+      if (mode === "raw") {
+        $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
+        $("rawEditor").hidden = false;
+        $("editorMain").hidden = true;
+        $("editorHost").hidden = true;
+      } else {
       if (state.mode === "raw") {
         // 从源代码切回富文本：重新解析整文件
         const { data, body } = parseFrontmatter($("rawEditor").value);
@@ -470,10 +472,11 @@
         }
         setBodyMarkdown(body);
       }
-      $("rawEditor").hidden = true;
-      $("editorHost").hidden = false;
-    }
-    state.mode = mode;
+        $("rawEditor").hidden = true;
+        $("editorMain").hidden = false;
+        $("editorHost").hidden = false;
+      }
+      state.mode = mode;
     setModeButtons(mode);
   }
 
@@ -577,6 +580,90 @@
   }
 
   // ----------------------------------------------------------------------
+  // 本地文件上传（上传到 GitHub 仓库 public/uploads，再插入编辑器）
+  // ----------------------------------------------------------------------
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error("读取文件失败"));
+      r.readAsDataURL(file);
+    });
+  }
+
+  function addUploadItem(url, name, isImage) {
+    const box = $("upList");
+    if (!box) return;
+    const div = document.createElement("div");
+    div.className = "up-item";
+    const thumb = isImage ? `<img src="${esc(url)}" alt="">` : `<span style="font-size:20px">📄</span>`;
+    div.innerHTML =
+      thumb +
+      `<span class="up-name" title="${esc(name)}">${esc(name)}</span>` +
+      `<button type="button" class="up-insert" data-url="${esc(url)}" data-img="${isImage ? 1 : 0}">插入</button>`;
+    box.appendChild(div);
+  }
+
+  function addUploadItemError(name, msg) {
+    const box = $("upList");
+    if (!box) return;
+    const div = document.createElement("div");
+    div.className = "up-item";
+    div.innerHTML =
+      `<span style="font-size:18px">⚠️</span>` +
+      `<span class="up-name" title="${esc(name)}">${esc(name)}</span>` +
+      `<span class="up-err">${esc(msg)}</span>`;
+    box.appendChild(div);
+  }
+
+  async function uploadFile(file) {
+    try {
+      const b64 = await fileToBase64(file);
+      const safe = file.name.replace(/\s+/g, "_");
+      const name = Date.now() + "-" + safe;
+      const { status, data } = await api("/api/upload", {
+        method: "POST",
+        body: JSON.stringify({ name, content: b64, message: "Upload " + file.name + " via Firefly-Admin" }),
+      });
+      if (status === 200 && data && data.ok) {
+        addUploadItem(data.url, file.name, file.type.startsWith("image/"));
+        toast("已上传：" + file.name);
+      } else {
+        addUploadItemError(file.name, (data && data.error) || "上传失败");
+      }
+    } catch (e) {
+      addUploadItemError(file.name, e.message || "上传失败");
+    }
+  }
+
+  async function handleFiles(files) {
+    if (!files || !files.length) return;
+    for (const f of files) await uploadFile(f);
+  }
+
+  function insertAsset(url, isImage) {
+    if (state.mode === "raw") {
+      const ta = $("rawEditor");
+      const text = isImage ? "![](" + url + ")" : "[文件](" + url + ")";
+      const s = ta.selectionStart, e2 = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + text + ta.value.slice(e2);
+      ta.selectionStart = ta.selectionEnd = s + text.length;
+      ta.focus();
+    } else {
+      ensureEditor();
+      if (editor) {
+        if (isImage) editor.insertImage({ url, alt: "" });
+        else editor.insertText("[文件](" + url + ")");
+      } else if (fallbackBody) {
+        const s = fallbackBody.selectionStart, e2 = fallbackBody.selectionEnd;
+        const text = isImage ? "![](" + url + ")" : "[文件](" + url + ")";
+        fallbackBody.value = fallbackBody.value.slice(0, s) + text + fallbackBody.value.slice(e2);
+        fallbackBody.focus();
+      }
+    }
+  }
+
+  // ----------------------------------------------------------------------
   // 事件绑定
   // ----------------------------------------------------------------------
   let bound = false;
@@ -638,6 +725,30 @@
           window.dispatchEvent(new Event("resize"));
         }
       });
+    });
+
+    // 上传：选择文件
+    on("pickBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
+    on("fileInput", "onchange", (e) => { handleFiles(e.target.files); e.target.value = ""; });
+
+    // 上传：拖拽到面板
+    const up = $("uploadPanel");
+    if (up) {
+      up.addEventListener("dragover", (ev) => { ev.preventDefault(); up.classList.add("drag"); });
+      up.addEventListener("dragleave", () => up.classList.remove("drag"));
+      up.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        up.classList.remove("drag");
+        if (ev.dataTransfer && ev.dataTransfer.files) handleFiles(ev.dataTransfer.files);
+      });
+    }
+
+    // 已上传列表：点击「插入」
+    const ul = $("upList");
+    if (ul) ul.addEventListener("click", (ev) => {
+      const btn = ev.target.closest(".up-insert");
+      if (!btn) return;
+      insertAsset(btn.dataset.url, btn.dataset.img === "1");
     });
   }
 
