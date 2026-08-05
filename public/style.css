@@ -75,7 +75,7 @@ body {
 .btn.sm { padding: 6px 10px; font-size: 13px; }
 
 /* 布局 */
-.layout { display: flex; height: calc(100vh - 56px); }
+.layout { display: flex; height: calc(100vh - 56px); overflow: hidden; }
 /* 桌面端折叠侧边栏：释放横向空间，编辑区铺满 */
 .layout.sidebar-collapsed .sidebar { width: 0; min-width: 0; border-right: none; padding: 0; }
 
@@ -167,7 +167,7 @@ textarea { resize: vertical; }
 .empty-state { margin: auto; text-align: center; color: var(--muted); padding: 24px; }
 .empty-state .big { font-size: 48px; }
 
-.edit-form { display: flex; flex-direction: column; height: 100%; padding: 14px; gap: 12px; overflow: hidden; }
+.edit-form { display: flex; flex-direction: column; height: 100%; min-width: 0; padding: 14px; gap: 12px; overflow: hidden; }
 
 /* 编辑器头部卡片：文件名 + 类型徽标 + 状态 */
 .editor-head {
@@ -284,10 +284,10 @@ textarea { resize: vertical; }
 .seg.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 /* 富文本编辑器宿主：填满剩余高度 */
-.editor-host { flex: 1; min-height: 0; display: flex; }
+.editor-host { flex: 1; min-height: 0; min-width: 0; display: flex; }
 
 /* 编辑主区：单栏（上传已移到左侧栏） */
-.editor-main { flex: 1; min-height: 0; display: flex; }
+.editor-main { flex: 1; min-height: 0; min-width: 0; display: flex; }
 /* 左侧栏上传面板的拖拽高亮 */
 .meta-panel.drag { border-color: var(--primary); background: #fff4e9; }
 .up-hint {
@@ -307,14 +307,31 @@ textarea { resize: vertical; }
 }
 .up-item .up-insert:hover { background: var(--primary-d); }
 .up-item .up-err { color: var(--danger); font-size: 11px; }
-#editor { flex: 1; min-height: 0; }
-/* 让 ToastUI 默认 UI 占满高度并内部滚动 */
-#editor .toastui-editor-defaultUI { height: 100%; }
-#editor .toastui-editor-main { height: 100%; }
+#editor { flex: 1; min-height: 0; min-width: 0; }
+/* 让 ToastUI 默认 UI 占满高度并内部滚动；严格约束宽度，禁止溢出（移动端关键） */
+#editor .toastui-editor-defaultUI,
+#editor .toastui-editor-main,
 #editor .toastui-editor-md-container,
-#editor .toastui-editor-ww-container { height: 100%; }
+#editor .toastui-editor-ww-container {
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
 #editor .ProseMirror { min-height: 100%; }
-#editor .toastui-editor-contents { min-height: 100%; }
+#editor .toastui-editor-contents {
+  min-height: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+/* 工具栏横向溢出时滚动，不撑宽页面 */
+.toastui-editor-toolbar { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.toastui-editor-toolbar-groups { flex-wrap: nowrap; min-width: min-content; }
+/* WYSIWYG 内容含超长不可断行字符串时允许横向滚动，而非撑破布局 */
+.toastui-editor-ww-container { overflow-x: auto; }
+/* Markdown 模式：编辑区与预览并排时约束宽度 */
+.toastui-editor-md-container .toastui-editor-md-editor,
+.toastui-editor-md-container .toastui-editor-md-preview { min-width: 0; max-width: 100%; }
 
 .raw-editor { flex: 1; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; line-height: 1.6; }
 
@@ -454,9 +471,13 @@ textarea { resize: vertical; }
   .editor-head { flex-wrap: wrap; }
   .eh-right { flex-wrap: wrap; justify-content: flex-end; }
   /* 富文本工具栏在窄屏可横向滚动，避免撑破布局 */
-  .toastui-editor-defaultUI, .toastui-editor-main { min-width: 0; }
+  .toastui-editor-defaultUI, .toastui-editor-main { min-width: 0; max-width: 100%; }
   .toastui-editor-toolbar { overflow-x: auto; }
   .toastui-editor-toolbar-groups { flex-wrap: nowrap; }
+  /* Markdown 模式：编辑区与预览在窄屏改为上下堆叠，避免并排溢出 */
+  .toastui-editor-md-container { flex-direction: column; }
+  .toastui-editor-md-container .toastui-editor-md-editor,
+  .toastui-editor-md-container .toastui-editor-md-preview { width: 100%; max-width: 100%; }
   .mode-switch { flex-wrap: wrap; }
   /* 结构化配置：平板尺寸下调标签宽度，避免挤压输入框 */
   .cfg-field-label { flex-basis: 40%; min-width: 120px; }

@@ -16,6 +16,7 @@
     htmlMode: false,   // 当前文件为 HTML（如 FooterConfig.html），用 WYSIWYG 富文本
     plainRaw: false,   // 当前配置文件非 HTML（如 .md），仅源代码编辑
     configStruct: false, // 当前配置文件为可结构化编辑的 .ts（参数名锁定、值可编辑）
+    forceMarkdown: false, // 当前 .md 含裸 HTML/iframe，强制用 Markdown 模式（避免 WYSIWYG 转换崩溃）
     configRaw: "",     // 原始配置源码（保存时按偏移量回写值）
     configRoots: [],   // parseConfig 解析出的配置根节点
     postData: {},  // 解析出的 frontmatter（posts / spec 复用）
@@ -194,24 +195,77 @@
     }
   }
 
+  // 判断 Markdown 正文是否含「裸 HTML / iframe / 代码块内嵌 frontmatter」：
+  // 这类内容在 ToastUI 的 WYSIWYG 模式会因裸 HTML（尤其畸形标签如 Bilibili 的 allowfullscreen="true" &autoplay=0）
+  // 或代码块内 --- 而转换崩溃，必须改用 Markdown 模式（官方文档即「直接在 Markdown 中粘贴 iframe」）。
+  function isHtmlHeavy(md) {
+    if (!md) return false;
+    if (/<(iframe|video|audio|script|style|object|embed|svg|canvas|details|summary|table|form|input|select|textarea|img|div|section|article|header|footer|nav|button|pre)\b/i.test(md)) return true;
+    // 代码块内嵌 frontmatter（--- ... ---）会让 WYSIWYG 解析出错
+    if (/```[\s\S]*?\n---\s*\n[\s\S]*?\n---\s*\n[\s\S]*?```/.test(md)) return true;
+    return false;
+  }
+
+  // 组件存在但彻底不可用时，改用纯文本 textarea，保证文件「一定打得开、可编辑」
+  function useFallbackBody(val) {
+    if (fallbackBody) { fallbackBody.value = val; return; }
+    const host = $("editor");
+    if (host) host.style.display = "none";
+    fallbackBody = document.createElement("textarea");
+    fallbackBody.className = "raw-editor";
+    fallbackBody.style.flex = "1";
+    $("editorHost").appendChild(fallbackBody);
+    fallbackBody.value = val || "";
+  }
+
   function setBodyMarkdown(md) {
     ensureEditor();
-    if (editor) editor.setMarkdown(md || "", false);
-    else if (fallbackBody) fallbackBody.value = md || "";
+    state.forceMarkdown = isHtmlHeavy(md);
+    if (editor) {
+      try {
+        editor.setMarkdown(md || "", false);
+        // 含裸 HTML 的帖子用 Markdown 模式（与官方文档一致），避免 WYSIWYG 转换崩溃导致「打不开」
+        const want = state.forceMarkdown ? "markdown" : "wysiwyg";
+        const cur = (typeof editor.getEditorType === "function") ? editor.getEditorType() : want;
+        if (cur !== want) editor.changeMode(want, false);
+        return;
+      } catch (e) {
+        // 第一次失败：尝试 Markdown 模式兜底
+        try {
+          editor.changeMode("markdown", false);
+          editor.setMarkdown(md || "", false);
+          state.forceMarkdown = true;
+          return;
+        } catch (_) { /* 落到纯文本 */ }
+      }
+      useFallbackBody(md || "");
+      toast("富文本渲染异常，已切换为纯文本编辑", "err");
+    } else if (fallbackBody) {
+      fallbackBody.value = md || "";
+    }
   }
   function getBodyMarkdown() {
-    if (editor) return editor.getMarkdown();
     if (fallbackBody) return fallbackBody.value;
+    if (editor) return editor.getMarkdown();
     return "";
   }
   function setHtmlContent(html) {
     ensureEditor();
-    if (editor && editor.setHTML) editor.setHTML(html || "");
-    else if (fallbackBody) fallbackBody.value = html || "";
+    if (editor && editor.setHTML) {
+      try {
+        editor.setHTML(html || "");
+        return;
+      } catch (e) {
+        useFallbackBody(html || "");
+        toast("富文本渲染异常，已切换为纯文本编辑", "err");
+        return;
+      }
+    }
+    if (fallbackBody) fallbackBody.value = html || "";
   }
   function getHtmlContent() {
-    if (editor && editor.getHTML) return editor.getHTML();
     if (fallbackBody) return fallbackBody.value;
+    if (editor && editor.getHTML) return editor.getHTML();
     return "";
   }
 
@@ -399,6 +453,7 @@
       state.htmlMode = /\.html?$/i.test(f.name);
       state.plainRaw = false;
       state.configStruct = false;
+      state.forceMarkdown = false;
       // 配置类 .ts 文件：尝试结构化解析（参数名锁定、值可编辑）；解析失败或 .md 等则回退源码
       if (state.type === "config" && !state.htmlMode) {
         if (/\.ts$/i.test(f.name) && typeof FireflyConfig !== "undefined") {
@@ -432,6 +487,7 @@
     state.htmlMode = false;
     state.plainRaw = false;
     state.configStruct = false;
+    state.forceMarkdown = false;
     if (state.type === "dynamic") {
       name = tsFilename();
       fm = { published: inputToDateStr(nowLocalInput(), true), location: "" };
@@ -509,6 +565,7 @@
       else setBodyMarkdown(body);
       showOnlyEditor("main");
     }
+    updateModeLabel();
 
     // 编辑器头部：文件图标 + 类型徽标 + 路径
     const k = editorKind();
@@ -811,6 +868,12 @@
     $("modeRaw").classList.toggle("active", mode === "raw");
   }
 
+  // 含裸 HTML 的帖子强制 Markdown 模式，按钮文案同步为「Markdown」，避免误导
+  function updateModeLabel() {
+    const btn = $("modeRich");
+    if (btn) btn.textContent = state.forceMarkdown ? "Markdown" : "富文本";
+  }
+
   function applyMode(mode) {
     if (state.plainRaw) return; // 纯文本配置文件无富文本/源代码切换
     if (state.configStruct) return; // 结构化配置无富文本/源代码切换（键名锁定）
@@ -842,6 +905,7 @@
     }
     state.mode = mode;
     setModeButtons(mode);
+    updateModeLabel();
   }
 
   // ----------------------------------------------------------------------
