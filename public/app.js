@@ -50,7 +50,8 @@
     if (res.status === 401) {
       localStorage.removeItem("ff_token");
       state.token = "";
-      showLogin();
+      // 未登录或会话失效：跳转独立登录页（后台整页受保护）
+      location.replace("login.html?from=" + encodeURIComponent(location.pathname + location.search));
       throw new Error("未登录或会话失效");
     }
     return { status: res.status, data };
@@ -198,15 +199,6 @@
     toastTimer = setTimeout(() => (el.hidden = true), 2600);
   }
 
-  function showLogin() {
-    $("loginModal").hidden = false;
-    $("setupModal").hidden = true;
-  }
-  function hideModals() {
-    $("loginModal").hidden = true;
-    $("setupModal").hidden = true;
-  }
-
   function isMobile() { return window.matchMedia("(max-width: 900px)").matches; }
   function openDrawer() { $("sidebar").classList.add("open"); $("drawerBackdrop").classList.add("show"); }
   function closeDrawer() { $("sidebar").classList.remove("open"); $("drawerBackdrop").classList.remove("show"); }
@@ -219,17 +211,13 @@
       bindEvents();
       const { data } = await api("/api/status");
       state.status = data;
-      if (!data.configured) {
-        $("setupModal").hidden = false;
+      // 后台整页受保护：未登录直接跳转独立登录页
+      if (!data.authed) {
+        location.replace("login.html?from=" + encodeURIComponent(location.pathname + location.search));
         return;
       }
       if (!data.adminConfigured) {
-        $("loginErr").textContent =
-          "服务器未检测到 ADMIN_PASSWORD，请检查 Cloudflare Pages 环境变量并重新部署后再试。";
-      }
-      if (!data.authed) {
-        showLogin();
-        return;
+        toast("提示：服务器未检测到 ADMIN_PASSWORD，请在 Cloudflare 环境变量中配置后重新部署。", "err");
       }
       enterApp();
     } catch (e) {
@@ -238,7 +226,6 @@
   }
 
   async function enterApp() {
-    hideModals();
     closeDrawer();
     $("mainApp").hidden = false;
     $("logoutBtn").hidden = false;
@@ -624,7 +611,7 @@
     on("logoutBtn", "onclick", async () => {
       try { await api("/api/logout", { method: "POST" }); } catch (e) { /* ignore */ }
       localStorage.removeItem("ff_token");
-      location.reload();
+      location.replace("login.html");
     });
 
     on("modeRich", "onclick", () => applyMode("rich"));
@@ -636,52 +623,6 @@
       else openDrawer();
     });
     on("drawerBackdrop", "onclick", closeDrawer);
-
-    // setup
-    on("setupBtn", "onclick", async () => {
-      const body = {
-        github_token: $("setToken").value.trim(),
-        owner: $("setOwner").value.trim(),
-        repo: $("setRepo").value.trim(),
-        branch: $("setBranch").value.trim() || "master",
-        admin_password: $("setPassword").value,
-      };
-      $("setupErr").textContent = "";
-      try {
-        const { status, data } = await api("/api/setup", { method: "POST", body: JSON.stringify(body) });
-        if (status === 200) {
-          state.token = data.token;
-          localStorage.setItem("ff_token", data.token);
-          state.status = await (await api("/api/status")).data;
-          enterApp();
-        } else {
-          $("setupErr").textContent = (data && data.error) || "配置失败";
-        }
-      } catch (e) {
-        $("setupErr").textContent = e.message || "配置失败";
-      }
-    });
-
-    // login
-    on("loginBtn", "onclick", async () => {
-      $("loginErr").textContent = "";
-      try {
-        const { status, data } = await api("/api/login", {
-          method: "POST",
-          body: JSON.stringify({ password: $("loginPassword").value }),
-        });
-        if (status === 200) {
-          state.token = data.token;
-          localStorage.setItem("ff_token", data.token);
-          state.status = await (await api("/api/status")).data;
-          enterApp();
-        } else {
-          $("loginErr").textContent = (data && data.error) || "登录失败";
-        }
-      } catch (e) {
-        $("loginErr").textContent = e.message || "登录失败";
-      }
-    });
   }
 
   init();

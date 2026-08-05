@@ -265,9 +265,11 @@ class Handler(BaseHTTPRequestHandler):
     # ----- API 实现 -----
     def api_status(self):
         cfg = load_config()
+        # 与 Cloudflare Pages 版后端保持字段一致，新增 adminConfigured
         self._send(200, {
             "configured": bool(cfg.get("github_token")),
             "hasPassword": bool(cfg.get("admin_password_hash")),
+            "adminConfigured": bool(cfg.get("admin_password_hash")),
             "owner": cfg.get("owner", ""),
             "repo": cfg.get("repo", ""),
             "branch": cfg.get("branch", "master"),

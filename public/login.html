@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>登录 · Firefly 内容管理后台</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="login-body">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="login-logo">🔥</span>
+        <h1>Firefly 内容管理</h1>
+        <p class="login-sub">请输入管理员密码以进入后台</p>
+      </div>
+
+      <form id="loginForm" class="login-form" novalidate>
+        <label for="password">管理员密码</label>
+        <div class="login-input-row">
+          <input id="password" type="password" autocomplete="current-password" placeholder="请输入密码" autofocus />
+          <button type="button" id="togglePwd" class="pwd-toggle" aria-label="显示或隐藏密码" title="显示/隐藏密码">👁️</button>
+        </div>
+        <button type="submit" id="submitBtn" class="btn primary block">登 录</button>
+        <p class="err" id="err"></p>
+      </form>
+
+      <div class="login-foot">
+        <span class="lock">🔒</span> 受 ADMIN_PASSWORD 保护 · 未授权无法进行任何操作
+      </div>
+    </div>
+  </div>
+
+  <script src="/login.js"></script>
+</body>
+</html>

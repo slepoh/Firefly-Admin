@@ -93,42 +93,6 @@
     </section>
   </main>
 
-  <!-- 设置（首次）弹窗 -->
-  <div class="modal-mask" id="setupModal" hidden>
-    <div class="modal">
-      <h2>🔧 初始化配置</h2>
-      <p class="hint">首次使用需要连接你的 GitHub 仓库。GitHub 访问令牌只会保存在<strong>服务端</strong>，不会下发到浏览器。</p>
-      <label>GitHub 访问令牌 (PAT)</label>
-      <input type="password" id="setToken" placeholder="ghp_xxx 或 github_pat_xxx（需 repo / public_repo 权限）" />
-      <label>仓库所有者 (owner)</label>
-      <input type="text" id="setOwner" placeholder="如 slepoh" />
-      <label>仓库名 (repo)</label>
-      <input type="text" id="setRepo" placeholder="如 Firefly" />
-      <label>分支 (branch)</label>
-      <input type="text" id="setBranch" placeholder="master" value="master" />
-      <label>管理员密码（至少 6 位）</label>
-      <input type="password" id="setPassword" placeholder="用于保护本后台" />
-      <div class="modal-actions">
-        <button id="setupBtn" class="btn primary">保存并进入</button>
-      </div>
-      <p class="err" id="setupErr"></p>
-    </div>
-  </div>
-
-  <!-- 登录弹窗 -->
-  <div class="modal-mask" id="loginModal" hidden>
-    <div class="modal">
-      <h2>🔐 登录</h2>
-      <p class="hint">请输入管理员密码。</p>
-      <label>管理员密码</label>
-      <input type="password" id="loginPassword" placeholder="管理员密码" />
-      <div class="modal-actions">
-        <button id="loginBtn" class="btn primary">登录</button>
-      </div>
-      <p class="err" id="loginErr"></p>
-    </div>
-  </div>
-
   <!-- 提示条 -->
   <div class="toast" id="toast" hidden></div>
 
