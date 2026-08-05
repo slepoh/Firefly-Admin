@@ -490,32 +490,57 @@
     }
   }
 
+  // 各板块可选的文件后缀（新建时给出选择框，已有文件锁定）
+  function extOptions(type) {
+    if (type === "posts") return [".md", ".mdx"];
+    if (type === "dynamic") return [".md"];
+    if (type === "spec") return [".md", ".mdx", ".html"];
+    if (type === "config") return [".html", ".ts"];
+    return [".md"];
+  }
+
   function newFile() {
-    let name, body, fm = {};
     state.htmlMode = false;
     state.plainRaw = false;
     state.configStruct = false;
     state.forceMarkdown = false;
+    let base, body, fm = {};
     if (state.type === "dynamic") {
-      name = tsFilename();
+      base = tsFilename().replace(/\.md$/i, "");
       fm = { published: inputToDateStr(nowLocalInput(), true), location: "" };
       body = "";
     } else if (state.type === "posts") {
-      name = "untitled.md";
+      base = "untitled";
       fm = { title: "新文章", published: inputToDateStr(nowLocalInput(), false), draft: true };
       body = "# 新文章\n\n在这里写正文…\n";
     } else if (state.type === "config") {
-      name = "untitled.html";
-      state.htmlMode = true;
+      base = "untitled";
       fm = {};
       body = "<!-- 新配置 -->\n";
     } else {
-      name = "page.md";
+      base = "page";
       fm = {};
       body = "# 新页面\n\n在这里写内容…\n";
     }
-    state.current = { path: null, sha: null, name, isNew: true, type: state.type };
-    showEditor(body, fm, name);
+    state._newBase = base;
+    state._newFm = fm;
+    state._newBody = body;
+    state.current = { path: null, sha: null, name: base + extOptions(state.type)[0], isNew: true, type: state.type };
+    enterNewFile();
+  }
+
+  // 依据「类型 + 选中的后缀」决定编辑器模式并渲染（新建文件可随时切换后缀重渲染）
+  function enterNewFile() {
+    const opts = extOptions(state.type);
+    if (!opts.includes($("extSelect").value)) $("extSelect").value = opts[0];
+    const ext = $("extSelect").value;
+    const t = state.type;
+    state.htmlMode = false; state.plainRaw = false; state.configStruct = false; state.forceMarkdown = false;
+    if (t === "config") {
+      if (ext === ".html") state.htmlMode = true;
+      else state.plainRaw = true; // .ts 新文件暂无内容，暂走源代码编辑
+    }
+    showEditor(state._newBody, state._newFm, state._newBase);
   }
 
   function nowLocalInput() {
@@ -538,6 +563,25 @@
     $("deleteBtn").hidden = state.current.isNew;
     $("fileName").value = name;
     $("fileName").readOnly = !state.current.isNew;
+
+    // 后缀选择框：按板块给出可选后缀；新建可改、已有锁定
+    const extSel = $("extSelect");
+    const opts = extOptions(state.type);
+    extSel.innerHTML = opts.map((e) => '<option value="' + e + '">' + e + "</option>").join("");
+    if (state.current.isNew) {
+      if (!opts.includes(extSel.value)) extSel.value = opts[0];
+      extSel.disabled = false;
+    } else {
+      const dot = (state.current.name || "").lastIndexOf(".");
+      let curExt = dot > 0 ? state.current.name.slice(dot) : "";
+      if (curExt && !opts.includes(curExt)) {
+        const o = document.createElement("option");
+        o.value = curExt; o.textContent = curExt;
+        extSel.appendChild(o);
+      }
+      extSel.value = curExt || opts[0];
+      extSel.disabled = true;
+    }
 
     state.postData = fm || {};
     state.mode = "rich";
@@ -740,43 +784,35 @@
         varChip +
         '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
       sec.appendChild(head);
-      sec.appendChild(cfgNodeEl(r.node, r.name));
+      // 一级栏目 = 根对象下的直接子项，渲染为大标题（而非嵌套盒子）
+      if (r.node.type === "object" && r.node.children && r.node.children.length) {
+        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0)));
+      } else {
+        sec.appendChild(cfgNodeEl(r.node, r.name, 0));
+      }
       host.appendChild(sec);
     });
   }
 
-  // 递归渲染一个配置节点；keyLabel 用于显示当前参数名（锁定）
-  function cfgNodeEl(node, keyLabel) {
-    if (node.type === "object") {
-      const grp = document.createElement("div");
-      grp.className = "cfg-group";
-      const h = document.createElement("div");
-      h.className = "cfg-group-head";
+  // 递归渲染一个配置节点；keyLabel 用于显示参数名（锁定）；depth 控制标题层级（扁平化，去嵌套盒子）
+  function cfgNodeEl(node, keyLabel, depth) {
+    if (node.type === "object" || node.type === "array") {
+      // 一级栏目：大标题；嵌套：子标题。均不再套盒子，靠缩进体现层级
+      const block = document.createElement("div");
+      block.className = depth === 0 ? "cfg-title-block" : "cfg-sub-block";
+      const head = document.createElement("div");
+      head.className = depth === 0 ? "cfg-title" : "cfg-subtitle";
       const gname = node.comment || keyLabel;
-      h.innerHTML = lockIcon() + '<span class="cfg-group-title">' + esc(gname) + "</span>" +
-        (node.comment ? '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(keyLabel) + "</span>" : "");
-      grp.appendChild(h);
-      const body = document.createElement("div");
-      body.className = "cfg-group-body";
-      node.children.forEach((ch) => body.appendChild(cfgNodeEl(ch.value, ch.key)));
-      grp.appendChild(body);
-      return grp;
-    }
-    if (node.type === "array") {
-      const grp = document.createElement("div");
-      grp.className = "cfg-group cfg-array";
-      const h = document.createElement("div");
-      h.className = "cfg-group-head";
-      const gname = node.comment || keyLabel;
-      h.innerHTML = lockIcon() + '<span class="cfg-group-title">' + esc(gname) + "</span>" +
-        (node.comment ? '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(keyLabel) + "</span>" : "") +
-        '<span class="cfg-tag">数组</span>';
-      grp.appendChild(h);
-      const body = document.createElement("div");
-      body.className = "cfg-group-body";
-      node.children.forEach((ch, idx) => body.appendChild(cfgNodeEl(ch.value, ch.comment || (keyLabel + "[" + idx + "]"))));
-      grp.appendChild(body);
-      return grp;
+      let inner = lockIcon() + '<span class="cfg-g-title">' + esc(gname) + "</span>";
+      if (node.comment) inner += lockChip(keyLabel);
+      if (node.type === "array") inner += '<span class="cfg-tag">数组</span>';
+      head.innerHTML = inner;
+      block.appendChild(head);
+      node.children.forEach((ch) => {
+        const childKey = node.type === "array" ? (ch.value.comment || (keyLabel + "[" + node.children.indexOf(ch) + "]")) : ch.key;
+        block.appendChild(cfgNodeEl(ch.value, childKey, depth + 1));
+      });
+      return block;
     }
     // 叶子：string / number / boolean / null / expr
     const row = document.createElement("div");
@@ -784,8 +820,7 @@
     const lab = document.createElement("label");
     lab.className = "cfg-field-label";
     if (node.comment) {
-      lab.innerHTML = '<span class="cfg-name">' + esc(node.comment) + "</span>" +
-        '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(keyLabel) + "</span>";
+      lab.innerHTML = '<span class="cfg-name">' + esc(node.comment) + "</span>" + lockChip(keyLabel);
     } else {
       lab.innerHTML = lockIcon() + '<span class="cfg-key">' + esc(keyLabel) + "</span>";
     }
@@ -838,6 +873,9 @@
 
   function lockIcon() {
     return '<span class="cfg-lock" title="参数名固定，不可修改">🔒</span>';
+  }
+  function lockChip(name) {
+    return '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(name) + "</span>";
   }
 
   function collectConfigEdits() {
@@ -957,15 +995,17 @@
     }
     let path;
     if (state.current.isNew) {
-      const fname = ($("fileName").value || "").trim();
-      if (!fname) { setStatus("请填写文件名", "err"); return; }
-      // 配置文件（如 FooterConfig.html）允许任意扩展名，内容类仍需 .md/.mdx
+      const base = ($("fileName").value || "").trim();
+      const ext = ($("extSelect").value || "").trim();
+      const fname = base + ext;
+      if (!base) { setStatus("请填写文件名", "err"); return; }
+      // 配置文件（如 FooterConfig.html / .ts）允许任意扩展名，内容类仍需 .md/.mdx
       if (state.type !== "config" && !/\.(md|mdx)$/i.test(fname)) {
         setStatus("文件名需以 .md 或 .mdx 结尾", "err");
         return;
       }
-      const base = state.type === "config" ? "src/config" : CONTENT_ROOT + "/" + state.type;
-      path = base + (state.subdir ? "/" + state.subdir : "") + "/" + fname;
+      const root = state.type === "config" ? "src/config" : CONTENT_ROOT + "/" + state.type;
+      path = root + (state.subdir ? "/" + state.subdir : "") + "/" + fname;
     } else {
       path = state.current.path;
     }
@@ -985,9 +1025,10 @@
         state.current.sha = data.sha || state.current.sha;
         state.current.isNew = false;
         state.current.path = path;
-        state.current.name = ($("fileName").value || "").trim();
+        state.current.name = ($("fileName").value || "").trim() + ($("extSelect").value || "").trim();
         $("deleteBtn").hidden = false;
         $("fileName").readOnly = true;
+        $("extSelect").disabled = true;
         setStatus("✅ 已保存，GitHub 将自动重新部署", "ok");
         toast("保存成功");
       } else {
@@ -1228,6 +1269,36 @@
     }
   }
 
+  // 在当前板块 / 子目录下新建分类（文件夹）。GitHub 无空目录对象，用 .gitkeep 占位文件创建。
+  async function newCategory() {
+    const name = await openModal({
+      title: "新建分类 / 目录",
+      input: "",
+      placeholder: "目录名称，如 news 或 产品",
+      confirmText: "创建",
+      hint: "将在当前位置创建该分类文件夹。",
+    });
+    if (!name) return;
+    const safe = name.trim().replace(/[^\w.\-\u4e00-\u9fa5]+/g, "-").replace(/^-+|-+$/g, "");
+    if (!safe) { toast("目录名称无效", "err"); return; }
+    const base = state.type === "config" ? "src/config" : "src/content/" + state.type;
+    const p = base + (state.subdir ? "/" + state.subdir : "") + "/" + safe;
+    try {
+      const { status, data } = await api("/api/mkdir", {
+        method: "POST",
+        body: JSON.stringify({ path: p }),
+      });
+      if (status === 200 && data && data.ok) {
+        toast("已创建分类：" + safe);
+        await loadList();
+      } else {
+        toast((data && data.error) || "创建失败", "err");
+      }
+    } catch (e) {
+      toast(e.message || "创建失败", "err");
+    }
+  }
+
   function setStatus(msg, type) {
     const el = $("editStatus");
     el.textContent = msg || "";
@@ -1383,6 +1454,10 @@
     on("searchInput", "oninput", renderList);
     on("refreshBtn", "onclick", loadList);
     on("newBtn", "onclick", newFile);
+    on("newCatBtn", "onclick", newCategory);
+    on("quickUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
+    // 新建文件时切换后缀：重设编辑器模式（保留草稿内容）
+    on("extSelect", "onchange", () => { if (state.current && state.current.isNew) enterNewFile(); });
     on("saveBtn", "onclick", saveFile);
     on("deleteBtn", "onclick", deleteFile);
     on("backBtn", "onclick", backToEmpty);

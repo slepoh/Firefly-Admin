@@ -43,16 +43,25 @@
                 <button id="newBtn" class="btn primary sm">＋ 新建</button>
                 <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
               </div>
+              <!-- 快捷操作：新建分类 + 上传资源（优化入口，常驻可见） -->
+              <div class="list-tools2">
+                <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
+                <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
+              </div>
               <div class="file-list" id="fileList"></div>
               <div class="crumb" id="crumb"></div>
 
-              <!-- 资源上传：放在左侧分类栏底部（可折叠，默认收起，不占用编辑区空间） -->
-              <div class="meta-panel collapsed" id="uploadPanel">
+              <!-- 资源上传：清晰的拖拽区，可折叠 -->
+              <div class="meta-panel" id="uploadPanel">
                 <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
                 <div class="panel-body">
-                  <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
-                  <input type="file" id="fileInput" multiple hidden />
-                  <div class="up-hint">点击「选择文件」或把文件拖到此处<br>自动上传到 public/uploads</div>
+                  <div class="upload-drop" id="uploadDrop">
+                    <div class="ud-icon">⬆</div>
+                    <div class="ud-text">拖拽文件到此处，或</div>
+                    <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
+                    <input type="file" id="fileInput" multiple hidden />
+                  </div>
+                  <div class="up-hint">自动上传到 <code>public/uploads</code></div>
                   <div class="up-list" id="upList"></div>
                 </div>
               </div>
@@ -85,7 +94,10 @@
         <div class="editor-head">
           <span class="eh-icon" id="ehIcon">📝</span>
           <div class="eh-meta">
-            <input type="text" id="fileName" class="filename" placeholder="文件名，如 my-post.md" />
+            <div class="fn-row">
+              <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
+              <select id="extSelect" class="ext-select" aria-label="文件后缀" title="选择文件后缀"></select>
+            </div>
             <div class="eh-path" id="ehPath"></div>
           </div>
           <div class="eh-right">

@@ -372,6 +372,31 @@ export async function onRequest(
     return json({ ok: true, path: p, url: raw, web, sha: data && data.content ? data.content.sha : undefined });
   }
 
+  // ---- 新建目录（分类）：GitHub 无空目录对象，写入 .gitkeep 占位文件创建目录 ----
+  if (seg === "mkdir" && method === "POST") {
+    let body: any = {};
+    try { body = await request.json(); } catch { return json({ error: "请求体错误" }, 400); }
+    let p = (body.path || "").trim();
+    if (!p) return json({ error: "缺少 path" }, 400);
+    // 防路径穿越：禁止绝对路径与 .. 片段
+    if (p.startsWith("/") || p.includes("..") || p.includes("\\")) {
+      return json({ error: "非法的目录路径" }, 400);
+    }
+    const keepPath = p.replace(/\/+$/, "") + "/.gitkeep";
+    const payload = {
+      message: body.message || "Create folder " + p + " via Firefly-Admin",
+      content: base64Encode("# Firefly-Admin 目录占位文件（保留目录结构，可安全删除）\n"),
+      branch: env.GH_BRANCH,
+    };
+    const { status, data } = await ghApi("PUT", keepPath, env, payload);
+    if (status >= 300) {
+      const msg = (data && data.message) || "创建目录失败";
+      const httpStatus = status === 401 ? 502 : status;
+      return json({ ok: false, error: "创建目录失败：" + msg, githubStatus: status }, httpStatus);
+    }
+    return json({ ok: true, path: p, keep: keepPath });
+  }
+
   // ---- 重命名 / 移动（文件或目录，目录递归）----
   if (seg === "rename" && method === "POST") {
     let body: any = {};
