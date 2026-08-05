@@ -1,8 +1,7 @@
 # Firefly-Admin
 
 Firefly 博客（[slepoh/Firefly](https://github.com/slepoh/Firefly)）的内容管理后台。
-Firefly 是「改 `.md/.mdx` → Cloudflare 自动重建」的静态站，每次都要手动改 GitHub 文件。
-本项目做一个**可视化管理后台**，直接通过 GitHub API 远程增删改 `src/content` 下的内容，
+本项目是Firefly项目的**可视化管理后台**，直接通过 GitHub API 远程增删改 `src/content` 下的内容，
 保存即提交到 GitHub，Cloudflare 自动重新部署。
 
 支持三类内容：
