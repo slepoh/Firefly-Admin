@@ -80,6 +80,51 @@
           <button class="nav-section-head" type="button"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span><span class="chev">▾</span></button>
           <div class="nav-section-body"></div>
         </section>
+        <section class="nav-section" data-type="appearance">
+          <button class="nav-section-head" type="button"><span class="ni-ico">🎨</span><span class="ni-tx">站点外观</span><span class="chev">▾</span></button>
+          <div class="nav-section-body">
+            <div class="appearance-panel" id="appearancePanel" hidden>
+              <div class="ap-group">
+                <div class="ap-group-title">站点 Logo</div>
+                <div class="ap-cards">
+                  <div class="ap-card">
+                    <div class="ap-preview"><img id="prevLogoDark" alt="深色 Logo" /></div>
+                    <div class="ap-name">深色 Logo</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-dark">更换</button>
+                    <input type="file" class="ap-file" data-asset="logo-dark" accept="image/*" hidden />
+                  </div>
+                  <div class="ap-card">
+                    <div class="ap-preview"><img id="prevLogoLight" alt="浅色 Logo" /></div>
+                    <div class="ap-name">浅色 Logo</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-light">更换</button>
+                    <input type="file" class="ap-file" data-asset="logo-light" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
+              <div class="ap-group">
+                <div class="ap-group-title">作者头像</div>
+                <div class="ap-cards">
+                  <div class="ap-card">
+                    <div class="ap-preview ap-preview--round"><img id="prevAvatar" alt="作者头像" /></div>
+                    <div class="ap-name">avatar.webp</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="avatar">更换</button>
+                    <input type="file" class="ap-file" data-asset="avatar" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
+              <div class="ap-group">
+                <div class="ap-group-title">常用配置（点击直接编辑）</div>
+                <div class="ap-config-cards">
+                  <button class="ap-cfg-btn" type="button" data-cfg="profileConfig.ts"><span class="ap-ico">👤</span>个人资料 profileConfig</button>
+                  <button class="ap-cfg-btn" type="button" data-cfg="backgroundWallpaper.ts"><span class="ap-ico">🖼️</span>背景壁纸 backgroundWallpaper</button>
+                  <button class="ap-cfg-btn" type="button" data-cfg="booknavConfig.ts"><span class="ap-ico">🔖</span>书签导航 booknavConfig</button>
+                  <button class="ap-cfg-btn" type="button" data-cfg="announcementConfig.ts"><span class="ap-ico">📢</span>公告 announcementConfig</button>
+                  <button class="ap-cfg-btn" type="button" data-cfg="sponsorConfig.ts"><span class="ap-ico">💝</span>赞助 sponsorConfig</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </aside>
 

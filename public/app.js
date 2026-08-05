@@ -8,6 +8,9 @@
   const state = {
     token: localStorage.getItem("ff_token") || "",
     status: null,
+    owner: "",
+    repo: "",
+    branch: "master",
     type: "posts",
     subdir: "",
     files: [],
@@ -334,6 +337,9 @@
     $("mainApp").hidden = false;
     $("logoutBtn").hidden = false;
     const s = state.status;
+    state.owner = s.owner || "";
+    state.repo = s.repo || "";
+    state.branch = s.branch || "master";
     $("repoInfo").textContent = `${s.owner}/${s.repo}@${s.branch}`;
     bindEvents();
     await loadList();
@@ -462,19 +468,16 @@
       state.plainRaw = false;
       state.configStruct = false;
       state.forceMarkdown = false;
-      // 配置类 .ts 文件：尝试结构化解析（参数名锁定、值可编辑）；解析失败或 .md 等则回退源码
-      if (state.type === "config" && !state.htmlMode) {
-        if (/\.ts$/i.test(f.name) && typeof FireflyConfig !== "undefined") {
-          const parsed = FireflyConfig.parseConfig(data.content);
-          if (!parsed.error && parsed.roots.length) {
-            state.configStruct = true;
-            state.configRaw = data.content;
-            state.configRoots = parsed.roots;
-          } else {
-            state.plainRaw = true; // 无法结构化（如 index.ts 纯导出）-> 源码模式
-          }
+      // 任意 .ts 配置文件：尝试结构化解析（参数名锁定、值可编辑）；解析失败或 .md 等则回退源码
+      // 不再依赖 state.type，确保从「站点外观」等任意入口打开 .ts 都能结构化编辑
+      if (!state.htmlMode && /\.ts$/i.test(f.name) && typeof FireflyConfig !== "undefined") {
+        const parsed = FireflyConfig.parseConfig(data.content);
+        if (!parsed.error && parsed.roots.length) {
+          state.configStruct = true;
+          state.configRaw = data.content;
+          state.configRoots = parsed.roots;
         } else {
-          state.plainRaw = true;
+          state.plainRaw = true; // 无法结构化（如 index.ts 纯导出）-> 源码模式
         }
       }
       let fm = {}, body = data.content;
@@ -1421,12 +1424,160 @@
     document.querySelectorAll("#navAccordion .nav-section").forEach((s) => {
       s.classList.toggle("active", s.dataset.type === type);
     });
+    const browser = $("browser");
+    const appearance = $("appearancePanel");
+    // 站点外观板块：隐藏共享文件列表，显示外观管理面板
+    if (type === "appearance") {
+      if (browser) browser.hidden = true;
+      if (appearance) appearance.hidden = false;
+      backToEmpty();
+      loadAppearance();
+      return;
+    }
+    if (appearance) appearance.hidden = true;
     // 共享的 .browser 节点移动到激活板块的 .nav-section-body 内（保持事件监听）
     const body = document.querySelector('#navAccordion .nav-section[data-type="' + type + '"] .nav-section-body');
-    const browser = $("browser");
     if (body && browser && browser.parentElement !== body) body.appendChild(browser);
+    if (browser) browser.hidden = false;
     backToEmpty();
     loadList();
+  }
+
+  // ----------------------------------------------------------------------
+  // 站点外观：Logo / 头像替换 + 常用配置快捷入口
+  // ----------------------------------------------------------------------
+  // 仓库原始文件直链（用于预览当前 Logo / 头像）
+  function rawUrl(p) {
+    const branch = state.branch || "master";
+    return `https://raw.githubusercontent.com/${state.owner}/${state.repo}/${branch}/${p}`;
+  }
+
+  // 资源落点：logo 深/浅两套在 src/assets/images/logo，头像在 src/assets/images
+  function assetTarget(asset) {
+    if (asset === "logo-dark") return { dir: "src/assets/images/logo", name: "firefly-dark.png" };
+    if (asset === "logo-light") return { dir: "src/assets/images/logo", name: "firefly-light.png" };
+    if (asset === "avatar") return { dir: "src/assets/images", name: "avatar.webp" };
+    return null;
+  }
+  function previewElFor(asset) {
+    if (asset === "logo-dark") return "prevLogoDark";
+    if (asset === "logo-light") return "prevLogoLight";
+    if (asset === "avatar") return "prevAvatar";
+    return null;
+  }
+  function assetPath(asset) {
+    if (asset === "logo-dark") return "src/assets/images/logo/firefly-dark.png";
+    if (asset === "logo-light") return "src/assets/images/logo/firefly-light.png";
+    if (asset === "avatar") return "src/assets/images/avatar.webp";
+    return null;
+  }
+
+  function loadAppearance() {
+    const setPrev = (id, p) => {
+      const img = $(id);
+      if (!img) return;
+      img.onerror = () => {
+        img.style.display = "none";
+        const ph = document.createElement("span");
+        ph.textContent = "🖼️";
+        ph.style.fontSize = "30px";
+        img.parentNode.appendChild(ph);
+      };
+      img.style.display = "";
+      img.src = rawUrl(p) + "?v=" + Date.now();
+    };
+    setPrev("prevLogoDark", "src/assets/images/logo/firefly-dark.png");
+    setPrev("prevLogoLight", "src/assets/images/logo/firefly-light.png");
+    setPrev("prevAvatar", "src/assets/images/avatar.webp");
+  }
+
+  function uploadAsset(asset, file) {
+    if (!file) return;
+    const t = assetTarget(asset);
+    if (!t) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const content = reader.result; // data URL
+        const { status, data } = await api("/api/upload", {
+          method: "POST",
+          body: { name: t.name, content, dir: t.dir, message: "Update " + t.name + " via Firefly-Admin" },
+        });
+        if (status >= 300) {
+          toast("上传失败：" + ((data && data.error) || ""), "err");
+          return;
+        }
+        // 刷新预览（带缓存破坏参数，确保看到新图）
+        const imgId = previewElFor(asset);
+        const p = assetPath(asset);
+        const img = imgId ? $(imgId) : null;
+        if (img && p) {
+          img.style.display = "";
+          img.onerror = null;
+          img.src = rawUrl(p) + "?v=" + Date.now();
+        }
+        toast("已更新 " + t.name, "ok");
+      } catch (e) {
+        toast(e.message || "上传失败", "err");
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // 打开常用配置文件；若文件不存在（如 sponsorConfig.ts）则创建默认内容后打开
+  async function openConfigByPath(path, name) {
+    const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
+    if (status === 200 && data.content != null) {
+      await openFile({ name, path, type: "file", sha: data.sha });
+      return;
+    }
+    const def = defaultConfigFor(name);
+    if (def == null) {
+      toast("无法打开 " + name, "err");
+      return;
+    }
+    const r = await api("/api/file", {
+      method: "POST",
+      body: { path, content: def, message: "Create " + name + " via Firefly-Admin" },
+    });
+    if (r.status >= 300) {
+      toast("创建失败：" + ((r.data && r.data.error) || ""), "err");
+      return;
+    }
+    await openFile({ name, path, type: "file", sha: r.data && r.data.sha });
+    toast("已创建 " + name + "，编辑后点「保存」即可生效", "ok");
+  }
+
+  // 缺失配置文件的默认内容（仅当文件不存在时用于创建，均为合法 TS）
+  function defaultConfigFor(name) {
+    if (name === "sponsorConfig.ts") {
+      return [
+        "// 赞助设置",
+        "export const sponsorConfig = {",
+        "  // 赞助方式列表",
+        "  sponsors: [",
+        "    {",
+        "      // 名称",
+        "      name: \"支付宝\",",
+        "      // 跳转链接",
+        "      link: \"\",",
+        "      // 图标（emoji 或图片地址）",
+        "      icon: \"💰\",",
+        "      // 二维码图片地址",
+        "      qrcode: \"\",",
+        "    },",
+        "    {",
+        "      name: \"微信\",",
+        "      link: \"\",",
+        "      icon: \"💚\",",
+        "      qrcode: \"\",",
+        "    },",
+        "  ],",
+        "};",
+        "",
+      ].join("\n");
+    }
+    return null;
   }
 
   let bound = false;
@@ -1508,6 +1659,31 @@
         if (ev.dataTransfer && ev.dataTransfer.files) handleFiles(ev.dataTransfer.files);
       });
     }
+
+    // 站点外观：更换按钮 -> 触发对应 file input
+    document.querySelectorAll(".ap-btn").forEach((b) => {
+      b.addEventListener("click", () => {
+        const asset = b.dataset.pick;
+        const fi = document.querySelector('.ap-file[data-asset="' + asset + '"]');
+        if (fi) fi.click();
+      });
+    });
+    // 站点外观：选择图片后上传到对应资源路径
+    document.querySelectorAll(".ap-file").forEach((fi) => {
+      fi.addEventListener("change", () => {
+        const asset = fi.dataset.asset;
+        if (fi.files && fi.files[0]) uploadAsset(asset, fi.files[0]);
+        fi.value = "";
+      });
+    });
+    // 站点外观：常用配置快捷入口
+    document.querySelectorAll(".ap-cfg-btn").forEach((b) => {
+      b.addEventListener("click", () => {
+        const name = b.dataset.cfg;
+        openConfigByPath("src/config/" + name, name);
+        if (isMobile()) closeDrawer();
+      });
+    });
 
     // 已上传列表：点击「插入」
     const ul = $("upList");
