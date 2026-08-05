@@ -13,6 +13,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -28,23 +29,30 @@ body {
   height: 56px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 16px;
+  gap: 12px;
+  padding: 0 18px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 30;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 .icon-btn {
   border: none; background: transparent; font-size: 22px; line-height: 1;
   cursor: pointer; padding: 4px 8px; border-radius: 8px; color: var(--text);
 }
 .icon-btn:hover { background: #f0f2f5; }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; }
-.brand .logo { font-size: 20px; }
-.brand .title { font-size: 16px; }
-.repo-info { margin-left: auto; color: var(--muted); font-size: 13px; padding-right: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.brand .logo {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--primary), #ff9a4d);
+  border-radius: 9px; font-size: 17px; box-shadow: 0 2px 8px rgba(249,115,22,.32);
+}
+.brand .title { font-size: 15px; letter-spacing: .3px; }
+.brand .sub { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 1px; }
+.top-divider { width: 1px; height: 24px; background: var(--border); }
+.repo-info { margin-left: auto; color: var(--muted); font-size: 13px; padding-right: 8px; font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace; }
 .top-actions { display: flex; gap: 8px; }
 
 /* 按钮 */
@@ -72,8 +80,8 @@ body {
 .layout.sidebar-collapsed .sidebar { width: 0; min-width: 0; border-right: none; padding: 0; }
 
 .sidebar {
-  width: 320px;
-  min-width: 320px;
+  width: 300px;
+  min-width: 300px;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
@@ -81,14 +89,28 @@ body {
   overflow: hidden;
   transition: width .22s ease;
 }
-.tabs { display: flex; border-bottom: 1px solid var(--border); }
-.tab {
-  flex: 1; border: none; background: none; padding: 12px 6px;
-  cursor: pointer; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent;
-}
-.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 
-.list-tools { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid var(--border); }
+/* 侧栏导航：分组菜单 */
+.tabs { display: flex; flex-direction: column; gap: 2px; padding: 14px 12px 6px; }
+.nav-group-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .8px;
+  color: var(--muted); padding: 16px 10px 6px; text-transform: uppercase;
+}
+.nav-group-title:first-child { padding-top: 2px; }
+.tab {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; border: none; background: transparent;
+  padding: 10px 12px; border-radius: 9px; cursor: pointer;
+  font-size: 14px; color: #51585f; text-align: left; position: relative;
+  transition: .15s;
+}
+.tab .ni-ico { font-size: 16px; width: 20px; text-align: center; flex: none; }
+.tab:hover { background: #f0f2f5; }
+.tab.active { background: linear-gradient(135deg, #fff1e3, #ffe6d2); color: var(--primary-d); font-weight: 600; }
+
+.side-divider { height: 1px; background: var(--border); margin: 4px 14px; }
+.browser { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.list-tools { display: flex; gap: 6px; padding: 10px 12px; }
 .list-tools input { flex: 1; min-width: 0; }
 
 input[type=text], input[type=password], input[type=datetime-local], textarea {
@@ -146,9 +168,27 @@ textarea { resize: vertical; }
 .empty-state .big { font-size: 48px; }
 
 .edit-form { display: flex; flex-direction: column; height: 100%; padding: 14px; gap: 12px; overflow: hidden; }
-.edit-header { display: flex; gap: 10px; align-items: center; }
-.edit-header .filename { flex: 1; min-width: 0; font-weight: 600; }
-.edit-header .edit-status { margin-left: auto; max-width: 55%; text-align: right; }
+
+/* 编辑器头部卡片：文件名 + 类型徽标 + 状态 */
+.editor-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow);
+}
+.eh-icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; background: #fff3e8; border-radius: 10px; font-size: 18px; }
+.eh-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.editor-head .filename { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; border: none; background: transparent; padding: 2px 0; }
+.editor-head .filename:focus { border: none; box-shadow: none; }
+.eh-path { font-size: 11px; color: var(--muted); font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eh-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
+.ed-type-badge {
+  font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px;
+  background: #eef1f5; color: #4b5159; white-space: nowrap;
+}
+.ed-type-badge.kind-md { background: #e8f7ee; color: #1f9d57; }
+.ed-type-badge.kind-html { background: #fff0e6; color: #d9530a; }
+.ed-type-badge.kind-config { background: #eaf3ff; color: #1f6feb; }
+.ed-type-badge.kind-raw { background: #f1eaff; color: #7a3dd6; }
 .action-bar {
   position: sticky;
   bottom: 0;
@@ -406,12 +446,13 @@ textarea { resize: vertical; }
   }
   .sidebar.open { transform: translateX(0); }
   .drawer-backdrop.show { display: block; }
-  .brand .title { display: none; }
+  .brand .sub { display: none; }
   .editor { min-height: 0; }
   .pf-fields, .dynamic-fields { grid-template-columns: 1fr; }
   .panel-body { max-height: 46vh; }
   .editor-main { flex-direction: column; }
-  .edit-header { flex-wrap: wrap; }
+  .editor-head { flex-wrap: wrap; }
+  .eh-right { flex-wrap: wrap; justify-content: flex-end; }
   /* 富文本工具栏在窄屏可横向滚动，避免撑破布局 */
   .toastui-editor-defaultUI, .toastui-editor-main { min-width: 0; }
   .toastui-editor-toolbar { overflow-x: auto; }

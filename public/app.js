@@ -215,6 +215,27 @@
     return "";
   }
 
+  // 同一时刻只显示一种编辑器，避免不同后缀对应的编辑器叠加显示
+  function showOnlyEditor(active) {
+    const showMain = active === "main";   // 富文本 / HTML 所见即所得
+    const showRaw = active === "raw";      // 源代码
+    const showCfg = active === "config";   // 可视化配置（参数锁定）
+    $("editorMain").hidden = !showMain;
+    $("editorHost").hidden = !showMain;
+    $("rawEditor").hidden = !showRaw;
+    $("configEditor").hidden = !showCfg;
+  }
+
+  // 根据当前文件类型推断「编辑器类型」徽标（让用户清楚当前用的是哪种编辑器）
+  function editorKind() {
+    if (state.configStruct) return { kind: "config", label: "可视化配置 · 参数锁定", icon: "⚙️" };
+    if (state.htmlMode) return { kind: "html", label: "HTML 富文本", icon: "🌐" };
+    if (state.plainRaw) return { kind: "raw", label: "源代码", icon: "📄" };
+    if (state.type === "dynamic") return { kind: "md", label: "Markdown 富文本", icon: "⚡" };
+    if (state.type === "spec") return { kind: "md", label: "Markdown 富文本", icon: "📄" };
+    return { kind: "md", label: "Markdown 富文本", icon: "📝" };
+  }
+
   // ----------------------------------------------------------------------
   // UI 辅助
   // ----------------------------------------------------------------------
@@ -410,6 +431,7 @@
     let name, body, fm = {};
     state.htmlMode = false;
     state.plainRaw = false;
+    state.configStruct = false;
     if (state.type === "dynamic") {
       name = tsFilename();
       fm = { published: inputToDateStr(nowLocalInput(), true), location: "" };
@@ -475,26 +497,27 @@
     // 纯文本配置文件（如 .md）或结构化配置（.ts）不显示富文本/源代码切换
     $("modeSwitch").hidden = state.plainRaw || state.configStruct;
 
-    // 先隐藏所有编辑区，再按需显示其一
-    $("editorMain").hidden = true;
-    $("editorHost").hidden = true;
-    $("rawEditor").hidden = true;
-    $("configEditor").hidden = true;
+    // 同一时刻只显示一种编辑器（避免后缀对应的编辑器叠加）
     if (state.configStruct) {
       renderConfigEditor();
-      $("configEditor").hidden = false;
+      showOnlyEditor("config");
     } else if (state.plainRaw) {
       $("rawEditor").value = body;
-      $("rawEditor").hidden = false;
-    } else if (state.htmlMode) {
-      setHtmlContent(body);
-      $("editorMain").hidden = false;
-      $("editorHost").hidden = false;
+      showOnlyEditor("raw");
     } else {
-      setBodyMarkdown(body);
-      $("editorMain").hidden = false;
-      $("editorHost").hidden = false;
+      if (state.htmlMode) setHtmlContent(body);
+      else setBodyMarkdown(body);
+      showOnlyEditor("main");
     }
+
+    // 编辑器头部：文件图标 + 类型徽标 + 路径
+    const k = editorKind();
+    $("ehIcon").textContent = k.icon;
+    const badge = $("edTypeBadge");
+    badge.textContent = k.label;
+    badge.className = "ed-type-badge kind-" + k.kind;
+    $("ehPath").textContent = state.current.path || "";
+
     setModeButtons("rich");
     setStatus("");
     // 触发编辑器重排，保证移动端高度正确
@@ -793,9 +816,7 @@
     if (state.configStruct) return; // 结构化配置无富文本/源代码切换（键名锁定）
     if (mode === "raw") {
       $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
-      $("rawEditor").hidden = false;
-      $("editorMain").hidden = true;
-      $("editorHost").hidden = true;
+      showOnlyEditor("raw");
     } else {
       if (state.mode === "raw") {
         // 从源代码切回富文本：重新解析整文件
@@ -816,9 +837,7 @@
           setBodyMarkdown(body);
         }
       }
-      $("rawEditor").hidden = true;
-      $("editorMain").hidden = false;
-      $("editorHost").hidden = false;
+      showOnlyEditor("main");
       window.dispatchEvent(new Event("resize"));
     }
     state.mode = mode;
