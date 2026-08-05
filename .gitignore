@@ -1,0 +1,13 @@
+# ---- Cloudflare Pages / Wrangler ----
+.wrangler/
+.dev.vars
+node_modules/
+
+# ---- Python 自托管（server.py 运行时数据，含令牌，切勿提交）----
+data/
+__pycache__/
+*.pyc
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+name = "firefly-admin"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "public"
+
+# 非敏感配置（敏感信息请用 `wrangler pages secret put` 设置，见 README）
+[vars]
+GH_OWNER = "slepoh"
+GH_REPO = "Firefly"
+GH_BRANCH = "master"

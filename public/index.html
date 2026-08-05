@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Firefly 内容管理后台</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🔥</span>
+      <span class="title">Firefly 内容管理</span>
+    </div>
+    <div class="repo-info" id="repoInfo"></div>
+    <div class="top-actions">
+      <button id="logoutBtn" class="btn ghost" hidden>退出登录</button>
+    </div>
+  </header>
+
+  <!-- 主区域 -->
+  <main class="layout" id="mainApp" hidden>
+    <!-- 侧栏：内容类型 + 文件列表 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="tabs" id="typeTabs">
+        <button class="tab active" data-type="posts">📝 文章</button>
+        <button class="tab" data-type="dynamic">⚡ 最新动态</button>
+        <button class="tab" data-type="spec">📄 单页</button>
+      </div>
+      <div class="list-tools">
+        <input type="text" id="searchInput" placeholder="搜索文件名…" />
+        <button id="newBtn" class="btn primary sm">＋ 新建</button>
+        <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
+      </div>
+      <div class="file-list" id="fileList"></div>
+      <div class="crumb" id="crumb"></div>
+    </aside>
+
+    <!-- 编辑区 -->
+    <section class="editor" id="editorPane">
+      <div class="empty-state" id="emptyState">
+        <div class="big">🗂️</div>
+        <p>从左侧选择文件进行编辑，或点击「新建」创建内容。</p>
+      </div>
+
+      <div class="edit-form" id="editForm" hidden>
+        <div class="edit-header">
+          <input type="text" id="fileName" class="filename" placeholder="文件名，如 my-post.md" />
+          <div class="edit-actions">
+            <button id="saveBtn" class="btn primary">💾 保存</button>
+            <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
+            <button id="backBtn" class="btn ghost">← 返回</button>
+          </div>
+        </div>
+        <div class="edit-status" id="editStatus"></div>
+
+        <!-- 文章结构化表单 -->
+        <div id="postFields" class="post-fields" hidden></div>
+
+        <!-- 动态字段 -->
+        <div id="dynamicFields" class="dynamic-fields" hidden>
+          <div class="field">
+            <label>发布时间</label>
+            <input type="datetime-local" id="dynPublished" />
+          </div>
+          <div class="field">
+            <label>地点 (location，可选)</label>
+            <input type="text" id="dynLocation" placeholder="如 郑州" />
+          </div>
+        </div>
+
+        <!-- 编辑模式切换 -->
+        <div class="mode-switch">
+          <span>正文编辑：</span>
+          <button class="seg active" id="modeSplit" data-mode="split">分栏</button>
+          <button class="seg" id="modeRaw" data-mode="raw">原始 Frontmatter</button>
+        </div>
+
+        <!-- 分栏：编辑 + 预览 -->
+        <div class="split" id="splitView">
+          <textarea id="bodyEditor" class="body-editor" placeholder="在此输入 Markdown 正文…"></textarea>
+          <div class="preview" id="preview"></div>
+        </div>
+
+        <!-- 原始模式：整文件编辑 -->
+        <textarea id="rawEditor" class="raw-editor" hidden placeholder="编辑完整文件（含 Frontmatter）…"></textarea>
+      </div>
+    </section>
+  </main>
+
+  <!-- 设置（首次）弹窗 -->
+  <div class="modal-mask" id="setupModal" hidden>
+    <div class="modal">
+      <h2>🔧 初始化配置</h2>
+      <p class="hint">首次使用需要连接你的 GitHub 仓库。GitHub 访问令牌只会保存在<strong>服务端</strong>，不会下发到浏览器。</p>
+      <label>GitHub 访问令牌 (PAT)</label>
+      <input type="password" id="setToken" placeholder="ghp_xxx 或 github_pat_xxx（需 repo / public_repo 权限）" />
+      <label>仓库所有者 (owner)</label>
+      <input type="text" id="setOwner" placeholder="如 slepoh" />
+      <label>仓库名 (repo)</label>
+      <input type="text" id="setRepo" placeholder="如 Firefly" />
+      <label>分支 (branch)</label>
+      <input type="text" id="setBranch" placeholder="master" value="master" />
+      <label>管理员密码（至少 6 位）</label>
+      <input type="password" id="setPassword" placeholder="用于保护本后台" />
+      <div class="modal-actions">
+        <button id="setupBtn" class="btn primary">保存并进入</button>
+      </div>
+      <p class="err" id="setupErr"></p>
+    </div>
+  </div>
+
+  <!-- 登录弹窗 -->
+  <div class="modal-mask" id="loginModal" hidden>
+    <div class="modal">
+      <h2>🔐 登录</h2>
+      <p class="hint">请输入管理员密码。</p>
+      <label>管理员密码</label>
+      <input type="password" id="loginPassword" placeholder="管理员密码" />
+      <div class="modal-actions">
+        <button id="loginBtn" class="btn primary">登录</button>
+      </div>
+      <p class="err" id="loginErr"></p>
+    </div>
+  </div>
+
+  <!-- 提示条 -->
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
