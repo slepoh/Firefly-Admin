@@ -278,6 +278,48 @@ textarea { resize: vertical; }
 
 .raw-editor { flex: 1; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; line-height: 1.6; }
 
+/* ===================== 结构化配置编辑 ===================== */
+.config-editor { flex: 1; min-height: 0; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.cfg-empty { color: var(--muted); text-align: center; padding: 40px 0; }
+
+.cfg-section { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.cfg-section-head {
+  display: flex; align-items: center; gap: 8px; padding: 11px 14px;
+  background: linear-gradient(90deg, #fff4e9, #ffffff);
+  border-bottom: 1px solid var(--border);
+}
+.cfg-var { font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace; font-weight: 700; color: var(--primary-d); }
+.cfg-hint { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 400; }
+
+.cfg-group { border-left: 3px solid #ffd9b8; margin: 10px 12px; }
+.cfg-group-head {
+  display: flex; align-items: center; gap: 6px; padding: 7px 10px;
+  background: #f7f8fa; border-radius: 8px; margin-bottom: 4px;
+}
+.cfg-group-body { padding: 2px 0 2px 10px; }
+
+.cfg-field { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; }
+.cfg-field:nth-child(odd) { background: #fafbfc; }
+
+.cfg-key {
+  flex: 0 0 38%; min-width: 120px; max-width: 320px;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace;
+  font-weight: 600; color: #2b3038; font-size: 13px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cfg-lock { opacity: .65; filter: grayscale(.2); flex: none; }
+.cfg-input {
+  flex: 1; min-width: 0; width: 100%;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; background: #fff; color: var(--text);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace;
+}
+.cfg-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(249,115,22,.12); }
+.cfg-input:disabled { background: #f1f2f4; color: var(--muted); cursor: not-allowed; }
+.cfg-check { width: 18px; height: 18px; accent-color: var(--primary); flex: none; }
+.cfg-locked-note { font-size: 12px; color: var(--muted); flex: none; }
+.cfg-tag { font-size: 11px; color: #fff; background: #b9c0c9; border-radius: 6px; padding: 1px 7px; flex: none; }
+
 /* 弹窗 */
 .modal-mask { position: fixed; inset: 0; background: rgba(20,24,30,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal { background: #fff; width: 440px; max-width: 100%; border-radius: 14px; padding: 24px; box-shadow: var(--shadow); }
@@ -370,6 +412,12 @@ textarea { resize: vertical; }
   .edit-form { padding: 10px; gap: 10px; }
   .action-bar { padding: 10px; margin: 0 -10px -10px; }
   .action-bar .btn { flex: 1; }
+  /* 结构化配置：窄屏改为上下排列，参数名在上、值在下 */
+  .cfg-field { flex-direction: column; align-items: stretch; gap: 4px; padding: 9px 8px; }
+  .cfg-key { flex: none; min-width: 0; max-width: none; }
+  .cfg-group-body { padding-left: 6px; }
+  .cfg-group { margin: 8px 8px; }
+  .cfg-locked-note { align-self: flex-end; }
 }
 
 /* ===================== 登录页 ===================== */

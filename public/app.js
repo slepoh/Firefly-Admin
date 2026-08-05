@@ -14,7 +14,10 @@
     current: null, // {path, sha, name, isNew, type}
     mode: "rich", // rich | raw
     htmlMode: false,   // 当前文件为 HTML（如 FooterConfig.html），用 WYSIWYG 富文本
-    plainRaw: false,   // 当前配置文件非 HTML（如 .ts/.md），仅源代码编辑
+    plainRaw: false,   // 当前配置文件非 HTML（如 .md），仅源代码编辑
+    configStruct: false, // 当前配置文件为可结构化编辑的 .ts（参数名锁定、值可编辑）
+    configRaw: "",     // 原始配置源码（保存时按偏移量回写值）
+    configRoots: [],   // parseConfig 解析出的配置根节点
     postData: {},  // 解析出的 frontmatter（posts / spec 复用）
   };
 
@@ -373,9 +376,25 @@
     try {
       const { data } = await api("/api/file?path=" + encodeURIComponent(f.path));
       state.htmlMode = /\.html?$/i.test(f.name);
-      state.plainRaw = (state.type === "config" && !state.htmlMode);
+      state.plainRaw = false;
+      state.configStruct = false;
+      // 配置类 .ts 文件：尝试结构化解析（参数名锁定、值可编辑）；解析失败或 .md 等则回退源码
+      if (state.type === "config" && !state.htmlMode) {
+        if (/\.ts$/i.test(f.name) && typeof FireflyConfig !== "undefined") {
+          const parsed = FireflyConfig.parseConfig(data.content);
+          if (!parsed.error && parsed.roots.length) {
+            state.configStruct = true;
+            state.configRaw = data.content;
+            state.configRoots = parsed.roots;
+          } else {
+            state.plainRaw = true; // 无法结构化（如 index.ts 纯导出）-> 源码模式
+          }
+        } else {
+          state.plainRaw = true;
+        }
+      }
       let fm = {}, body = data.content;
-      if (!state.htmlMode) {
+      if (!state.htmlMode && !state.configStruct) {
         const parsed = parseFrontmatter(data.content);
         fm = parsed.data;
         body = parsed.body;
@@ -453,19 +472,28 @@
       $("dynLocation").value = fm.location || "";
     }
 
-    // 纯文本配置文件（如 .ts）不显示富文本/源代码切换
-    $("modeSwitch").hidden = state.plainRaw;
+    // 纯文本配置文件（如 .md）或结构化配置（.ts）不显示富文本/源代码切换
+    $("modeSwitch").hidden = state.plainRaw || state.configStruct;
 
-    // 先让容器可见，再创建/填充编辑器，避免初次创建时高度为 0
-    $("editorMain").hidden = state.plainRaw;
-    $("editorHost").hidden = state.plainRaw;
-    $("rawEditor").hidden = !state.plainRaw;
-    if (state.plainRaw) {
+    // 先隐藏所有编辑区，再按需显示其一
+    $("editorMain").hidden = true;
+    $("editorHost").hidden = true;
+    $("rawEditor").hidden = true;
+    $("configEditor").hidden = true;
+    if (state.configStruct) {
+      renderConfigEditor();
+      $("configEditor").hidden = false;
+    } else if (state.plainRaw) {
       $("rawEditor").value = body;
+      $("rawEditor").hidden = false;
     } else if (state.htmlMode) {
       setHtmlContent(body);
+      $("editorMain").hidden = false;
+      $("editorHost").hidden = false;
     } else {
       setBodyMarkdown(body);
+      $("editorMain").hidden = false;
+      $("editorHost").hidden = false;
     }
     setModeButtons("rich");
     setStatus("");
@@ -599,6 +627,149 @@
   }
 
   // ----------------------------------------------------------------------
+  // 结构化配置编辑（参数名锁定、仅值可编辑）
+  // ----------------------------------------------------------------------
+  function renderConfigEditor() {
+    const host = $("configEditor");
+    host.innerHTML = "";
+    if (!state.configRoots || !state.configRoots.length) {
+      host.innerHTML = '<div class="cfg-empty">该配置文件无可结构化编辑的参数。</div>';
+      return;
+    }
+    state.configRoots.forEach((r) => {
+      const sec = document.createElement("div");
+      sec.className = "cfg-section";
+      const head = document.createElement("div");
+      head.className = "cfg-section-head";
+      head.innerHTML =
+        '<span class="cfg-lock" title="变量名固定，不可修改">🔒</span>' +
+        '<span class="cfg-var">' + esc(r.name) + "</span>" +
+        '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
+      sec.appendChild(head);
+      sec.appendChild(cfgNodeEl(r.node, r.name));
+      host.appendChild(sec);
+    });
+  }
+
+  // 递归渲染一个配置节点；keyLabel 用于显示当前参数名（锁定）
+  function cfgNodeEl(node, keyLabel) {
+    if (node.type === "object") {
+      const grp = document.createElement("div");
+      grp.className = "cfg-group";
+      const h = document.createElement("div");
+      h.className = "cfg-group-head";
+      h.innerHTML = lockIcon() + '<span class="cfg-key">' + esc(keyLabel || "") + "</span>";
+      grp.appendChild(h);
+      const body = document.createElement("div");
+      body.className = "cfg-group-body";
+      node.children.forEach((ch) => body.appendChild(cfgNodeEl(ch.value, ch.key)));
+      grp.appendChild(body);
+      return grp;
+    }
+    if (node.type === "array") {
+      const grp = document.createElement("div");
+      grp.className = "cfg-group cfg-array";
+      const h = document.createElement("div");
+      h.className = "cfg-group-head";
+      h.innerHTML = lockIcon() + '<span class="cfg-key">' + esc(keyLabel || "") + '</span><span class="cfg-tag">数组</span>';
+      grp.appendChild(h);
+      const body = document.createElement("div");
+      body.className = "cfg-group-body";
+      node.children.forEach((ch, idx) => body.appendChild(cfgNodeEl(ch.value, keyLabel + "[" + idx + "]")));
+      grp.appendChild(body);
+      return grp;
+    }
+    // 叶子：string / number / boolean / null / expr
+    const row = document.createElement("div");
+    row.className = "cfg-field";
+    const lab = document.createElement("label");
+    lab.className = "cfg-key";
+    lab.innerHTML = lockIcon() + esc(keyLabel || "");
+    row.appendChild(lab);
+
+    if (node.type === "expr") {
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "cfg-input";
+      inp.value = node.value;
+      inp.disabled = true;
+      const note = document.createElement("span");
+      note.className = "cfg-locked-note";
+      note.textContent = "（引用 / 表达式，禁止修改）";
+      row.appendChild(inp);
+      row.appendChild(note);
+      return row;
+    }
+
+    let inp;
+    if (node.type === "boolean") {
+      inp = document.createElement("input");
+      inp.type = "checkbox";
+      inp.className = "cfg-check";
+      inp.checked = !!node.value;
+    } else if (node.type === "number") {
+      inp = document.createElement("input");
+      inp.type = "number";
+      inp.className = "cfg-input";
+      inp.value = String(node.value);
+    } else if (node.type === "null") {
+      inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "cfg-input";
+      inp.value = "";
+      inp.placeholder = "(null)";
+    } else {
+      inp = document.createElement("input");
+      inp.type = "text";
+      inp.className = "cfg-input";
+      inp.value = node.value != null ? node.value : "";
+    }
+    inp.dataset.start = node.start;
+    inp.dataset.end = node.end;
+    inp.dataset.vtype = node.type;
+    if (node.quote) inp.dataset.quote = node.quote;
+    row.appendChild(inp);
+    return row;
+  }
+
+  function lockIcon() {
+    return '<span class="cfg-lock" title="参数名固定，不可修改">🔒</span>';
+  }
+
+  function collectConfigEdits() {
+    const edits = [];
+    const inputs = $("configEditor").querySelectorAll(".cfg-input");
+    inputs.forEach((inp) => {
+      if (inp.disabled) return;
+      const start = Number(inp.dataset.start);
+      const end = Number(inp.dataset.end);
+      const vtype = inp.dataset.vtype;
+      const quote = inp.dataset.quote;
+      let text;
+      try {
+        if (vtype === "boolean") text = inp.checked ? "true" : "false";
+        else if (vtype === "null") text = inp.value.trim() === "" ? "null" : FireflyConfig.encodeValue("string", inp.value, quote);
+        else if (vtype === "string") text = FireflyConfig.encodeValue("string", inp.value, quote || '"');
+        else if (vtype === "number") {
+          if (inp.value.trim() === "") throw new Error("数字不能为空");
+          const n = Number(inp.value);
+          if (isNaN(n)) throw new Error("数字格式错误：" + inp.value);
+          text = String(n);
+        } else text = inp.value;
+      } catch (e) {
+        throw new Error("参数 " + (inp.previousElementSibling ? inp.previousElementSibling.textContent : "") + " " + e.message);
+      }
+      edits.push({ start, end, text });
+    });
+    return edits;
+  }
+
+  function buildConfigContent() {
+    const edits = collectConfigEdits();
+    return FireflyConfig.applyConfigEdits(state.configRaw, edits);
+  }
+
+  // ----------------------------------------------------------------------
   // 模式切换（富文本 / 源代码）
   // ----------------------------------------------------------------------
   function setModeButtons(mode) {
@@ -608,6 +779,7 @@
 
   function applyMode(mode) {
     if (state.plainRaw) return; // 纯文本配置文件无富文本/源代码切换
+    if (state.configStruct) return; // 结构化配置无富文本/源代码切换（键名锁定）
     if (mode === "raw") {
       $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
       $("rawEditor").hidden = false;
@@ -646,6 +818,7 @@
   // 构建文件内容
   // ----------------------------------------------------------------------
   function buildContent() {
+    if (state.configStruct) return buildConfigContent();
     if (state.plainRaw) return $("rawEditor").value;
     if (state.mode === "raw") return $("rawEditor").value;
     if (state.htmlMode) return getHtmlContent();
@@ -668,7 +841,13 @@
   // 保存 / 删除
   // ----------------------------------------------------------------------
   async function saveFile() {
-    const content = buildContent();
+    let content;
+    try {
+      content = buildContent();
+    } catch (e) {
+      setStatus(e.message || "内容构建失败", "err");
+      return;
+    }
     let path;
     if (state.current.isNew) {
       const fname = ($("fileName").value || "").trim();

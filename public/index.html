@@ -108,6 +108,9 @@
         <!-- 源代码模式：整文件编辑 -->
         <textarea id="rawEditor" class="raw-editor" hidden placeholder="编辑完整文件（含 Frontmatter）…"></textarea>
 
+        <!-- 结构化配置编辑：参数名锁定，仅值可编辑 -->
+        <div id="configEditor" class="config-editor" hidden></div>
+
         <!-- 底部固定操作栏：返回 / 删除 / 保存，编辑长文时始终可见 -->
         <div class="action-bar">
           <button id="backBtn" class="btn ghost">← 返回</button>
@@ -127,6 +130,7 @@
   <div class="toast" id="toast" hidden></div>
 
   <script src="/vendor/toastui/toastui-editor-all.min.js"></script>
+  <script src="/config-parser.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
