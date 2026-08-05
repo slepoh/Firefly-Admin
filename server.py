@@ -243,6 +243,10 @@ class Handler(BaseHTTPRequestHandler):
             self.api_logout()
         elif p == "/api/upload":
             self.api_upload()
+        elif p == "/api/rename":
+            self.api_rename()
+        elif p == "/api/remove":
+            self.api_remove()
         elif p == "/api/config":
             self.api_update_config()
         else:
@@ -473,6 +477,85 @@ class Handler(BaseHTTPRequestHandler):
         raw = f"https://raw.githubusercontent.com/{cfg['owner']}/{cfg['repo']}/{cfg['branch']}/{path}"
         web = "/" + "/".join(path.split("/")[1:])
         self._send(200, {"ok": True, "sha": new_sha, "path": path, "url": raw, "web": web})
+
+    def api_rename(self):
+        """重命名 / 移动：文件直接读-写-删；目录递归移动其中所有文件。"""
+        cfg = self._require_cfg()
+        if cfg is None:
+            return
+        body = self._read_body()
+        old_p = (body.get("oldPath") or "").strip()
+        new_p = (body.get("newPath") or "").strip()
+        is_dir = bool(body.get("isDir"))
+        if not old_p or not new_p:
+            self._send(400, {"error": "缺少 oldPath 或 newPath"})
+            return
+        if old_p == new_p:
+            self._send(400, {"error": "新旧路径相同"})
+            return
+        ok, err = self._move_path(cfg, old_p, new_p, is_dir)
+        if not ok:
+            self._send(500, {"ok": False, "error": "重命名失败：" + err})
+            return
+        self._send(200, {"ok": True, "oldPath": old_p, "newPath": new_p})
+
+    def api_remove(self):
+        """删除：文件直接删；目录递归删除其中所有文件。"""
+        cfg = self._require_cfg()
+        if cfg is None:
+            return
+        body = self._read_body()
+        p = (body.get("path") or "").strip()
+        is_dir = bool(body.get("isDir"))
+        if not p:
+            self._send(400, {"error": "缺少 path"})
+            return
+        ok, err = self._remove_path(cfg, p, is_dir)
+        if not ok:
+            self._send(500, {"ok": False, "error": "删除失败：" + err})
+            return
+        self._send(200, {"ok": True, "path": p})
+
+    def _move_path(self, cfg, old_p, new_p, is_dir):
+        branch = cfg["branch"]
+        if not is_dir:
+            code, resp = gh_get_contents(cfg, old_p, branch)
+            if code != 200 or not isinstance(resp, dict) or "content" not in resp:
+                return (False, "读取原文件失败：" + old_p)
+            content_b64 = resp["content"]
+            code2, resp2 = gh_put_contents(cfg, new_p, content_b64, f"Rename {old_p} -> {new_p}", branch, None)
+            if code2 not in (200, 201):
+                return (False, "写入新文件失败：" + (resp2.get("message", "") if isinstance(resp2, dict) else str(resp2)))
+            code3, _ = gh_delete_contents(cfg, old_p, resp["sha"], f"Rename remove old {old_p}", branch)
+            if code3 not in (200, 204):
+                return (False, "删除原文件失败：" + old_p)
+            return (True, "")
+        code, resp = gh_get_contents(cfg, old_p, branch)
+        if code != 200 or not isinstance(resp, list):
+            return (False, "列举目录失败：" + old_p)
+        for it in resp:
+            ok, err = self._move_path(cfg, old_p + "/" + it["name"], new_p + "/" + it["name"], it.get("type") == "dir")
+            if not ok:
+                return (ok, err)
+        return (True, "")
+
+    def _remove_path(self, cfg, p, is_dir):
+        branch = cfg["branch"]
+        if not is_dir:
+            code, resp = gh_get_contents(cfg, p, branch)
+            sha = resp.get("sha", "") if code == 200 and isinstance(resp, dict) else ""
+            code2, resp2 = gh_delete_contents(cfg, p, sha, f"Delete {p}", branch)
+            if code2 not in (200, 204):
+                return (False, "删除失败：" + p)
+            return (True, "")
+        code, resp = gh_get_contents(cfg, p, branch)
+        if code != 200 or not isinstance(resp, list):
+            return (False, "列举目录失败：" + p)
+        for it in resp:
+            ok, err = self._remove_path(cfg, p + "/" + it["name"], it.get("type") == "dir")
+            if not ok:
+                return (ok, err)
+        return (True, "")
 
 
 def main():

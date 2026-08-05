@@ -127,6 +127,63 @@ async function ghApi(
   return { status: res.status, data };
 }
 
+// ---- 递归工具：GitHub 无目录对象，目录=路径前缀，重命名/删除需递归处理文件 ----
+async function readFileContent(path: string, env: Env): Promise<{ content: string; sha: string } | null> {
+  const { status, data } = await ghApi("GET", path, env);
+  if (status !== 200 || !data.content) return null;
+  return { content: base64Decode(data.content), sha: data.sha };
+}
+
+async function writeFileContent(path: string, content: string, message: string, env: Env, sha?: string) {
+  const payload: any = { message, content: base64Encode(content), branch: env.GH_BRANCH };
+  if (sha) payload.sha = sha;
+  return ghApi("PUT", path, env, payload);
+}
+
+async function deleteFileContent(path: string, sha: string, message: string, env: Env) {
+  return ghApi("DELETE", path, env, { message, sha, branch: env.GH_BRANCH });
+}
+
+async function listDirContents(path: string, env: Env): Promise<any[]> {
+  const { status, data } = await ghApi("GET", path, env);
+  if (status !== 200 || !Array.isArray(data)) return [];
+  return data;
+}
+
+async function movePath(oldP: string, newP: string, isDir: boolean, env: Env): Promise<{ ok: boolean; error?: string }> {
+  if (!isDir) {
+    const r = await readFileContent(oldP, env);
+    if (!r) return { ok: false, error: "读取原文件失败：" + oldP };
+    const w = await writeFileContent(newP, r.content, "Rename " + oldP + " -> " + newP, env);
+    if (w.status >= 300) return { ok: false, error: "写入新文件失败：" + ((w.data && w.data.message) || "") };
+    const d = await deleteFileContent(oldP, r.sha, "Rename (remove old) " + oldP, env);
+    if (d.status >= 300) return { ok: false, error: "删除原文件失败：" + oldP };
+    return { ok: true };
+  }
+  const items = await listDirContents(oldP, env);
+  for (const it of items) {
+    const res = await movePath(oldP + "/" + it.name, newP + "/" + it.name, it.type === "dir", env);
+    if (!res.ok) return res;
+  }
+  return { ok: true };
+}
+
+async function removePathRecursive(p: string, isDir: boolean, env: Env): Promise<{ ok: boolean; error?: string }> {
+  if (!isDir) {
+    const r = await readFileContent(p, env);
+    const sha = r ? r.sha : "";
+    const d = await deleteFileContent(p, sha, "Delete " + p, env);
+    if (d.status >= 300) return { ok: false, error: "删除失败：" + p };
+    return { ok: true };
+  }
+  const items = await listDirContents(p, env);
+  for (const it of items) {
+    const res = await removePathRecursive(p + "/" + it.name, it.type === "dir", env);
+    if (!res.ok) return res;
+  }
+  return { ok: true };
+}
+
 export async function onRequest(
   context: { request: Request; env: Env }
 ): Promise<Response> {
@@ -300,12 +357,39 @@ export async function onRequest(
     const payload = {
       message: body.message || "Upload " + p + " via Firefly-Admin",
       content: contentB64,
+      branch: env.GH_BRANCH,
     };
     const { status, data } = await ghApi("PUT", p, env, payload);
     if (status >= 300) return json({ error: (data && data.message) || "上传失败" }, status);
     const raw = `https://raw.githubusercontent.com/${env.GH_OWNER}/${env.GH_REPO}/${env.GH_BRANCH}/${p}`;
     const web = "/" + p.split("/").slice(1).join("/"); // public/uploads/x -> /uploads/x
     return json({ ok: true, path: p, url: raw, web, sha: data && data.content ? data.content.sha : undefined });
+  }
+
+  // ---- 重命名 / 移动（文件或目录，目录递归）----
+  if (seg === "rename" && method === "POST") {
+    let body: any = {};
+    try { body = await request.json(); } catch { return json({ error: "请求体错误" }, 400); }
+    const oldP = (body.oldPath || "").trim();
+    const newP = (body.newPath || "").trim();
+    const isDir = !!body.isDir;
+    if (!oldP || !newP) return json({ error: "缺少 oldPath 或 newPath" }, 400);
+    if (oldP === newP) return json({ error: "新旧路径相同" }, 400);
+    const res = await movePath(oldP, newP, isDir, env);
+    if (!res.ok) return json({ ok: false, error: "重命名失败：" + (res.error || "") }, 500);
+    return json({ ok: true, oldPath: oldP, newPath: newP });
+  }
+
+  // ---- 删除（文件或目录，目录递归）----
+  if (seg === "remove" && method === "POST") {
+    let body: any = {};
+    try { body = await request.json(); } catch { return json({ error: "请求体错误" }, 400); }
+    const p = (body.path || "").trim();
+    const isDir = !!body.isDir;
+    if (!p) return json({ error: "缺少 path" }, 400);
+    const res = await removePathRecursive(p, isDir, env);
+    if (!res.ok) return json({ ok: false, error: "删除失败：" + (res.error || "") }, 500);
+    return json({ ok: true, path: p });
   }
 
   return json({ error: "Not Found" }, 404);

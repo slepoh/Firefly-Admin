@@ -271,6 +271,7 @@
           else openFile(f);
           if (isMobile()) closeDrawer();
         };
+        div.oncontextmenu = (e) => onItemContext(e, f);
         box.appendChild(div);
       });
   }
@@ -281,11 +282,38 @@
     loadList();
   }
 
+  function upDir() {
+    if (!state.subdir) return;
+    const parts = state.subdir.split("/");
+    parts.pop();
+    state.subdir = parts.join("/");
+    loadList();
+  }
+
+  function currentDirPath() {
+    let p = CONTENT_ROOT + "/" + state.type;
+    if (state.subdir) p += "/" + state.subdir;
+    return p;
+  }
+
+  // 上传落点：为不破坏 Astro 内容集合构建，统一进 public/uploads，并按栏目/子目录归类
+  function dirForUpload(folderPath) {
+    if (folderPath) {
+      const rel = folderPath.replace(/^src\/content\//, "");
+      return "public/uploads/" + rel;
+    }
+    let d = "public/uploads";
+    if (state.subdir) d += "/" + state.subdir;
+    return d;
+  }
+
   function renderCrumb() {
     const c = $("crumb");
     let html = `${CONTENT_ROOT}/${state.type}`;
     if (state.subdir) html += " / " + state.subdir;
     c.textContent = html;
+    const ub = $("upDirBtn");
+    if (ub) ub.hidden = !state.subdir;
   }
 
   function fmtSize(n) {
@@ -573,6 +601,96 @@
     $("emptyState").hidden = false;
   }
 
+  // ----------------------------------------------------------------------
+  // 右键菜单 + 重命名 / 删除
+  // ----------------------------------------------------------------------
+  function openCtx(x, y, items) {
+    const menu = $("ctxMenu");
+    menu.innerHTML = "";
+    items.forEach((it) => {
+      const el = document.createElement("div");
+      el.className = "ctx-item" + (it.danger ? " danger" : "");
+      el.textContent = it.label;
+      el.onclick = () => { closeCtx(); it.action(); };
+      menu.appendChild(el);
+    });
+    menu.hidden = false;
+    const mw = 180, mh = items.length * 34 + 8;
+    menu.style.left = Math.min(x, window.innerWidth - mw) + "px";
+    menu.style.top = Math.min(y, window.innerHeight - mh) + "px";
+  }
+  function closeCtx() { const m = $("ctxMenu"); if (m) m.hidden = true; }
+
+  function onItemContext(e, item) {
+    e.preventDefault();
+    const isDir = item.type === "dir";
+    const items = [];
+    if (isDir) {
+      items.push({ label: "📂 进入目录", action: () => navigate(item) });
+      items.push({ label: "⬆️ 上传到此目录", action: () => triggerUpload(dirForUpload(item.path)) });
+    }
+    items.push({ label: "✏️ 重命名", action: () => renameItem(item) });
+    items.push({ label: "🗑 删除", danger: true, action: () => removeItem(item) });
+    openCtx(e.clientX, e.clientY, items);
+  }
+
+  function triggerUpload(dir) {
+    const fi = $("ctxFileInput");
+    if (!fi) return;
+    fi.dataset.dir = dir || "";
+    fi.click();
+  }
+
+  async function renameItem(item) {
+    const nn = prompt("重命名为（请保留扩展名，如 .md）：", item.name);
+    if (!nn || !nn.trim() || nn.trim() === item.name) return;
+    const newName = nn.trim();
+    const parent = item.path.slice(0, item.path.length - item.name.length).replace(/\/$/, "");
+    const newPath = parent + "/" + newName;
+    try {
+      const { status, data } = await api("/api/rename", {
+        method: "POST",
+        body: JSON.stringify({ oldPath: item.path, newPath, isDir: item.type === "dir" }),
+      });
+      if (status === 200 && data && data.ok) {
+        toast("已重命名");
+        // 若重命名的是当前打开的文件，同步更新编辑态路径
+        if (state.current && state.current.path === item.path) {
+          state.current.path = newPath;
+          state.current.name = newName;
+          $("fileName").value = newName;
+        }
+        await loadList();
+      } else {
+        toast((data && data.error) || "重命名失败", "err");
+      }
+    } catch (e) {
+      toast(e.message || "重命名失败", "err");
+    }
+  }
+
+  async function removeItem(item) {
+    const tip = item.type === "dir" ? "（包含其下所有内容）" : "";
+    if (!confirm("确定删除 " + item.name + tip + " ？此操作会提交到 GitHub。")) return;
+    try {
+      const { status, data } = await api("/api/remove", {
+        method: "POST",
+        body: JSON.stringify({ path: item.path, isDir: item.type === "dir" }),
+      });
+      if (status === 200 && data && data.ok) {
+        toast("已删除");
+        if (state.current && state.current.path && state.current.path.startsWith(item.path)) {
+          backToEmpty();
+        }
+        await loadList();
+      } else {
+        toast((data && data.error) || "删除失败", "err");
+      }
+    } catch (e) {
+      toast(e.message || "删除失败", "err");
+    }
+  }
+
   function setStatus(msg, type) {
     const el = $("editStatus");
     el.textContent = msg || "";
@@ -614,6 +732,27 @@
       `<span class="up-name" title="${esc(name)}">${esc(name)}</span>` +
       `<span class="up-err">${esc(msg)}</span>`;
     box.appendChild(div);
+  }
+
+  async function uploadFileToDir(file, dir) {
+    try {
+      const b64 = await fileToBase64(file);
+      const safe = file.name.replace(/\s+/g, "_");
+      const name = Date.now() + "-" + safe;
+      const payload = { name, content: b64, message: "Upload " + file.name + " via Firefly-Admin" };
+      if (dir) payload.dir = dir;
+      const { status, data } = await api("/api/upload", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (status === 200 && data && data.ok) {
+        toast("已上传：" + file.name + (dir ? " → " + dir : ""));
+      } else {
+        toast((data && data.error) || "上传失败", "err");
+      }
+    } catch (e) {
+      toast(e.message || "上传失败", "err");
+    }
   }
 
   async function uploadFile(file) {
@@ -750,6 +889,47 @@
       const btn = ev.target.closest(".up-insert");
       if (!btn) return;
       insertAsset(btn.dataset.url, btn.dataset.img === "1");
+    });
+
+    on("upDirBtn", "onclick", upDir);
+
+    // 文件列表：右键空白处 -> 上传到当前目录
+    const fl = $("fileList");
+    if (fl) {
+      fl.addEventListener("contextmenu", (e) => {
+        if (e.target.closest(".file-item")) return; // 文件项自身已处理
+        e.preventDefault();
+        openCtx(e.clientX, e.clientY, [
+          { label: "⬆️ 上传到当前目录", action: () => triggerUpload(dirForUpload()) },
+        ]);
+      });
+      // 拖拽文件到列表 = 上传到当前目录
+      fl.addEventListener("dragover", (ev) => { ev.preventDefault(); fl.classList.add("drag"); });
+      fl.addEventListener("dragleave", (e) => { if (!fl.contains(e.relatedTarget)) fl.classList.remove("drag"); });
+      fl.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        fl.classList.remove("drag");
+        if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) {
+          const dir = dirForUpload();
+          for (const f of ev.dataTransfer.files) uploadFileToDir(f, dir);
+        }
+      });
+    }
+
+    // 右键菜单：点击别处 / 按 Esc 关闭
+    document.addEventListener("click", (e) => {
+      const m = $("ctxMenu");
+      if (m && !m.hidden && !e.target.closest(".ctx-menu")) closeCtx();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCtx(); });
+
+    // 右键菜单触发的上传：选完文件上传到目标目录
+    on("ctxFileInput", "onchange", (e) => {
+      const dir = e.target.dataset.dir || dirForUpload();
+      if (e.target.files && e.target.files.length) {
+        for (const f of e.target.files) uploadFileToDir(f, dir);
+      }
+      e.target.value = "";
     });
   }
 
