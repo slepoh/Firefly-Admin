@@ -1,4 +1,4 @@
-/* Firefly CMS 前端逻辑 */
+/* Firefly CMS 前端逻辑（富文本版） */
 (() => {
   "use strict";
 
@@ -12,8 +12,8 @@
     subdir: "",
     files: [],
     current: null, // {path, sha, name, isNew, type}
-    mode: "split", // split | raw
-    postData: {},
+    mode: "rich", // rich | raw
+    postData: {},  // 解析出的 frontmatter（posts / spec 复用）
   };
 
   // 文章结构化字段定义
@@ -125,11 +125,6 @@
     return out;
   }
 
-  function stripFrontmatterForPreview(text) {
-    const m = text.match(/^---\s*\n[\s\S]*?\n---\s*\n?([\s\S]*)$/);
-    return m ? m[1] : text;
-  }
-
   // ----------------------------------------------------------------------
   // 日期转换
   // ----------------------------------------------------------------------
@@ -148,6 +143,46 @@
     const d = m[1], tm = m[2];
     if (dynamic) return `${d} ${tm}:00`;
     return tm === "00:00" ? d : `${d}T${tm}:00`;
+  }
+
+  // ----------------------------------------------------------------------
+  // 富文本编辑器（ToastUI）：懒初始化 + 纯文本兜底
+  // ----------------------------------------------------------------------
+  let editor = null;        // ToastUI 实例
+  let fallbackBody = null;  // 组件未加载时的纯文本兜底
+
+  function ensureEditor() {
+    if (editor || fallbackBody) return;
+    const host = $("editor");
+    if (window.toastui && toastui.Editor) {
+      editor = new toastui.Editor({
+        el: host,
+        height: "100%",
+        initialEditType: "wysiwyg",
+        previewStyle: "vertical",
+        usageStatistics: false,
+        autofocus: false,
+      });
+    } else {
+      // 兜底：组件未加载（如网络异常）时使用 textarea
+      host.style.display = "none";
+      fallbackBody = document.createElement("textarea");
+      fallbackBody.className = "raw-editor";
+      fallbackBody.style.flex = "1";
+      $("editorHost").appendChild(fallbackBody);
+      toast("富文本组件未加载，已切换为纯文本编辑", "err");
+    }
+  }
+
+  function setBodyMarkdown(md) {
+    ensureEditor();
+    if (editor) editor.setMarkdown(md || "", false);
+    else if (fallbackBody) fallbackBody.value = md || "";
+  }
+  function getBodyMarkdown() {
+    if (editor) return editor.getMarkdown();
+    if (fallbackBody) return fallbackBody.value;
+    return "";
   }
 
   // ----------------------------------------------------------------------
@@ -172,6 +207,10 @@
     $("setupModal").hidden = true;
   }
 
+  function isMobile() { return window.matchMedia("(max-width: 900px)").matches; }
+  function openDrawer() { $("sidebar").classList.add("open"); $("drawerBackdrop").classList.add("show"); }
+  function closeDrawer() { $("sidebar").classList.remove("open"); $("drawerBackdrop").classList.remove("show"); }
+
   // ----------------------------------------------------------------------
   // 状态 / 初始化
   // ----------------------------------------------------------------------
@@ -188,8 +227,6 @@
         $("loginErr").textContent =
           "服务器未检测到 ADMIN_PASSWORD，请检查 Cloudflare Pages 环境变量并重新部署后再试。";
       }
-      // 登录态由服务端通过 Cookie 判定（Cloudflare Pages 版本），
-      // 也兼容 Python 版本（服务端校验 Bearer 令牌）。
       if (!data.authed) {
         showLogin();
         return;
@@ -202,6 +239,7 @@
 
   async function enterApp() {
     hideModals();
+    closeDrawer();
     $("mainApp").hidden = false;
     $("logoutBtn").hidden = false;
     const s = state.status;
@@ -241,13 +279,16 @@
         else if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(f.name)) icon = "🖼️";
         div.innerHTML = `<span class="fi-icon">${icon}</span><span class="fi-name">${esc(f.name)}</span>` +
           (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`);
-        div.onclick = () => (isDir ? navigate(f) : openFile(f));
+        div.onclick = () => {
+          if (isDir) navigate(f);
+          else openFile(f);
+          if (isMobile()) closeDrawer();
+        };
         box.appendChild(div);
       });
   }
 
   function navigate(dirItem) {
-    // dirItem.path 是完整路径，取 type 之后的部分作为 subdir
     const prefix = CONTENT_ROOT + "/" + state.type + "/";
     state.subdir = dirItem.path.startsWith(prefix) ? dirItem.path.slice(prefix.length) : dirItem.name;
     loadList();
@@ -277,8 +318,9 @@
       const { data } = await api("/api/file?path=" + encodeURIComponent(f.path));
       let fm = {}, body;
       if (state.type === "spec") {
-        // 单页：保留完整文件（可能含自己的 Frontmatter）
-        body = data.content;
+        const parsed = parseFrontmatter(data.content);
+        fm = parsed.data;
+        body = parsed.body;
       } else {
         const parsed = parseFrontmatter(data.content);
         fm = parsed.data;
@@ -329,10 +371,10 @@
     $("editForm").hidden = false;
     $("deleteBtn").hidden = state.current.isNew;
     $("fileName").value = name;
-    $("fileName").readOnly = !state.current.isNew ? true : false;
+    $("fileName").readOnly = !state.current.isNew;
 
-    state.postData = fm;
-    state.mode = "split";
+    state.postData = fm || {};
+    state.mode = "rich";
 
     const isPosts = state.type === "posts";
     const isDynamic = state.type === "dynamic";
@@ -345,11 +387,11 @@
       $("dynLocation").value = fm.location || "";
     }
 
-    $("bodyEditor").value = body;
+    // 先让容器可见，再创建/填充富文本编辑器，避免初次创建时高度为 0
+    $("editorHost").hidden = false;
     $("rawEditor").hidden = true;
-    $("splitView").hidden = false;
-    setModeButtons("split");
-    renderPreview();
+    setBodyMarkdown(body);
+    setModeButtons("rich");
     setStatus("");
   }
 
@@ -405,7 +447,7 @@
         v = el.value.split(",").map((s) => s.trim()).filter(Boolean);
       } else v = el.value;
       if (f.type === "checkbox") {
-        if (v) data[f.key] = true; // 仅在勾选时写入，减少噪音
+        if (v) data[f.key] = true;
       } else if (v !== "" && !(Array.isArray(v) && v.length === 0)) {
         data[f.key] = v;
       }
@@ -414,36 +456,35 @@
   }
 
   // ----------------------------------------------------------------------
-  // 模式切换
+  // 模式切换（富文本 / 源代码）
   // ----------------------------------------------------------------------
   function setModeButtons(mode) {
-    $("modeSplit").classList.toggle("active", mode === "split");
+    $("modeRich").classList.toggle("active", mode === "rich");
     $("modeRaw").classList.toggle("active", mode === "raw");
   }
 
   function applyMode(mode) {
     if (mode === "raw") {
-      $("rawEditor").value = buildContent();
+      $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
       $("rawEditor").hidden = false;
-      $("splitView").hidden = true;
+      $("editorHost").hidden = true;
     } else {
-      // 从 raw 切回 split：重新解析
       if (state.mode === "raw") {
+        // 从源代码切回富文本：重新解析整文件
         const { data, body } = parseFrontmatter($("rawEditor").value);
-        state.postData = data;
-        if (state.type === "posts") renderPostFields(data);
-        if (state.type === "dynamic") {
+        if (state.type === "posts") {
+          state.postData = data;
+          renderPostFields(data);
+        } else if (state.type === "dynamic") {
           $("dynPublished").value = dateToInput(data.published || "");
           $("dynLocation").value = data.location || "";
+        } else {
+          state.postData = data;
         }
-        if (state.type === "spec") {
-          // spec 整文件
-        }
-        $("bodyEditor").value = state.type === "spec" ? $("rawEditor").value : body;
+        setBodyMarkdown(body);
       }
       $("rawEditor").hidden = true;
-      $("splitView").hidden = false;
-      renderPreview();
+      $("editorHost").hidden = false;
     }
     state.mode = mode;
     setModeButtons(mode);
@@ -455,7 +496,7 @@
   function buildContent() {
     if (state.mode === "raw") return $("rawEditor").value;
     if (state.type === "posts") {
-      return serializeFrontmatter(collectPostData(), $("bodyEditor").value);
+      return serializeFrontmatter(collectPostData(), getBodyMarkdown());
     }
     if (state.type === "dynamic") {
       const data = {};
@@ -463,24 +504,10 @@
       if (pub) data.published = pub;
       const loc = $("dynLocation").value.trim();
       if (loc) data.location = loc;
-      return serializeFrontmatter(data, $("bodyEditor").value);
+      return serializeFrontmatter(data, getBodyMarkdown());
     }
-    // spec
-    return $("bodyEditor").value;
-  }
-
-  // ----------------------------------------------------------------------
-  // 预览
-  // ----------------------------------------------------------------------
-  function renderPreview() {
-    const text = state.type === "spec" ? $("bodyEditor").value : stripFrontmatterForPreview($("bodyEditor").value);
-    if (window.marked) {
-      marked.setOptions({ breaks: true, gfm: true });
-      const html = marked.parse(text || "");
-      $("preview").innerHTML = DOMPurify.sanitize(html);
-    } else {
-      $("preview").textContent = text;
-    }
+    // spec：保留原始 frontmatter + 富文本正文
+    return serializeFrontmatter(state.postData || {}, getBodyMarkdown());
   }
 
   // ----------------------------------------------------------------------
@@ -569,7 +596,6 @@
   function bindEvents() {
     if (bound) return;
     bound = true;
-    // null 安全绑定：任一元素缺失都不会中断后续按钮的绑定
     const on = (id, prop, fn) => {
       const el = $(id);
       if (el) el[prop] = fn;
@@ -601,11 +627,15 @@
       location.reload();
     });
 
-    on("modeSplit", "onclick", () => applyMode("split"));
+    on("modeRich", "onclick", () => applyMode("rich"));
     on("modeRaw", "onclick", () => applyMode("raw"));
 
-    const be = $("bodyEditor");
-    if (be) be.addEventListener("input", renderPreview);
+    // 抽屉
+    on("menuBtn", "onclick", () => {
+      if ($("sidebar").classList.contains("open")) closeDrawer();
+      else openDrawer();
+    });
+    on("drawerBackdrop", "onclick", closeDrawer);
 
     // setup
     on("setupBtn", "onclick", async () => {
