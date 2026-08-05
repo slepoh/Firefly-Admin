@@ -91,17 +91,15 @@
 
   // 提取某个位置之前的连续 // 注释行（用于根 const 的标题）
   function leadingCommentBefore(src, pos) {
-    var nl = src.lastIndexOf("\n", pos - 1);
-    var i = nl + 1; // 该 const 所在行的开头
+    var lineStart = src.lastIndexOf("\n", pos - 1) + 1; // const 所在行开头
     var lines = [];
-    while (i > 0) {
-      var prevNl = src.lastIndexOf("\n", i - 1);
-      var prevStart = prevNl + 1;
-      var line = src.slice(prevStart, i).replace(/\s+$/, "").replace(/^\s+/, "");
+    var end = src.lastIndexOf("\n", lineStart - 1); // 上一行末尾的换行
+    while (end >= 0) {
+      var start = src.lastIndexOf("\n", end - 1) + 1;
+      var line = src.slice(start, end).replace(/\s+$/, "").replace(/^\s+/, "");
       if (/^\/\//.test(line)) {
         lines.push(line.replace(/^\/\/\s?/, ""));
-        i = prevStart;
-        if (prevNl < 0) break;
+        end = src.lastIndexOf("\n", start - 1); // 继续向上找更早的注释行
       } else {
         break;
       }
@@ -156,6 +154,9 @@
       var val = parseValue(src, i);
       var trail = inlineTrailingComment(src, val.end);
       var comment = leading.length ? joinComments(leading) : (trail || null);
+      // 关键：把注释同步到 value 节点本身，否则嵌套对象/数组/叶子在渲染时读不到 comment，
+      // 会回退为显示「参数名 / 函数名」。comment 仅用于显示，不参与偏移量回写。
+      if (val && typeof val === "object") val.comment = comment;
       node.children.push({ key: key, value: val, comment: comment });
       i = val.end;
       i = skipWs(src, i);
@@ -180,6 +181,7 @@
       var val = parseValue(src, elemStart);
       var trail = inlineTrailingComment(src, val.end);
       var comment = leading.length ? joinComments(leading) : (trail || null);
+      if (val && typeof val === "object") val.comment = comment;
       node.children.push({ value: val, comment: comment });
       i = val.end;
       i = skipWs(src, i);

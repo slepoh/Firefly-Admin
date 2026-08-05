@@ -379,7 +379,8 @@
           nameHtml = `<span class="fi-name">${esc(base)}</span><span class="fi-ext">${esc(ext)}</span>`;
         }
         div.innerHTML = `<span class="fi-icon">${icon}</span>${nameHtml}` +
-          (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`);
+          (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`) +
+          `<button class="fi-more" type="button" aria-label="更多操作" title="更多操作（重命名 / 删除）">⋯</button>`;
         div.title = f.name; // 悬停显示完整文件名（含后缀）
         div.onclick = () => {
           if (isDir) navigate(f);
@@ -387,6 +388,13 @@
           if (isMobile()) closeDrawer();
         };
         div.oncontextmenu = (e) => onItemContext(e, f);
+        // 移动端用「⋯」按钮弹出操作表，替代长按右键菜单；桌面也可直接点开
+        const more = div.querySelector(".fi-more");
+        if (more) more.onclick = (ev) => {
+          ev.stopPropagation();
+          if (isMobile()) openActionSheet(f);
+          else openCtx(ev.clientX, ev.clientY, ctxItemsFor(f));
+        };
         box.appendChild(div);
       });
   }
@@ -721,10 +729,15 @@
       sec.className = "cfg-section";
       const head = document.createElement("div");
       head.className = "cfg-section-head";
+      // 优先用注释当直观标题，变量名降级为 🔒 小标签
+      const titleText = r.comment ? esc(r.comment) : esc(r.name);
+      const varChip = r.comment
+        ? '<span class="cfg-key-chip" title="变量名固定，不可修改">🔒 ' + esc(r.name) + "</span>"
+        : "";
       head.innerHTML =
         '<span class="cfg-lock" title="变量名固定，不可修改">🔒</span>' +
-        '<span class="cfg-var">' + esc(r.name) + "</span>" +
-        (r.comment ? '<span class="cfg-section-sub">' + esc(r.comment) + "</span>" : "") +
+        '<span class="cfg-var">' + titleText + "</span>" +
+        varChip +
         '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
       sec.appendChild(head);
       sec.appendChild(cfgNodeEl(r.node, r.name));
@@ -1091,8 +1104,8 @@
   }
   function closeCtx() { const m = $("ctxMenu"); if (m) m.hidden = true; }
 
-  function onItemContext(e, item) {
-    e.preventDefault();
+  // 构建右键 / 操作表的菜单项（桌面右键与移动端「⋯」共用）
+  function ctxItemsFor(item) {
     const isDir = item.type === "dir";
     const items = [];
     if (isDir) {
@@ -1101,7 +1114,43 @@
     }
     items.push({ label: "✏️ 重命名", action: () => renameItem(item) });
     items.push({ label: "🗑 删除", danger: true, action: () => removeItem(item) });
-    openCtx(e.clientX, e.clientY, items);
+    return items;
+  }
+
+  function onItemContext(e, item) {
+    e.preventDefault();
+    openCtx(e.clientX, e.clientY, ctxItemsFor(item));
+  }
+
+  // 移动端底部操作表（替代长按右键菜单，点击更方便）
+  function closeActionSheet() {
+    const s = document.querySelector(".action-sheet");
+    if (s) s.remove();
+  }
+  function openActionSheet(item) {
+    closeActionSheet();
+    const items = ctxItemsFor(item);
+    const sheet = document.createElement("div");
+    sheet.className = "action-sheet";
+    sheet.innerHTML =
+      '<div class="as-backdrop"></div>' +
+      '<div class="as-panel" role="dialog" aria-modal="true">' +
+        '<div class="as-title">' + esc(item.name) + "</div>" +
+        items.map((it, i) => '<button type="button" class="as-item' + (it.danger ? " danger" : "") + '" data-i="' + i + '">' + esc(it.label) + "</button>").join("") +
+        '<button type="button" class="as-cancel">取消</button>' +
+      "</div>";
+    document.body.appendChild(sheet);
+    sheet.querySelector(".as-backdrop").onclick = closeActionSheet;
+    sheet.querySelector(".as-cancel").onclick = closeActionSheet;
+    sheet.querySelectorAll(".as-item").forEach((b) => {
+      b.onclick = () => {
+        const it = items[Number(b.dataset.i)];
+        closeActionSheet();
+        it.action();
+      };
+    });
+    // 阻止面板内点击冒泡到 backdrop 之外
+    sheet.querySelector(".as-panel").addEventListener("click", (e) => e.stopPropagation());
   }
 
   function triggerUpload(dir) {
@@ -1294,6 +1343,21 @@
   // ----------------------------------------------------------------------
   // 事件绑定
   // ----------------------------------------------------------------------
+  // 切换板块：更新激活态、把共享的文件浏览器移动到当前板块体内、加载列表
+  function selectSection(type) {
+    state.type = type;
+    state.subdir = "";
+    document.querySelectorAll("#navAccordion .nav-section").forEach((s) => {
+      s.classList.toggle("active", s.dataset.type === type);
+    });
+    // 共享的 .browser 节点移动到激活板块的 .nav-section-body 内（保持事件监听）
+    const body = document.querySelector('#navAccordion .nav-section[data-type="' + type + '"] .nav-section-body');
+    const browser = $("browser");
+    if (body && browser && browser.parentElement !== body) body.appendChild(browser);
+    backToEmpty();
+    loadList();
+  }
+
   let bound = false;
   function bindEvents() {
     if (bound) return;
@@ -1303,17 +1367,16 @@
       if (el) el[prop] = fn;
     };
 
-    const tabs = $("typeTabs");
-    if (tabs) {
-      tabs.querySelectorAll(".tab").forEach((t) => {
-        t.onclick = () => {
-          tabs.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-          t.classList.add("active");
-          state.type = t.dataset.type;
-          state.subdir = "";
-          backToEmpty();
-          loadList();
-        };
+    // 侧栏手风琴：选中板块后再展开其文件列表（同一时刻仅一个板块内容可见）
+    const accordion = $("navAccordion");
+    if (accordion) {
+      accordion.querySelectorAll(".nav-section-head").forEach((h) => {
+        h.addEventListener("click", () => {
+          const sec = h.closest(".nav-section");
+          const type = sec && sec.dataset.type;
+          if (!type || state.type === type) return; // 已是当前板块，不重复加载
+          selectSection(type);
+        });
       });
     }
 

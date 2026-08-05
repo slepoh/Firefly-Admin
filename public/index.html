@@ -28,37 +28,49 @@
 
   <!-- 主区域 -->
   <main class="layout" id="mainApp" hidden>
-    <!-- 侧栏：内容类型 + 文件列表 -->
+    <!-- 侧栏：可折叠板块（手风琴）—— 选中板块后再展开其文件列表 -->
     <aside class="sidebar" id="sidebar">
-      <nav class="tabs" id="typeTabs">
-        <div class="nav-group-title">内容管理</div>
-        <button class="tab active" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章</span></button>
-        <button class="tab" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">动态</span></button>
-        <button class="tab" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">单页</span></button>
-        <div class="nav-group-title">站点设置</div>
-        <button class="tab" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span></button>
-      </nav>
-      <div class="side-divider"></div>
-      <div class="browser">
-        <div class="list-tools">
-          <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
-          <input type="text" id="searchInput" placeholder="搜索文件名…" />
-          <button id="newBtn" class="btn primary sm">＋ 新建</button>
-          <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
-        </div>
-        <div class="file-list" id="fileList"></div>
-        <div class="crumb" id="crumb"></div>
+      <div class="nav-accordion" id="navAccordion">
+        <section class="nav-section active" data-type="posts">
+          <button class="nav-section-head" type="button">
+            <span class="ni-ico">📝</span><span class="ni-tx">文章</span><span class="chev">▾</span>
+          </button>
+          <div class="nav-section-body">
+            <div class="browser" id="browser">
+              <div class="list-tools">
+                <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
+                <input type="text" id="searchInput" placeholder="搜索文件名…" />
+                <button id="newBtn" class="btn primary sm">＋ 新建</button>
+                <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
+              </div>
+              <div class="file-list" id="fileList"></div>
+              <div class="crumb" id="crumb"></div>
 
-        <!-- 资源上传：放在左侧分类栏底部（可折叠，默认收起，不占用编辑区空间） -->
-        <div class="meta-panel collapsed" id="uploadPanel">
-          <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
-          <div class="panel-body">
-            <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
-            <input type="file" id="fileInput" multiple hidden />
-            <div class="up-hint">点击「选择文件」或把文件拖到此处<br>自动上传到 public/uploads</div>
-            <div class="up-list" id="upList"></div>
+              <!-- 资源上传：放在左侧分类栏底部（可折叠，默认收起，不占用编辑区空间） -->
+              <div class="meta-panel collapsed" id="uploadPanel">
+                <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
+                <div class="panel-body">
+                  <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
+                  <input type="file" id="fileInput" multiple hidden />
+                  <div class="up-hint">点击「选择文件」或把文件拖到此处<br>自动上传到 public/uploads</div>
+                  <div class="up-list" id="upList"></div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
+        <section class="nav-section" data-type="dynamic">
+          <button class="nav-section-head" type="button"><span class="ni-ico">⚡</span><span class="ni-tx">动态</span><span class="chev">▾</span></button>
+          <div class="nav-section-body"></div>
+        </section>
+        <section class="nav-section" data-type="spec">
+          <button class="nav-section-head" type="button"><span class="ni-ico">📄</span><span class="ni-tx">单页</span><span class="chev">▾</span></button>
+          <div class="nav-section-body"></div>
+        </section>
+        <section class="nav-section" data-type="config">
+          <button class="nav-section-head" type="button"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span><span class="chev">▾</span></button>
+          <div class="nav-section-body"></div>
+        </section>
       </div>
     </aside>
 
