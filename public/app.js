@@ -264,8 +264,18 @@
         if (isDir) icon = "📁";
         else if (f.name.endsWith(".mdx")) icon = "📘";
         else if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(f.name)) icon = "🖼️";
-        div.innerHTML = `<span class="fi-icon">${icon}</span><span class="fi-name">${esc(f.name)}</span>` +
+        let nameHtml;
+        if (isDir) {
+          nameHtml = `<span class="fi-name">${esc(f.name)}</span>`;
+        } else {
+          const dot = f.name.lastIndexOf(".");
+          const base = dot > 0 ? f.name.slice(0, dot) : f.name;
+          const ext = dot > 0 ? f.name.slice(dot) : "";
+          nameHtml = `<span class="fi-name">${esc(base)}</span><span class="fi-ext">${esc(ext)}</span>`;
+        }
+        div.innerHTML = `<span class="fi-icon">${icon}</span>${nameHtml}` +
           (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`);
+        div.title = f.name; // 悬停显示完整文件名（含后缀）
         div.onclick = () => {
           if (isDir) navigate(f);
           else openFile(f);
