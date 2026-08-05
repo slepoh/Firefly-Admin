@@ -261,10 +261,16 @@ export async function onRequest(
   if (seg === "list" && method === "GET") {
     const type = url.searchParams.get("type") || "posts";
     const sub = url.searchParams.get("path") || "";
-    if (!["dynamic", "posts", "spec"].includes(type)) {
-      return json({ error: "type 必须是 dynamic/posts/spec" }, 400);
+    // config 映射到 src/config（站点配置文件，如 FooterConfig.html），其余映射到 src/content/*
+    let basePath: string;
+    if (type === "config") {
+      basePath = "src/config";
+    } else if (["dynamic", "posts", "spec"].includes(type)) {
+      basePath = "src/content/" + type;
+    } else {
+      return json({ error: "type 必须是 dynamic/posts/spec/config" }, 400);
     }
-    let p = "src/content/" + type;
+    let p = basePath;
     if (sub) p += "/" + sub;
     const { status, data } = await ghApi("GET", p, env);
     if (status !== 200) {

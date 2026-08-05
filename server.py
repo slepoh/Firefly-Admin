@@ -364,10 +364,14 @@ class Handler(BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         ctype = (q.get("type", [""])[0]).strip()
         sub = (q.get("path", [""])[0]).strip()
-        if ctype not in ("dynamic", "posts", "spec"):
-            self._send(400, {"error": "type 必须是 dynamic/posts/spec"})
+        if ctype == "config":
+            base = "src/config"
+        elif ctype in ("dynamic", "posts", "spec"):
+            base = CONTENT_ROOT + "/" + ctype
+        else:
+            self._send(400, {"error": "type 必须是 dynamic/posts/spec/config"})
             return
-        path = CONTENT_ROOT + "/" + ctype
+        path = base
         if sub:
             path = path + "/" + sub
         code, resp = gh_get_contents(cfg, path, cfg["branch"])

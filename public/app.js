@@ -13,30 +13,46 @@
     files: [],
     current: null, // {path, sha, name, isNew, type}
     mode: "rich", // rich | raw
+    htmlMode: false,   // 当前文件为 HTML（如 FooterConfig.html），用 WYSIWYG 富文本
+    plainRaw: false,   // 当前配置文件非 HTML（如 .ts/.md），仅源代码编辑
     postData: {},  // 解析出的 frontmatter（posts / spec 复用）
   };
 
-  // 文章结构化字段定义
-  const POST_FIELDS = [
-    { key: "title", label: "标题 title", type: "text", required: true, full: true },
-    { key: "published", label: "发布日期 published", type: "datetime", required: true },
-    { key: "updated", label: "更新日期 updated", type: "datetime" },
-    { key: "description", label: "描述 description", type: "textarea", full: true },
-    { key: "image", label: "封面图 image", type: "text", full: true },
-    { key: "tags", label: "标签 tags (逗号分隔)", type: "text" },
-    { key: "category", label: "分类 category", type: "text" },
-    { key: "slug", label: "自定义路径 slug", type: "text" },
-    { key: "lang", label: "语言 lang", type: "text" },
-    { key: "author", label: "作者 author", type: "text" },
-    { key: "draft", label: "草稿 draft", type: "checkbox" },
-    { key: "pinned", label: "置顶 pinned", type: "checkbox" },
-    { key: "comment", label: "允许评论 comment", type: "checkbox" },
-    { key: "licenseName", label: "许可证名称 licenseName", type: "text", full: true },
-    { key: "licenseUrl", label: "许可证链接 licenseUrl", type: "text", full: true },
-    { key: "sourceLink", label: "来源链接 sourceLink", type: "text", full: true },
-    { key: "password", label: "访问密码 password", type: "text" },
-    { key: "passwordHint", label: "密码提示 passwordHint", type: "text", full: true },
+  // 文章信息字段：按分组美化展示，加密保护单独成组并带启用开关
+  const POST_GROUPS = [
+    { title: "基础信息", icon: "📌", fields: [
+      { key: "title", label: "标题", type: "text", required: true, full: true },
+      { key: "published", label: "发布日期", type: "datetime", required: true },
+      { key: "updated", label: "更新日期", type: "datetime" },
+      { key: "slug", label: "自定义路径 slug", type: "text" },
+      { key: "lang", label: "语言 lang", type: "text" },
+      { key: "author", label: "作者 author", type: "text" },
+    ]},
+    { title: "摘要与封面", icon: "🖼️", fields: [
+      { key: "description", label: "描述 description", type: "textarea", full: true },
+      { key: "image", label: "封面图 image", type: "text", full: true },
+    ]},
+    { title: "分类与标签", icon: "🏷️", fields: [
+      { key: "tags", label: "标签 tags（逗号分隔）", type: "text" },
+      { key: "category", label: "分类 category", type: "text" },
+    ]},
+    { title: "加密保护", icon: "🔒", encrypt: true, fields: [
+      { key: "password", label: "访问密码 password", type: "password" },
+      { key: "passwordHint", label: "密码提示 passwordHint", type: "text", full: true },
+    ]},
+    { title: "发布选项", icon: "⚙️", fields: [
+      { key: "draft", label: "草稿（不对读者可见）", type: "checkbox" },
+      { key: "pinned", label: "置顶 pinned", type: "checkbox" },
+      { key: "comment", label: "允许评论 comment", type: "checkbox" },
+    ]},
+    { title: "高级", icon: "🧩", fields: [
+      { key: "licenseName", label: "许可证名称", type: "text", full: true },
+      { key: "licenseUrl", label: "许可证链接", type: "text", full: true },
+      { key: "sourceLink", label: "来源链接", type: "text", full: true },
+    ]},
   ];
+  // 扁平化便于遍历（保持分组顺序）
+  const POST_FIELDS = POST_GROUPS.flatMap((g) => g.fields);
 
   // ----------------------------------------------------------------------
   // API
@@ -185,6 +201,16 @@
     if (fallbackBody) return fallbackBody.value;
     return "";
   }
+  function setHtmlContent(html) {
+    ensureEditor();
+    if (editor && editor.setHTML) editor.setHTML(html || "");
+    else if (fallbackBody) fallbackBody.value = html || "";
+  }
+  function getHtmlContent() {
+    if (editor && editor.getHTML) return editor.getHTML();
+    if (fallbackBody) return fallbackBody.value;
+    return "";
+  }
 
   // ----------------------------------------------------------------------
   // UI 辅助
@@ -263,6 +289,7 @@
         let icon = "📄";
         if (isDir) icon = "📁";
         else if (f.name.endsWith(".mdx")) icon = "📘";
+        else if (/\.html?$/i.test(f.name)) icon = "🌐";
         else if (/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(f.name)) icon = "🖼️";
         let nameHtml;
         if (isDir) {
@@ -286,8 +313,12 @@
       });
   }
 
+  function typePrefix() {
+    return (state.type === "config" ? "src/config" : CONTENT_ROOT + "/" + state.type) + "/";
+  }
+
   function navigate(dirItem) {
-    const prefix = CONTENT_ROOT + "/" + state.type + "/";
+    const prefix = typePrefix();
     state.subdir = dirItem.path.startsWith(prefix) ? dirItem.path.slice(prefix.length) : dirItem.name;
     loadList();
   }
@@ -301,7 +332,7 @@
   }
 
   function currentDirPath() {
-    let p = CONTENT_ROOT + "/" + state.type;
+    let p = state.type === "config" ? "src/config" : CONTENT_ROOT + "/" + state.type;
     if (state.subdir) p += "/" + state.subdir;
     return p;
   }
@@ -309,7 +340,7 @@
   // 上传落点：为不破坏 Astro 内容集合构建，统一进 public/uploads，并按栏目/子目录归类
   function dirForUpload(folderPath) {
     if (folderPath) {
-      const rel = folderPath.replace(/^src\/content\//, "");
+      const rel = folderPath.replace(/^src\/(content|config)\//, "");
       return "public/uploads/" + rel;
     }
     let d = "public/uploads";
@@ -319,7 +350,7 @@
 
   function renderCrumb() {
     const c = $("crumb");
-    let html = `${CONTENT_ROOT}/${state.type}`;
+    let html = state.type === "config" ? "src/config" : `${CONTENT_ROOT}/${state.type}`;
     if (state.subdir) html += " / " + state.subdir;
     c.textContent = html;
     const ub = $("upDirBtn");
@@ -341,12 +372,10 @@
   async function openFile(f) {
     try {
       const { data } = await api("/api/file?path=" + encodeURIComponent(f.path));
-      let fm = {}, body;
-      if (state.type === "spec") {
-        const parsed = parseFrontmatter(data.content);
-        fm = parsed.data;
-        body = parsed.body;
-      } else {
+      state.htmlMode = /\.html?$/i.test(f.name);
+      state.plainRaw = (state.type === "config" && !state.htmlMode);
+      let fm = {}, body = data.content;
+      if (!state.htmlMode) {
         const parsed = parseFrontmatter(data.content);
         fm = parsed.data;
         body = parsed.body;
@@ -360,6 +389,8 @@
 
   function newFile() {
     let name, body, fm = {};
+    state.htmlMode = false;
+    state.plainRaw = false;
     if (state.type === "dynamic") {
       name = tsFilename();
       fm = { published: inputToDateStr(nowLocalInput(), true), location: "" };
@@ -368,6 +399,11 @@
       name = "untitled.md";
       fm = { title: "新文章", published: inputToDateStr(nowLocalInput(), false), draft: true };
       body = "# 新文章\n\n在这里写正文…\n";
+    } else if (state.type === "config") {
+      name = "untitled.html";
+      state.htmlMode = true;
+      fm = {};
+      body = "<!-- 新配置 -->\n";
     } else {
       name = "page.md";
       fm = {};
@@ -403,69 +439,150 @@
 
     const isPosts = state.type === "posts";
     const isDynamic = state.type === "dynamic";
+    const isConfig = state.type === "config";
     $("postPanel").hidden = !isPosts;
     $("dynamicPanel").hidden = !isDynamic;
 
-    if (isPosts) renderPostFields(fm);
+    if (isPosts) {
+      renderPostFields(fm);
+      const badge = $("encBadge");
+      if (badge) badge.hidden = !(fm && fm.password);
+    }
     if (isDynamic) {
       $("dynPublished").value = dateToInput(fm.published || "");
       $("dynLocation").value = fm.location || "";
     }
 
-    // 先让容器可见，再创建/填充富文本编辑器，避免初次创建时高度为 0
-    $("editorMain").hidden = false;
-    $("editorHost").hidden = false;
-    $("rawEditor").hidden = true;
-    setBodyMarkdown(body);
+    // 纯文本配置文件（如 .ts）不显示富文本/源代码切换
+    $("modeSwitch").hidden = state.plainRaw;
+
+    // 先让容器可见，再创建/填充编辑器，避免初次创建时高度为 0
+    $("editorMain").hidden = state.plainRaw;
+    $("editorHost").hidden = state.plainRaw;
+    $("rawEditor").hidden = !state.plainRaw;
+    if (state.plainRaw) {
+      $("rawEditor").value = body;
+    } else if (state.htmlMode) {
+      setHtmlContent(body);
+    } else {
+      setBodyMarkdown(body);
+    }
     setModeButtons("rich");
     setStatus("");
+    // 触发编辑器重排，保证移动端高度正确
+    window.dispatchEvent(new Event("resize"));
   }
 
   function renderPostFields(fm) {
     const box = $("postFields");
     box.innerHTML = "";
-    POST_FIELDS.forEach((f) => {
-      const wrap = document.createElement("div");
-      wrap.className = "field" + (f.full ? " full" : "") + (f.type === "checkbox" ? " checkbox" : "");
-      const label = document.createElement("label");
-      label.textContent = f.label + (f.required ? " *" : "");
-      let input;
-      if (f.type === "textarea") {
-        input = document.createElement("textarea");
-        input.rows = 2;
-        input.value = fm[f.key] || "";
-      } else if (f.type === "datetime") {
-        input = document.createElement("input");
-        input.type = "datetime-local";
-        input.value = dateToInput(fm[f.key] || "");
-      } else if (f.type === "checkbox") {
-        input = document.createElement("input");
-        input.type = "checkbox";
-        input.checked = !!fm[f.key];
-        input.id = "pf_" + f.key;
-      } else {
-        input = document.createElement("input");
-        input.type = "text";
-        input.value = fm[f.key] != null ? fm[f.key] : "";
+    POST_GROUPS.forEach((g) => {
+      const group = document.createElement("div");
+      group.className = "pf-group";
+      if (g.encrypt) group.dataset.encrypt = "1";
+
+      const head = document.createElement("div");
+      head.className = "pf-group-head";
+      head.innerHTML = `<span class="pf-g-icon">${g.icon}</span><span>${g.title}</span>`;
+      group.appendChild(head);
+
+      const fieldsWrap = document.createElement("div");
+      fieldsWrap.className = "pf-fields";
+      group.appendChild(fieldsWrap);
+
+      // 加密保护组：顶部的「启用访问密码」开关
+      if (g.encrypt) {
+        const enabled = !!(fm && fm.password);
+        const swRow = document.createElement("label");
+        swRow.className = "pf-switch-row";
+        const swText = document.createElement("span");
+        swText.textContent = "启用访问密码（加密文章）";
+        const sw = document.createElement("input");
+        sw.type = "checkbox";
+        sw.className = "pf-switch";
+        sw.checked = enabled;
+        sw.dataset.role = "encToggle";
+        swRow.appendChild(swText);
+        swRow.appendChild(sw);
+        group.insertBefore(swRow, fieldsWrap);
+        fieldsWrap.dataset.role = "encBody";
+        fieldsWrap.style.display = enabled ? "" : "none";
+        sw.onchange = () => { fieldsWrap.style.display = sw.checked ? "" : "none"; };
       }
-      input.dataset.key = f.key;
-      input.dataset.kind = f.type;
-      if (f.type === "checkbox") {
-        wrap.appendChild(input);
-        wrap.appendChild(label);
-      } else {
-        wrap.appendChild(label);
-        wrap.appendChild(input);
-      }
-      box.appendChild(wrap);
+
+      g.fields.forEach((f) => {
+        const wrap = document.createElement("div");
+        wrap.className = "field" + (f.full ? " full" : "") + (f.type === "checkbox" ? " checkbox" : "");
+        const label = document.createElement("label");
+        label.textContent = f.label + (f.required ? " *" : "");
+        let input;
+        if (f.type === "textarea") {
+          input = document.createElement("textarea");
+          input.rows = 2;
+          input.value = fm[f.key] || "";
+        } else if (f.type === "datetime") {
+          input = document.createElement("input");
+          input.type = "datetime-local";
+          input.value = dateToInput(fm[f.key] || "");
+        } else if (f.type === "checkbox") {
+          input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = !!fm[f.key];
+          input.id = "pf_" + f.key;
+        } else if (f.type === "password") {
+          // 密码框 + 显隐切换
+          const row = document.createElement("div");
+          row.className = "pw-row";
+          input = document.createElement("input");
+          input.type = "password";
+          input.value = fm[f.key] || "";
+          const eye = document.createElement("button");
+          eye.type = "button";
+          eye.className = "pwd-toggle";
+          eye.textContent = "👁";
+          eye.setAttribute("aria-label", "显示/隐藏密码");
+          eye.onclick = () => {
+            input.type = input.type === "password" ? "text" : "password";
+            eye.textContent = input.type === "password" ? "👁" : "🙈";
+          };
+          row.appendChild(input);
+          row.appendChild(eye);
+          input.dataset.key = f.key;
+          input.dataset.kind = f.type;
+          wrap.appendChild(label);
+          wrap.appendChild(row);
+          fieldsWrap.appendChild(wrap);
+          return;
+        } else {
+          input = document.createElement("input");
+          input.type = "text";
+          input.value = fm[f.key] != null ? fm[f.key] : "";
+        }
+        input.dataset.key = f.key;
+        input.dataset.kind = f.type;
+        if (f.type === "checkbox") {
+          wrap.appendChild(input);
+          wrap.appendChild(label);
+        } else {
+          wrap.appendChild(label);
+          wrap.appendChild(input);
+        }
+        fieldsWrap.appendChild(wrap);
+      });
+
+      box.appendChild(group);
     });
   }
 
   function collectPostData() {
     const data = {};
+    const encGroup = document.querySelector("#postFields .pf-group[data-encrypt='1']");
+    const encOn = encGroup ? encGroup.querySelector("[data-role='encToggle']").checked : false;
     POST_FIELDS.forEach((f) => {
       const el = document.querySelector(`#postFields [data-key="${f.key}"]`);
       if (!el) return;
+      // 加密字段：未启用开关时跳过，确保不写入 password / passwordHint
+      if ((f.type === "password" || f.key === "passwordHint") && !encOn) return;
       let v;
       if (f.type === "checkbox") v = el.checked;
       else if (f.type === "datetime") v = inputToDateStr(el.value, false);
@@ -490,31 +607,38 @@
   }
 
   function applyMode(mode) {
-      if (mode === "raw") {
-        $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
-        $("rawEditor").hidden = false;
-        $("editorMain").hidden = true;
-        $("editorHost").hidden = true;
-      } else {
+    if (state.plainRaw) return; // 纯文本配置文件无富文本/源代码切换
+    if (mode === "raw") {
+      $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
+      $("rawEditor").hidden = false;
+      $("editorMain").hidden = true;
+      $("editorHost").hidden = true;
+    } else {
       if (state.mode === "raw") {
         // 从源代码切回富文本：重新解析整文件
-        const { data, body } = parseFrontmatter($("rawEditor").value);
-        if (state.type === "posts") {
-          state.postData = data;
-          renderPostFields(data);
-        } else if (state.type === "dynamic") {
-          $("dynPublished").value = dateToInput(data.published || "");
-          $("dynLocation").value = data.location || "";
+        const raw = $("rawEditor").value;
+        if (state.htmlMode) {
+          setHtmlContent(raw);
         } else {
-          state.postData = data;
+          const { data, body } = parseFrontmatter(raw);
+          if (state.type === "posts") {
+            state.postData = data;
+            renderPostFields(data);
+          } else if (state.type === "dynamic") {
+            $("dynPublished").value = dateToInput(data.published || "");
+            $("dynLocation").value = data.location || "";
+          } else {
+            state.postData = data;
+          }
+          setBodyMarkdown(body);
         }
-        setBodyMarkdown(body);
       }
-        $("rawEditor").hidden = true;
-        $("editorMain").hidden = false;
-        $("editorHost").hidden = false;
-      }
-      state.mode = mode;
+      $("rawEditor").hidden = true;
+      $("editorMain").hidden = false;
+      $("editorHost").hidden = false;
+      window.dispatchEvent(new Event("resize"));
+    }
+    state.mode = mode;
     setModeButtons(mode);
   }
 
@@ -522,7 +646,9 @@
   // 构建文件内容
   // ----------------------------------------------------------------------
   function buildContent() {
+    if (state.plainRaw) return $("rawEditor").value;
     if (state.mode === "raw") return $("rawEditor").value;
+    if (state.htmlMode) return getHtmlContent();
     if (state.type === "posts") {
       return serializeFrontmatter(collectPostData(), getBodyMarkdown());
     }
@@ -547,8 +673,13 @@
     if (state.current.isNew) {
       const fname = ($("fileName").value || "").trim();
       if (!fname) { setStatus("请填写文件名", "err"); return; }
-      if (!/\.(md|mdx)$/i.test(fname)) { setStatus("文件名需以 .md 或 .mdx 结尾", "err"); return; }
-      path = CONTENT_ROOT + "/" + state.type + (state.subdir ? "/" + state.subdir : "") + "/" + fname;
+      // 配置文件（如 FooterConfig.html）允许任意扩展名，内容类仍需 .md/.mdx
+      if (state.type !== "config" && !/\.(md|mdx)$/i.test(fname)) {
+        setStatus("文件名需以 .md 或 .mdx 结尾", "err");
+        return;
+      }
+      const base = state.type === "config" ? "src/config" : CONTENT_ROOT + "/" + state.type;
+      path = base + (state.subdir ? "/" + state.subdir : "") + "/" + fname;
     } else {
       path = state.current.path;
     }
@@ -625,11 +756,16 @@
       const overlay = document.createElement("div");
       overlay.className = "modal-overlay";
       const hasInput = opts.input !== undefined && opts.input !== null;
+      const suffix = opts.suffix || "";
       overlay.innerHTML =
         '<div class="modal-card" role="dialog" aria-modal="true">' +
           '<div class="modal-title">' + esc(opts.title || "提示") + '</div>' +
           (opts.html ? '<div class="modal-body">' + opts.html + '</div>' : '') +
-          (hasInput ? '<input type="text" class="modal-input" id="modalInput" value="' + esc(opts.input) + '" placeholder="' + esc(opts.placeholder || "") + '" />' : '') +
+          (hasInput ?
+            '<div class="modal-input-row">' +
+              '<input type="text" class="modal-input" id="modalInput" value="' + esc(opts.input) + '" placeholder="' + esc(opts.placeholder || "") + '" />' +
+              (suffix ? '<span class="modal-suffix" title="扩展名已锁定，不可修改">' + esc(suffix) + '</span>' : '') +
+            '</div>' : '') +
           (opts.hint ? '<div class="modal-hint">' + esc(opts.hint) + '</div>' : '') +
           '<div class="modal-actions">' +
             '<button class="btn ghost modal-cancel" type="button">取消</button>' +
@@ -648,7 +784,7 @@
       }
       function submit() {
         if (input && !input.value.trim()) { input.focus(); return; }
-        close(input ? input.value.trim() : true);
+        close(input ? (input.value.trim() + suffix) : true);
       }
       function onKey(e) {
         if (e.key === "Escape") close(null);
@@ -703,17 +839,21 @@
   }
 
   async function renameItem(item) {
+    const isFile = item.type !== "dir";
+    const dot = item.name.lastIndexOf(".");
+    const ext = isFile && dot > 0 ? item.name.slice(dot) : "";
+    const base = isFile && dot > 0 ? item.name.slice(0, dot) : item.name;
     const nn = await openModal({
       title: "重命名",
-      html: "<div class=\"modal-msg\">请输入新的文件名：</div>",
-      input: item.name,
-      placeholder: "如 my-post.md",
-      hint: "请保留扩展名（如 .md / .mdx）",
+      html: "<div class=\"modal-msg\">请输入新的名称" + (ext ? "（扩展名 <b>" + esc(ext) + "</b> 已锁定，不可修改）" : "") + "：</div>",
+      input: base,
+      suffix: ext,
+      placeholder: "文件名称",
       confirmText: "重命名",
     });
     if (!nn) return;
     if (nn === item.name) { toast("文件名未改变"); return; }
-    const newName = nn;
+    const newName = nn; // 已自动拼接锁定的扩展名
     const parent = item.path.slice(0, item.path.length - item.name.length).replace(/\/$/, "");
     const newPath = parent + "/" + newName;
     try {

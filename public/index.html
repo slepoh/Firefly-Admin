@@ -32,6 +32,7 @@
         <button class="tab active" data-type="posts">📝 文章</button>
         <button class="tab" data-type="dynamic">⚡ 动态</button>
         <button class="tab" data-type="spec">📄 单页</button>
+        <button class="tab" data-type="config">⚙ 配置</button>
       </div>
       <div class="list-tools">
         <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
@@ -69,7 +70,7 @@
 
         <!-- 文章结构化表单（可折叠，默认收起以最大化编辑区） -->
         <div class="meta-panel collapsed" id="postPanel" hidden>
-          <button type="button" class="panel-head">📋 文章信息 <span class="chev">▾</span></button>
+          <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span> <span class="chev">▾</span></button>
           <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
         </div>
 
@@ -91,7 +92,7 @@
         </div>
 
         <!-- 编辑模式切换 -->
-        <div class="mode-switch">
+        <div class="mode-switch" id="modeSwitch">
           <span>编辑模式：</span>
           <button class="seg active" id="modeRich" data-mode="rich">富文本</button>
           <button class="seg" id="modeRaw" data-mode="raw">源代码</button>
