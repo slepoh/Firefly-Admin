@@ -365,8 +365,8 @@
 
     const isPosts = state.type === "posts";
     const isDynamic = state.type === "dynamic";
-    $("postFields").hidden = !isPosts;
-    $("dynamicFields").hidden = !isDynamic;
+    $("postPanel").hidden = !isPosts;
+    $("dynamicPanel").hidden = !isDynamic;
 
     if (isPosts) renderPostFields(fm);
     if (isDynamic) {
@@ -619,10 +619,26 @@
 
     // 抽屉
     on("menuBtn", "onclick", () => {
-      if ($("sidebar").classList.contains("open")) closeDrawer();
-      else openDrawer();
+      if (isMobile()) {
+        if ($("sidebar").classList.contains("open")) closeDrawer();
+        else openDrawer();
+      } else {
+        $("mainApp").classList.toggle("sidebar-collapsed");
+        window.dispatchEvent(new Event("resize"));
+      }
     });
     on("drawerBackdrop", "onclick", closeDrawer);
+
+    // 可折叠元信息面板（文章 / 动态字段）：点击标题栏展开或收起
+    document.querySelectorAll(".panel-head").forEach((h) => {
+      h.addEventListener("click", () => {
+        const p = h.closest(".meta-panel");
+        if (p) {
+          p.classList.toggle("collapsed");
+          window.dispatchEvent(new Event("resize"));
+        }
+      });
+    });
   }
 
   init();

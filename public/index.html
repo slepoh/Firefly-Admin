@@ -60,18 +60,26 @@
         </div>
         <div class="edit-status" id="editStatus"></div>
 
-        <!-- 文章结构化表单 -->
-        <div id="postFields" class="post-fields" hidden></div>
+        <!-- 文章结构化表单（可折叠，默认收起以最大化编辑区） -->
+        <div class="meta-panel collapsed" id="postPanel" hidden>
+          <button type="button" class="panel-head">📋 文章信息 <span class="chev">▾</span></button>
+          <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
+        </div>
 
-        <!-- 动态字段 -->
-        <div id="dynamicFields" class="dynamic-fields" hidden>
-          <div class="field">
-            <label>发布时间</label>
-            <input type="datetime-local" id="dynPublished" />
-          </div>
-          <div class="field">
-            <label>地点 (location，可选)</label>
-            <input type="text" id="dynLocation" placeholder="如 郑州" />
+        <!-- 动态字段（可折叠） -->
+        <div class="meta-panel collapsed" id="dynamicPanel" hidden>
+          <button type="button" class="panel-head">⚡ 动态信息 <span class="chev">▾</span></button>
+          <div class="panel-body">
+            <div id="dynamicFields" class="dynamic-fields">
+              <div class="field">
+                <label>发布时间</label>
+                <input type="datetime-local" id="dynPublished" />
+              </div>
+              <div class="field">
+                <label>地点 (location，可选)</label>
+                <input type="text" id="dynLocation" placeholder="如 郑州" />
+              </div>
+            </div>
           </div>
         </div>
 

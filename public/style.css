@@ -41,7 +41,6 @@ body {
   cursor: pointer; padding: 4px 8px; border-radius: 8px; color: var(--text);
 }
 .icon-btn:hover { background: #f0f2f5; }
-#menuBtn { display: none; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .brand .logo { font-size: 20px; }
 .brand .title { font-size: 16px; }
@@ -69,6 +68,8 @@ body {
 
 /* 布局 */
 .layout { display: flex; height: calc(100vh - 56px); }
+/* 桌面端折叠侧边栏：释放横向空间，编辑区铺满 */
+.layout.sidebar-collapsed .sidebar { width: 0; min-width: 0; border-right: none; padding: 0; }
 
 .sidebar {
   width: 320px;
@@ -77,6 +78,8 @@ body {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  transition: width .22s ease;
 }
 .tabs { display: flex; border-bottom: 1px solid var(--border); }
 .tab {
@@ -130,8 +133,6 @@ textarea { resize: vertical; }
 /* 文章字段 */
 .post-fields {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px;
-  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
-  background: #fafbfc; max-height: 40vh; overflow-y: auto;
 }
 .post-fields .field { display: flex; flex-direction: column; gap: 4px; }
 .post-fields label { font-size: 12px; color: var(--muted); }
@@ -142,8 +143,20 @@ textarea { resize: vertical; }
 /* 动态字段 */
 .dynamic-fields {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;
-  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: #fafbfc;
 }
+
+/* 可折叠元信息面板（文章 / 动态字段） */
+.meta-panel { border: 1px solid var(--border); border-radius: var(--radius); background: #fafbfc; overflow: hidden; }
+.panel-head {
+  width: 100%; box-sizing: border-box; border: none; background: none; cursor: pointer;
+  padding: 11px 14px; font-size: 14px; font-weight: 600; color: var(--text);
+  display: flex; align-items: center; justify-content: space-between; text-align: left;
+}
+.panel-head:hover { background: #f0f2f5; }
+.panel-head .chev { color: var(--muted); font-size: 12px; transition: transform .18s ease; }
+.meta-panel.collapsed .panel-head .chev { transform: rotate(-90deg); }
+.panel-body { padding: 0 12px 12px; max-height: 40vh; overflow-y: auto; }
+.meta-panel.collapsed .panel-body { display: none; }
 .dynamic-fields .field { display: flex; flex-direction: column; gap: 4px; }
 .dynamic-fields label { font-size: 12px; color: var(--muted); }
 
@@ -201,7 +214,8 @@ textarea { resize: vertical; }
   .drawer-backdrop.show { display: block; }
   .brand .title { display: none; }
   .editor { min-height: 0; }
-  .post-fields, .dynamic-fields { grid-template-columns: 1fr; max-height: 46vh; }
+  .post-fields, .dynamic-fields { grid-template-columns: 1fr; }
+  .panel-body { max-height: 46vh; }
   .edit-header { flex-wrap: wrap; }
   .edit-actions { width: 100%; }
 }
