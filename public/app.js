@@ -583,7 +583,13 @@
 
   async function deleteFile() {
     if (!state.current || state.current.isNew) { backToEmpty(); return; }
-    if (!confirm("确定删除 " + state.current.name + " ？此操作会提交到 GitHub。")) return;
+    const ok = await openModal({
+      title: "删除确认",
+      html: "<div class=\"modal-msg\">确定删除 <b>" + esc(state.current.name) + "</b> ？<br>此操作会提交到 GitHub，不可撤销。</div>",
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const { status, data } = await api("/api/file", {
         method: "DELETE",
@@ -609,6 +615,51 @@
     state.current = null;
     $("editForm").hidden = true;
     $("emptyState").hidden = false;
+  }
+
+  // ----------------------------------------------------------------------
+  // 通用弹窗（替代原生 prompt / confirm，与主题一致）
+  // ----------------------------------------------------------------------
+  function openModal(opts) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      const hasInput = opts.input !== undefined && opts.input !== null;
+      overlay.innerHTML =
+        '<div class="modal-card" role="dialog" aria-modal="true">' +
+          '<div class="modal-title">' + esc(opts.title || "提示") + '</div>' +
+          (opts.html ? '<div class="modal-body">' + opts.html + '</div>' : '') +
+          (hasInput ? '<input type="text" class="modal-input" id="modalInput" value="' + esc(opts.input) + '" placeholder="' + esc(opts.placeholder || "") + '" />' : '') +
+          (opts.hint ? '<div class="modal-hint">' + esc(opts.hint) + '</div>' : '') +
+          '<div class="modal-actions">' +
+            '<button class="btn ghost modal-cancel" type="button">取消</button>' +
+            '<button class="btn ' + (opts.danger ? "danger" : "primary") + ' modal-ok" type="button">' + esc(opts.confirmText || "确定") + '</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      const input = overlay.querySelector("#modalInput");
+      const okBtn = overlay.querySelector(".modal-ok");
+      const cancelBtn = overlay.querySelector(".modal-cancel");
+
+      function close(val) {
+        overlay.remove();
+        document.removeEventListener("keydown", onKey);
+        resolve(val);
+      }
+      function submit() {
+        if (input && !input.value.trim()) { input.focus(); return; }
+        close(input ? input.value.trim() : true);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") close(null);
+        else if (e.key === "Enter") { e.preventDefault(); submit(); }
+      }
+      okBtn.addEventListener("click", submit);
+      cancelBtn.addEventListener("click", () => close(null));
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(null); });
+      document.addEventListener("keydown", onKey);
+      if (input) { input.focus(); input.select(); }
+    });
   }
 
   // ----------------------------------------------------------------------
@@ -652,9 +703,17 @@
   }
 
   async function renameItem(item) {
-    const nn = prompt("重命名为（请保留扩展名，如 .md）：", item.name);
-    if (!nn || !nn.trim() || nn.trim() === item.name) return;
-    const newName = nn.trim();
+    const nn = await openModal({
+      title: "重命名",
+      html: "<div class=\"modal-msg\">请输入新的文件名：</div>",
+      input: item.name,
+      placeholder: "如 my-post.md",
+      hint: "请保留扩展名（如 .md / .mdx）",
+      confirmText: "重命名",
+    });
+    if (!nn) return;
+    if (nn === item.name) { toast("文件名未改变"); return; }
+    const newName = nn;
     const parent = item.path.slice(0, item.path.length - item.name.length).replace(/\/$/, "");
     const newPath = parent + "/" + newName;
     try {
@@ -681,7 +740,13 @@
 
   async function removeItem(item) {
     const tip = item.type === "dir" ? "（包含其下所有内容）" : "";
-    if (!confirm("确定删除 " + item.name + tip + " ？此操作会提交到 GitHub。")) return;
+    const ok = await openModal({
+      title: "删除确认",
+      html: "<div class=\"modal-msg\">确定删除 <b>" + esc(item.name) + "</b>" + tip + "？<br>此操作会提交到 GitHub，不可撤销。</div>",
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const { status, data } = await api("/api/remove", {
         method: "POST",
