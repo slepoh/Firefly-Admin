@@ -257,6 +257,7 @@ export async function onRequest(
       const payload: any = {
         message: body.message || "Update " + p + " via Firefly-Admin",
         content: base64Encode(body.content || ""),
+        branch: env.GH_BRANCH,
       };
       if (body.sha) payload.sha = body.sha;
       const { status, data } = await ghApi("PUT", p, env, payload);
@@ -269,6 +270,7 @@ export async function onRequest(
       const payload = {
         message: body.message || "Delete " + p + " via Firefly-Admin",
         sha: body.sha,
+        branch: env.GH_BRANCH,
       };
       const { status } = await ghApi("DELETE", p, env, payload);
       return new Response(null, { status: status < 300 ? 200 : status });

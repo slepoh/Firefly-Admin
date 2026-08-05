@@ -642,6 +642,7 @@
   }
 
   function insertAsset(url, isImage) {
+    if (!state.current) { toast("请先打开或新建一个文件，再插入资源", "err"); return; }
     if (state.mode === "raw") {
       const ta = $("rawEditor");
       const text = isImage ? "![](" + url + ")" : "[文件](" + url + ")";

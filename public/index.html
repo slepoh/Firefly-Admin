@@ -40,6 +40,17 @@
       </div>
       <div class="file-list" id="fileList"></div>
       <div class="crumb" id="crumb"></div>
+
+      <!-- 资源上传：放在左侧分类栏底部（可折叠，默认收起，不占用编辑区空间） -->
+      <div class="meta-panel collapsed" id="uploadPanel">
+        <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
+        <div class="panel-body">
+          <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
+          <input type="file" id="fileInput" multiple hidden />
+          <div class="up-hint">点击「选择文件」或把文件拖到此处<br>自动上传到 public/uploads</div>
+          <div class="up-list" id="upList"></div>
+        </div>
+      </div>
     </aside>
 
     <!-- 编辑区 -->
@@ -85,15 +96,8 @@
           <button class="seg" id="modeRaw" data-mode="raw">源代码</button>
         </div>
 
-        <!-- 编辑主区：左侧上传面板 + 右侧编辑器 -->
+        <!-- 编辑主区：单栏，上传已移到左侧栏 -->
         <div class="editor-main" id="editorMain">
-          <aside class="upload-panel" id="uploadPanel">
-            <div class="up-head">📤 资源上传</div>
-            <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
-            <input type="file" id="fileInput" multiple hidden />
-            <div class="up-hint">点击「选择文件」或把文件拖到此处<br>自动上传到 public/uploads</div>
-            <div class="up-list" id="upList"></div>
-          </aside>
           <div class="editor-host" id="editorHost">
             <div id="editor"></div>
           </div>
