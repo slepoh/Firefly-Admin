@@ -41,6 +41,75 @@
     return i;
   }
 
+  // 跳过空白与注释，同时记录途中遇到的所有注释块（用于提取「参数名/说明」）
+  function skipAndCollect(src, i) {
+    var comments = [];
+    while (i < src.length && isWs(src[i])) i++;
+    while (i < src.length) {
+      if (src[i] === "/" && src[i + 1] === "/") {
+        var s = i;
+        i += 2;
+        while (i < src.length && src[i] !== "\n") i++;
+        comments.push({ text: src.slice(s, i).replace(/^\/\/\s?/, ""), start: s, end: i });
+      } else if (src[i] === "/" && src[i + 1] === "*") {
+        var s2 = i;
+        i += 2;
+        while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) i++;
+        if (i < src.length) i += 2;
+        var t2 = src.slice(s2, i).replace(/^\/\*\s?/, "").replace(/\s*\*\/$/, "").replace(/\n\s*\*/g, "\n");
+        comments.push({ text: t2, start: s2, end: i });
+      } else {
+        break;
+      }
+      while (i < src.length && isWs(src[i])) i++;
+    }
+    return { next: i, comments: comments };
+  }
+
+  // 行内尾注：值之后、逗号之前的 // 注释（同一行）
+  function inlineTrailingComment(src, from) {
+    var i = from;
+    while (i < src.length && (src[i] === " " || src[i] === "\t")) i++;
+    if (src[i] === "/" && src[i + 1] === "/") {
+      var s = i;
+      i += 2;
+      while (i < src.length && src[i] !== "\n") i++;
+      return src.slice(s, i).replace(/^\/\/\s?/, "");
+    }
+    return null;
+  }
+
+  // 多个注释块合并为单行说明（去多余空白）
+  function joinComments(arr) {
+    return arr
+      .map(function (c) { return (c && c.text ? c.text : "").trim(); })
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // 提取某个位置之前的连续 // 注释行（用于根 const 的标题）
+  function leadingCommentBefore(src, pos) {
+    var nl = src.lastIndexOf("\n", pos - 1);
+    var i = nl + 1; // 该 const 所在行的开头
+    var lines = [];
+    while (i > 0) {
+      var prevNl = src.lastIndexOf("\n", i - 1);
+      var prevStart = prevNl + 1;
+      var line = src.slice(prevStart, i).replace(/\s+$/, "").replace(/^\s+/, "");
+      if (/^\/\//.test(line)) {
+        lines.push(line.replace(/^\/\/\s?/, ""));
+        i = prevStart;
+        if (prevNl < 0) break;
+      } else {
+        break;
+      }
+    }
+    if (!lines.length) return null;
+    return lines.reverse().join(" ").replace(/\s+/g, " ").trim();
+  }
+
   function parseValue(src, i) {
     i = skipWs(src, i);
     var c = src[i];
@@ -58,32 +127,39 @@
   function parseObject(src, i) {
     var start = i;
     i++; // 跳过 {
-    var node = { type: "object", children: [], start: start, end: 0 };
+    var node = { type: "object", children: [], start: start, end: 0, comment: null };
+    var prevEnd = i; // 紧跟 '{' 之后
     while (true) {
-      i = skipWs(src, i);
-      if (src[i] === "}") { i++; break; }
+      var sc = skipAndCollect(src, prevEnd);
+      var keyStart = sc.next;
+      var leading = sc.comments;
+      if (src[keyStart] === "}") { i = keyStart + 1; break; }
       // 解析 key
       var key;
-      var kc = src[i];
+      var kc = src[keyStart];
       if (kc === '"' || kc === "'") {
-        var ks = parseString(src, i);
+        var ks = parseString(src, keyStart);
         key = ks.value;
         i = ks.end;
       } else if (isIdentStart(kc)) {
-        var s = i;
-        while (i < src.length && isIdentPart(src[i])) i++;
-        key = src.slice(s, i);
+        var s = keyStart;
+        var ke = keyStart;
+        while (ke < src.length && isIdentPart(src[ke])) ke++;
+        key = src.slice(s, ke);
+        i = ke;
       } else {
-        throw new Error("对象键名非法（位置 " + i + "）");
+        throw new Error("对象键名非法（位置 " + keyStart + "）");
       }
       i = skipWs(src, i);
       if (src[i] !== ":") throw new Error("缺少冒号（位置 " + i + "）");
       i++;
       var val = parseValue(src, i);
-      node.children.push({ key: key, value: val });
+      var trail = inlineTrailingComment(src, val.end);
+      var comment = leading.length ? joinComments(leading) : (trail || null);
+      node.children.push({ key: key, value: val, comment: comment });
       i = val.end;
       i = skipWs(src, i);
-      if (src[i] === ",") { i++; continue; }
+      if (src[i] === ",") { i++; prevEnd = i; continue; }
       if (src[i] === "}") { i++; break; }
       throw new Error("期望逗号或 }（位置 " + i + "）");
     }
@@ -94,15 +170,20 @@
   function parseArray(src, i) {
     var start = i;
     i++; // 跳过 [
-    var node = { type: "array", children: [], start: start, end: 0 };
+    var node = { type: "array", children: [], start: start, end: 0, comment: null };
+    var prevEnd = i; // 紧跟 '[' 之后
     while (true) {
-      i = skipWs(src, i);
-      if (src[i] === "]") { i++; break; }
-      var val = parseValue(src, i);
-      node.children.push({ value: val });
+      var sc = skipAndCollect(src, prevEnd);
+      var elemStart = sc.next;
+      var leading = sc.comments;
+      if (src[elemStart] === "]") { i = elemStart + 1; break; }
+      var val = parseValue(src, elemStart);
+      var trail = inlineTrailingComment(src, val.end);
+      var comment = leading.length ? joinComments(leading) : (trail || null);
+      node.children.push({ value: val, comment: comment });
       i = val.end;
       i = skipWs(src, i);
-      if (src[i] === ",") { i++; continue; }
+      if (src[i] === ",") { i++; prevEnd = i; continue; }
       if (src[i] === "]") { i++; break; }
       throw new Error("期望逗号或 ]（位置 " + i + "）");
     }
@@ -179,7 +260,8 @@
 
       try {
         var node = parseValue(src, i);
-        roots.push({ name: name, node: node, start: node.start, end: node.end });
+        var rootComment = leadingCommentBefore(src, m.index);
+        roots.push({ name: name, node: node, start: node.start, end: node.end, comment: rootComment });
       } catch (e) {
         // 单个定义解析失败：跳过该定义，避免整文件不可用
       }

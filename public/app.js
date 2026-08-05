@@ -644,6 +644,7 @@
       head.innerHTML =
         '<span class="cfg-lock" title="变量名固定，不可修改">🔒</span>' +
         '<span class="cfg-var">' + esc(r.name) + "</span>" +
+        (r.comment ? '<span class="cfg-section-sub">' + esc(r.comment) + "</span>" : "") +
         '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
       sec.appendChild(head);
       sec.appendChild(cfgNodeEl(r.node, r.name));
@@ -658,7 +659,9 @@
       grp.className = "cfg-group";
       const h = document.createElement("div");
       h.className = "cfg-group-head";
-      h.innerHTML = lockIcon() + '<span class="cfg-key">' + esc(keyLabel || "") + "</span>";
+      const gname = node.comment || keyLabel;
+      h.innerHTML = lockIcon() + '<span class="cfg-group-title">' + esc(gname) + "</span>" +
+        (node.comment ? '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(keyLabel) + "</span>" : "");
       grp.appendChild(h);
       const body = document.createElement("div");
       body.className = "cfg-group-body";
@@ -671,11 +674,14 @@
       grp.className = "cfg-group cfg-array";
       const h = document.createElement("div");
       h.className = "cfg-group-head";
-      h.innerHTML = lockIcon() + '<span class="cfg-key">' + esc(keyLabel || "") + '</span><span class="cfg-tag">数组</span>';
+      const gname = node.comment || keyLabel;
+      h.innerHTML = lockIcon() + '<span class="cfg-group-title">' + esc(gname) + "</span>" +
+        (node.comment ? '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(keyLabel) + "</span>" : "") +
+        '<span class="cfg-tag">数组</span>';
       grp.appendChild(h);
       const body = document.createElement("div");
       body.className = "cfg-group-body";
-      node.children.forEach((ch, idx) => body.appendChild(cfgNodeEl(ch.value, keyLabel + "[" + idx + "]")));
+      node.children.forEach((ch, idx) => body.appendChild(cfgNodeEl(ch.value, ch.comment || (keyLabel + "[" + idx + "]"))));
       grp.appendChild(body);
       return grp;
     }
@@ -683,8 +689,13 @@
     const row = document.createElement("div");
     row.className = "cfg-field";
     const lab = document.createElement("label");
-    lab.className = "cfg-key";
-    lab.innerHTML = lockIcon() + esc(keyLabel || "");
+    lab.className = "cfg-field-label";
+    if (node.comment) {
+      lab.innerHTML = '<span class="cfg-name">' + esc(node.comment) + "</span>" +
+        '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(keyLabel) + "</span>";
+    } else {
+      lab.innerHTML = lockIcon() + '<span class="cfg-key">' + esc(keyLabel) + "</span>";
+    }
     row.appendChild(lab);
 
     if (node.type === "expr") {
