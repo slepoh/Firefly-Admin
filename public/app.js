@@ -177,6 +177,7 @@
   // ----------------------------------------------------------------------
   async function init() {
     try {
+      bindEvents();
       const { data } = await api("/api/status");
       state.status = data;
       if (!data.configured) {
@@ -568,37 +569,46 @@
   function bindEvents() {
     if (bound) return;
     bound = true;
+    // null 安全绑定：任一元素缺失都不会中断后续按钮的绑定
+    const on = (id, prop, fn) => {
+      const el = $(id);
+      if (el) el[prop] = fn;
+    };
 
-    $("typeTabs").querySelectorAll(".tab").forEach((t) => {
-      t.onclick = () => {
-        $("typeTabs").querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-        t.classList.add("active");
-        state.type = t.dataset.type;
-        state.subdir = "";
-        backToEmpty();
-        loadList();
-      };
-    });
+    const tabs = $("typeTabs");
+    if (tabs) {
+      tabs.querySelectorAll(".tab").forEach((t) => {
+        t.onclick = () => {
+          tabs.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          state.type = t.dataset.type;
+          state.subdir = "";
+          backToEmpty();
+          loadList();
+        };
+      });
+    }
 
-    $("searchInput").oninput = renderList;
-    $("refreshBtn").onclick = loadList;
-    $("newBtn").onclick = newFile;
-    $("saveBtn").onclick = saveFile;
-    $("deleteBtn").onclick = deleteFile;
-    $("backBtn").onclick = backToEmpty;
-    $("logoutBtn").onclick = async () => {
+    on("searchInput", "oninput", renderList);
+    on("refreshBtn", "onclick", loadList);
+    on("newBtn", "onclick", newFile);
+    on("saveBtn", "onclick", saveFile);
+    on("deleteBtn", "onclick", deleteFile);
+    on("backBtn", "onclick", backToEmpty);
+    on("logoutBtn", "onclick", async () => {
       try { await api("/api/logout", { method: "POST" }); } catch (e) { /* ignore */ }
       localStorage.removeItem("ff_token");
       location.reload();
-    };
+    });
 
-    $("modeSplit").onclick = () => applyMode("split");
-    $("modeRaw").onclick = () => applyMode("raw");
+    on("modeSplit", "onclick", () => applyMode("split"));
+    on("modeRaw", "onclick", () => applyMode("raw"));
 
-    $("bodyEditor").addEventListener("input", renderPreview);
+    const be = $("bodyEditor");
+    if (be) be.addEventListener("input", renderPreview);
 
     // setup
-    $("setupBtn").onclick = async () => {
+    on("setupBtn", "onclick", async () => {
       const body = {
         github_token: $("setToken").value.trim(),
         owner: $("setOwner").value.trim(),
@@ -620,10 +630,10 @@
       } catch (e) {
         $("setupErr").textContent = e.message || "配置失败";
       }
-    };
+    });
 
     // login
-    $("loginBtn").onclick = async () => {
+    on("loginBtn", "onclick", async () => {
       $("loginErr").textContent = "";
       try {
         const { status, data } = await api("/api/login", {
@@ -641,7 +651,7 @@
       } catch (e) {
         $("loginErr").textContent = e.message || "登录失败";
       }
-    };
+    });
   }
 
   init();
