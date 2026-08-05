@@ -536,7 +536,7 @@
         setStatus("✅ 已保存，GitHub 将自动重新部署", "ok");
         toast("保存成功");
       } else {
-        setStatus((data && data.message) || "保存失败", "err");
+        setStatus((data && (data.error || data.message)) || "保存失败", "err");
       }
     } catch (e) {
       setStatus(e.message || "保存失败", "err");
@@ -560,7 +560,7 @@
         backToEmpty();
         await loadList();
       } else {
-        toast((data && data.message) || "删除失败", "err");
+        toast((data && (data.error || data.message)) || "删除失败", "err");
       }
     } catch (e) {
       toast(e.message || "删除失败", "err");

@@ -261,19 +261,30 @@ export async function onRequest(
       };
       if (body.sha) payload.sha = body.sha;
       const { status, data } = await ghApi("PUT", p, env, payload);
+      if (status >= 300) {
+        const msg = (data && data.message) || "GitHub 写入失败";
+        // GitHub 的 401 表示令牌失效/无权限，不能透传为 HTTP 401，否则前端会误判为登录失效并踢回登录页
+        const httpStatus = status === 401 ? 502 : status;
+        return json({ ok: false, error: "保存失败：" + msg, githubStatus: status, path: p }, httpStatus);
+      }
       const newSha = data && data.content ? data.content.sha : undefined;
-      return json({ ok: status < 300, sha: newSha, path: p }, status);
+      return json({ ok: true, sha: newSha, path: p });
     }
 
     if (method === "DELETE") {
-      if (!body.sha) return json({ error: "缺少 sha" }, 400);
+      if (!body.sha) return json({ error: "缺少 sha（无法删除尚未保存的新文件）" }, 400);
       const payload = {
         message: body.message || "Delete " + p + " via Firefly-Admin",
         sha: body.sha,
         branch: env.GH_BRANCH,
       };
-      const { status } = await ghApi("DELETE", p, env, payload);
-      return new Response(null, { status: status < 300 ? 200 : status });
+      const { status, data } = await ghApi("DELETE", p, env, payload);
+      if (status >= 300) {
+        const msg = (data && data.message) || "GitHub 删除失败";
+        const httpStatus = status === 401 ? 502 : status;
+        return json({ ok: false, error: "删除失败：" + msg, githubStatus: status, path: p }, httpStatus);
+      }
+      return new Response(null, { status: 200 });
     }
   }
 
