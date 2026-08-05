@@ -137,9 +137,11 @@ export async function onRequest(
 
   // ---- 公开：状态 ----
   if (seg === "status" && method === "GET") {
+    const adminConfigured = !!(env.ADMIN_PASSWORD && env.ADMIN_PASSWORD.length);
     return json({
       ok: true,
       configured: true,
+      adminConfigured,
       owner: env.GH_OWNER,
       repo: env.GH_REPO,
       branch: env.GH_BRANCH,
@@ -149,6 +151,15 @@ export async function onRequest(
 
   // ---- 登录 ----
   if (seg === "login" && method === "POST") {
+    if (!env.ADMIN_PASSWORD) {
+      return json(
+        {
+          error:
+            "服务器未检测到 ADMIN_PASSWORD 环境变量。请到 Cloudflare Pages 控制台 → Settings → Environment variables 添加 ADMIN_PASSWORD（注意大小写），保存后务必重新部署（Redeploy）再试。",
+        },
+        500
+      );
+    }
     let pwd = "";
     try {
       pwd = (await request.json()).password || "";

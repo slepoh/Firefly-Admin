@@ -183,6 +183,10 @@
         $("setupModal").hidden = false;
         return;
       }
+      if (!data.adminConfigured) {
+        $("loginErr").textContent =
+          "服务器未检测到 ADMIN_PASSWORD，请检查 Cloudflare Pages 环境变量并重新部署后再试。";
+      }
       // 登录态由服务端通过 Cookie 判定（Cloudflare Pages 版本），
       // 也兼容 Python 版本（服务端校验 Bearer 令牌）。
       if (!data.authed) {
