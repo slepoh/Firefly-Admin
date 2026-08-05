@@ -124,8 +124,22 @@ textarea { resize: vertical; }
 
 .edit-form { display: flex; flex-direction: column; height: 100%; padding: 14px; gap: 12px; overflow: hidden; }
 .edit-header { display: flex; gap: 10px; align-items: center; }
-.edit-header .filename { font-weight: 600; }
-.edit-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.edit-header .filename { flex: 1; min-width: 0; font-weight: 600; }
+.edit-header .edit-status { margin-left: auto; max-width: 55%; text-align: right; }
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  margin: 0 -14px -14px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+.action-bar .ab-spacer { flex: 1; }
+.action-bar .btn.primary { min-width: 100px; font-weight: 600; }
 .edit-status { font-size: 13px; min-height: 18px; color: var(--muted); }
 .edit-status.ok { color: var(--ok); }
 .edit-status.err { color: var(--danger); }
@@ -247,13 +261,13 @@ textarea { resize: vertical; }
   .editor-main { flex-direction: column; }
   .upload-panel { width: auto; min-width: 0; }
   .edit-header { flex-wrap: wrap; }
-  .edit-actions { width: 100%; }
 }
 
 @media (max-width: 560px) {
   .repo-info { display: none; }
   .edit-form { padding: 10px; gap: 10px; }
-  .edit-actions .btn { flex: 1; }
+  .action-bar { padding: 10px; }
+  .action-bar .btn { flex: 1; }
 }
 
 /* ===================== 登录页 ===================== */

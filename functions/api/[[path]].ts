@@ -229,10 +229,12 @@ export async function onRequest(
 
   // ---- 文件：读 / 写 / 删 ----
   if (seg === "file") {
-    const p = url.searchParams.get("path") || "";
-    if (!p) return json({ error: "缺少 path" }, 400);
+    // GET 时 path 在 query；写 / 删时 path 在 body（与前端保持一致）
+    let p = url.searchParams.get("path") || "";
+    let body: any = {};
 
     if (method === "GET") {
+      if (!p) return json({ error: "缺少 path" }, 400);
       const { status, data } = await ghApi("GET", p, env);
       if (status !== 200 || !data.content) {
         return json({ error: (data && data.message) || "读取失败" }, status);
@@ -246,10 +248,14 @@ export async function onRequest(
       });
     }
 
+    // 写 / 删：解析 body 并取 path
+    try { body = await request.json(); } catch { body = {}; }
+    if (!p) p = body.path || "";
+    if (!p) return json({ error: "缺少 path" }, 400);
+
     if (method === "POST" || method === "PUT") {
-      const body = await request.json();
       const payload: any = {
-        message: body.message || "Update " + body.path + " via Firefly-Admin",
+        message: body.message || "Update " + p + " via Firefly-Admin",
         content: base64Encode(body.content || ""),
       };
       if (body.sha) payload.sha = body.sha;
@@ -259,10 +265,9 @@ export async function onRequest(
     }
 
     if (method === "DELETE") {
-      const body = await request.json();
       if (!body.sha) return json({ error: "缺少 sha" }, 400);
       const payload = {
-        message: body.message || "Delete " + body.path + " via Firefly-Admin",
+        message: body.message || "Delete " + p + " via Firefly-Admin",
         sha: body.sha,
       };
       const { status } = await ghApi("DELETE", p, env, payload);

@@ -52,13 +52,8 @@
       <div class="edit-form" id="editForm" hidden>
         <div class="edit-header">
           <input type="text" id="fileName" class="filename" placeholder="文件名，如 my-post.md" />
-          <div class="edit-actions">
-            <button id="saveBtn" class="btn primary">💾 保存</button>
-            <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
-            <button id="backBtn" class="btn ghost">← 返回</button>
-          </div>
+          <div class="edit-status" id="editStatus"></div>
         </div>
-        <div class="edit-status" id="editStatus"></div>
 
         <!-- 文章结构化表单（可折叠，默认收起以最大化编辑区） -->
         <div class="meta-panel collapsed" id="postPanel" hidden>
@@ -106,6 +101,14 @@
 
         <!-- 源代码模式：整文件编辑 -->
         <textarea id="rawEditor" class="raw-editor" hidden placeholder="编辑完整文件（含 Frontmatter）…"></textarea>
+
+        <!-- 底部固定操作栏：返回 / 删除 / 保存，编辑长文时始终可见 -->
+        <div class="action-bar">
+          <button id="backBtn" class="btn ghost">← 返回</button>
+          <span class="ab-spacer"></span>
+          <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
+          <button id="saveBtn" class="btn primary">💾 保存</button>
+        </div>
       </div>
     </section>
   </main>
