@@ -206,6 +206,10 @@
       var keyStart = sc.next;
       var leading = sc.comments;
       if (src[keyStart] === "}") { i = keyStart + 1; break; }
+      // 容忍对象内的空属性（如 {, a: 1, , b: 2 } 中的错位逗号 / 残留尾逗号 / 多余逗号）：
+      // 直接跳到逗号之后继续，避免把「,」误判为键名而抛「对象键名非法」，
+      // 否则整段对象乃至整个配置根会被上层 catch 吞掉（表现为后台配置选项整片消失）。
+      if (src[keyStart] === ",") { prevEnd = keyStart + 1; continue; }
       // 解析 key
       var key;
       var kc = src[keyStart];

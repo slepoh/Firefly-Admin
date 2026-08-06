@@ -3227,9 +3227,12 @@
     const statusEl = apStatusFor(name, root);
     if (!st || !host) return;
     let tsContent = null, htmlContent = null, tsPath = null, htmlPath = null;
+    let tsHost = null;
+    let tsRetryable = false; // 通用 .ts / 合并页脚：内容基于 raw+DOM 偏移，可在 sha 冲突时重放重试
     try {
       if (st.merged) {
-        const tsHost = host.querySelector(".cfg-sub");
+        tsHost = host.querySelector(".cfg-sub");
+        tsRetryable = true;
         const edits = collectConfigEdits(tsHost);
         tsContent = FireflyConfig.applyConfigEdits(st.raw, edits);
         tsPath = "src/config/" + name + ".ts";
@@ -3255,6 +3258,7 @@
         tsPath = "src/config/" + name + ".ts";
       } else {
         const edits = collectConfigEdits(host);
+        tsRetryable = true;
         tsContent = FireflyConfig.applyConfigEdits(st.raw, edits);
         tsPath = "src/config/" + name + ".ts";
       }
@@ -3262,19 +3266,43 @@
       if (statusEl) { statusEl.textContent = e.message || "内容构建失败"; statusEl.className = "ap-pane-status err"; }
       return;
     }
+    // 带 SHA 冲突重试的写入：GitHub 在文件被并发/上游改动（sha 不匹配）时会返回 409，
+    // 表现为「点击保存提示失败」。这里在 409 时自动拉取最新内容、用当前 DOM 输入重放编辑后重试一次，
+    // 既保住用户未保存的修改，又避免无意义的保存失败。
+    const putWithRetry = async (path, buildContent, shaKey, rawKey) => {
+      let content = buildContent();
+      let r = await putConfigFile(path, content, st[shaKey]);
+      const conflict = r.status === 409 || (r.data && r.data.githubStatus === 409);
+      if (conflict) {
+        const g = await api("/api/file?path=" + encodeURIComponent(path));
+        if (g.status === 200 && g.data.content != null) {
+          st[rawKey] = g.data.content;
+          st[shaKey] = g.data.sha;
+          content = buildContent(); // 用最新 raw 重新计算偏移（DOM 输入值保持不变）
+          r = await putConfigFile(path, content, st[shaKey]);
+        }
+      }
+      if (r.status !== 200 && r.status !== 201) {
+        throw new Error((r.data && (r.data.error || r.data.message)) || "保存失败");
+      }
+      return r.data;
+    };
     try {
       if (!silent) okPopup("⏳ 上传至 GitHub 中，请等待…", true);
-      const applyRes = async (p, c, shaRef) => {
-        const { status, data } = await putConfigFile(p, c, shaRef());
-        if (status !== 200 && status !== 201) throw new Error((data && (data.error || data.message)) || "保存失败");
-        return data;
-      };
+      const tsBuilder = () => FireflyConfig.applyConfigEdits(st.raw, collectConfigEdits(tsHost || host));
+      const htmlBuilder = () => (footerEditor ? footerEditor.getHTML() : ((host.querySelector("textarea") || {}).value || st.htmlRaw));
       if (tsContent != null) {
-        const d = await applyRes(tsPath, tsContent, () => st.sha);
-        st.sha = d.sha || st.sha;
+        if (tsRetryable) {
+          const d = await putWithRetry(tsPath, tsBuilder, "sha", "raw");
+          st.sha = d.sha || st.sha;
+        } else {
+          const r = await putConfigFile(tsPath, tsContent, st.sha);
+          if (r.status !== 200 && r.status !== 201) throw new Error((r.data && (r.data.error || r.data.message)) || "保存失败");
+          st.sha = (r.data && r.data.sha) || st.sha;
+        }
       }
       if (htmlContent != null) {
-        const d = await applyRes(htmlPath, htmlContent, () => st.htmlSha);
+        const d = await putWithRetry(htmlPath, htmlBuilder, "htmlSha", "raw");
         st.htmlSha = d.sha || st.htmlSha;
       }
       st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
@@ -3335,9 +3363,15 @@
     const el = $("infoReadme");
     if (!el) return;
     try {
-      const { status, data } = await api("/api/file?path=" + encodeURIComponent("src/config/README.md"));
-      if (status === 200 && data.content != null) el.innerHTML = renderMarkdownSimple(data.content);
-      else el.innerHTML = '<div class="info-empty">暂无操作说明（仓库中不存在 src/config/README.md）。</div>';
+      // 操作说明是后台自身的静态资源（public/op-guide.md），随站点部署，无需依赖博客仓库。
+      // 早期版本误读博客仓库的 src/config/README.md（主题配置文档），导致本应显示的后台操作说明不出现。
+      const res = await fetch("op-guide.md", { cache: "no-cache" });
+      if (res.ok) {
+        const md = await res.text();
+        el.innerHTML = renderMarkdownSimple(md);
+        return;
+      }
+      el.innerHTML = '<div class="info-empty">暂无操作说明（未找到 op-guide.md）。</div>';
     } catch (e) {
       el.innerHTML = '<div class="info-empty">操作说明加载失败。</div>';
     }
