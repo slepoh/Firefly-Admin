@@ -88,11 +88,20 @@
     "profileConfig.ts": "用户资料配置",
     "sidebarConfig.ts": "侧边栏布局配置",
     "sponsorConfig.ts": "打赏配置",
+    "mermaidConfig.ts": "Mermaid图表配置",
+    "displaySettingsConfig.ts": "显示设置面板配置",
+    "booknavConfig.ts": "书签导航配置",
+    "FooterConfig.html": "页脚内容",
   };
   const SPEC_NAME_MAP = {
     "about.md": "关于我",
     "friends.mdx": "友链",
     "guestbook.md": "留言页",
+  };
+  // 站点外观 Tab 显示名（比配置列表名更短，去掉「配置」后缀）
+  const AP_NAME_MAP = {
+    "booknavConfig": "书签导航",
+    "displaySettingsConfig": "显示设置面板",
   };
 
   // ----------------------------------------------------------------------
@@ -1379,8 +1388,7 @@
         $("deleteBtn").hidden = false;
         $("fileName").readOnly = true;
         $("extSelect").disabled = true;
-        setStatus("✅ 已保存，GitHub 将自动重新部署", "ok");
-        toast("保存成功");
+        okPopup("✅ 已保存，GitHub 将自动重新部署");
       } else {
         setStatus((data && (data.error || data.message)) || "保存失败", "err");
       }
@@ -1424,6 +1432,7 @@
     $("contentView").hidden = name !== "content";
     $("editorPane").hidden = name !== "editor";
     $("appearanceView").hidden = name !== "appearance";
+    $("configView").hidden = name !== "config";
   }
 
   function backToEmpty() {
@@ -1857,6 +1866,12 @@
       selectApTab("logo");
       return;
     }
+    if (type === "config") {
+      showView("config");
+      // 左侧分类导航 + 右侧操作说明（README）/ 配置编辑
+      loadConfigNav();
+      return;
+    }
     showView("content");
     backToEmpty();
     loadList();
@@ -1915,12 +1930,14 @@
   // ----------------------------------------------------------------------
   const apState = {}; // name(去 .ts) -> { raw, sha, roots, booknavModel, loaded }
 
-  function apHostFor(name) {
-    const pane = document.querySelector('.ap-pane[data-pane="' + name + '"]');
+  function apHostFor(name, root) {
+    const scope = root || document;
+    const pane = scope.querySelector('.ap-pane[data-pane="' + name + '"]');
     return pane ? pane.querySelector(".ap-cfg-host") : null;
   }
-  function apStatusFor(name) {
-    const pane = document.querySelector('.ap-pane[data-pane="' + name + '"]');
+  function apStatusFor(name, root) {
+    const scope = root || document;
+    const pane = scope.querySelector('.ap-pane[data-pane="' + name + '"]');
     return pane ? pane.querySelector(".ap-pane-status") : null;
   }
   function apPaneName(btn) {
@@ -1956,7 +1973,7 @@
     });
     items.forEach((f) => {
       const name = f.name.replace(/\.ts$/, "");
-      const label = CONFIG_NAME_MAP[f.name] || name;
+      const label = AP_NAME_MAP[name] || CONFIG_NAME_MAP[f.name] || name;
       const tab = document.createElement("button");
       tab.className = "ap-tab";
       tab.type = "button";
@@ -1976,9 +1993,9 @@
     });
   }
 
-  async function loadApConfig(name) {
-    if (apState[name] && apState[name].loaded) return;
-    const host = apHostFor(name);
+  async function loadApConfig(name, root) {
+    if (apState[name] && apState[name].loaded) { renderApConfig(name, root); return; }
+    const host = apHostFor(name, root);
     if (!host) return;
     host.innerHTML = '<div class="cfg-empty">加载中…</div>';
     const path = "src/config/" + name + ".ts";
@@ -1992,15 +2009,15 @@
       const st = { raw: data.content, sha: data.sha, roots: parsed.roots, name: name, loaded: true };
       if (name === "booknavConfig") st.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
       apState[name] = st;
-      renderApConfig(name);
+      renderApConfig(name, root);
     } catch (e) {
       host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
     }
   }
 
-  function renderApConfig(name) {
+  function renderApConfig(name, root) {
     const st = apState[name];
-    const host = apHostFor(name);
+    const host = apHostFor(name, root);
     if (!st || !host) return;
     if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
     else renderGenericConfig(host, st.roots);
@@ -2034,18 +2051,18 @@
     });
   }
 
-  async function saveApConfig(name) {
+  async function saveApConfig(name, root) {
     const st = apState[name];
-    const host = apHostFor(name);
-    const statusEl = apStatusFor(name);
+    const host = apHostFor(name, root);
+    const statusEl = apStatusFor(name, root);
     if (!st || !host) return;
     let content;
     try {
       if (name === "booknavConfig") {
-        const root = st.roots.find((r) => r.name === "booknavConfig");
-        if (!root) throw new Error("未找到 booknavConfig");
+        const rootN = st.roots.find((r) => r.name === "booknavConfig");
+        if (!rootN) throw new Error("未找到 booknavConfig");
         const arrText = serializeBooknav(st.booknavModel || []);
-        content = st.raw.slice(0, root.node.start) + arrText + st.raw.slice(root.node.end);
+        content = st.raw.slice(0, rootN.node.start) + arrText + st.raw.slice(rootN.node.end);
       } else {
         const edits = collectConfigEdits(host);
         content = FireflyConfig.applyConfigEdits(st.raw, edits);
@@ -2064,13 +2081,246 @@
       const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
       if (status === 200 || status === 201) {
         st.sha = data.sha || st.sha;
-        if (statusEl) { statusEl.textContent = "✅ 已保存，GitHub 将自动重新部署"; statusEl.className = "ap-pane-status ok"; }
-        toast("保存成功");
+        okPopup("✅ 已保存，GitHub 将自动重新部署");
+        if (statusEl) statusEl.textContent = "";
       } else {
         if (statusEl) { statusEl.textContent = (data && (data.error || data.message)) || "保存失败"; statusEl.className = "ap-pane-status err"; }
       }
     } catch (e) {
       if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
+    }
+  }
+
+  // ----------------------------------------------------------------------
+  // 保存成功弹窗（居中、自动消失，替换原来的「已保存，GitHub 将自动重新部署」提示）
+  // ----------------------------------------------------------------------
+  let okPopupTimer = null;
+  function okPopup(msg) {
+    const el = $("okPopup");
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    // 触发过渡
+    requestAnimationFrame(() => el.classList.add("show"));
+    clearTimeout(okPopupTimer);
+    okPopupTimer = setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => (el.hidden = true), 280);
+    }, 2000);
+  }
+
+  // ----------------------------------------------------------------------
+  // 配置页面：左侧分类导航 + 右侧操作说明（README）/ 配置编辑
+  // 复用配置解析与渲染；用 #cfgPanes 作用域隔离，避免与站点外观同名 .ap-pane 冲突
+  // ----------------------------------------------------------------------
+  function cfgPanesRoot() { return $("cfgPanes"); }
+
+  async function loadConfigNav() {
+    const navList = $("cfgNavList");
+    const panes = $("cfgPanes");
+    if (!navList || !panes) return;
+    navList.innerHTML = "";
+    panes.innerHTML = "";
+    // 操作说明（默认选中）
+    const readmeItem = document.createElement("button");
+    readmeItem.type = "button";
+    readmeItem.className = "cfg-nav-item active";
+    readmeItem.dataset.cfg = "__readme__";
+    readmeItem.innerHTML = '<span class="cni-ico">📘</span><span class="cni-tx">操作说明</span>';
+    navList.appendChild(readmeItem);
+
+    let items = [];
+    try {
+      const { data } = await api("/api/list?type=config");
+      items = data.items || [];
+    } catch (e) { /* 忽略：仅显示说明 */ }
+    const all = items.filter((f) => {
+      const n = f.name.toLowerCase();
+      if (n === "readme.md" || n === "index.ts") return false;
+      return f.name.endsWith(".ts") || f.name.endsWith(".html");
+    });
+    const order = ["siteConfig","analyticsConfig","profileConfig","announcementConfig","backgroundWallpaper","booknavConfig","sidebarConfig","sponsorConfig","commentConfig","navBarConfig","footerConfig","friendsConfig","galleryConfig","licenseConfig","musicConfig","pioConfig","plantumlConfig","coverImageConfig","dynamicConfig","effectsConfig","expressiveCodeConfig","fontConfig","displaySettingsConfig","mermaidConfig"];
+    all.sort((a, b) => {
+      const ia = order.indexOf(a.name.replace(/\.(ts|html)$/, ""));
+      const ib = order.indexOf(b.name.replace(/\.(ts|html)$/, ""));
+      const wa = ia === -1 ? order.length : ia;
+      const wb = ib === -1 ? order.length : ib;
+      return wa - wb || a.name.localeCompare(b.name);
+    });
+    all.forEach((f) => {
+      const name = f.name.replace(/\.(ts|html)$/, "");
+      const ext = f.name.endsWith(".html") ? ".html" : ".ts";
+      const label = CONFIG_NAME_MAP[f.name] || name;
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "cfg-nav-item";
+      tab.dataset.cfg = name;
+      tab.dataset.ext = ext;
+      tab.innerHTML = '<span class="cni-ico">⚙️</span><span class="cni-tx">' + esc(label) + '</span>' +
+        '<span class="cni-origin">' + esc(f.name) + "</span>";
+      navList.appendChild(tab);
+      const pane = document.createElement("div");
+      pane.className = "ap-pane ap-config-pane";
+      pane.dataset.pane = name;
+      pane.hidden = true;
+      pane.innerHTML =
+        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + " · " + esc(name) + '</span>' +
+        '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
+        '<div class="ap-cfg-host config-editor"></div>' +
+        '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
+      panes.appendChild(pane);
+    });
+    loadConfigReadme();
+  }
+
+  function selectCfgTab(name) {
+    document.querySelectorAll("#cfgNavList .cfg-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.cfg === name));
+    const readme = $("cfgReadme");
+    const panes = $("cfgPanes");
+    if (name === "__readme__") {
+      readme.hidden = false;
+      panes.querySelectorAll(".ap-pane").forEach((p) => (p.hidden = true));
+      return;
+    }
+    readme.hidden = true;
+    panes.querySelectorAll(".ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
+    const ext = (document.querySelector('#cfgNavList .cfg-nav-item[data-cfg="' + name + '"]') || {}).dataset?.ext || ".ts";
+    loadCfgConfig(name, ext);
+  }
+
+  async function loadCfgConfig(name, ext) {
+    const root = cfgPanesRoot();
+    const host = apHostFor(name, root);
+    if (!host) return;
+    if (apState[name] && apState[name].loaded) { apState[name].ext = ext; renderCfgConfig(name); return; }
+    host.innerHTML = '<div class="cfg-empty">加载中…</div>';
+    const path = "src/config/" + name + ext;
+    try {
+      const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
+      if (status !== 200 || data.content == null) {
+        host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(path) + "</div>";
+        return;
+      }
+      const st = { raw: data.content, sha: data.sha, name, ext, loaded: true };
+      if (ext === ".ts") {
+        const parsed = FireflyConfig.parseConfig(data.content);
+        st.roots = parsed.roots;
+        if (name === "booknavConfig") st.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
+      }
+      apState[name] = st;
+      renderCfgConfig(name);
+    } catch (e) {
+      host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
+    }
+  }
+
+  function renderCfgConfig(name) {
+    const st = apState[name];
+    const host = apHostFor(name, cfgPanesRoot());
+    if (!st || !host) return;
+    if (st.ext === ".html") {
+      host.innerHTML = '<textarea class="cfg-raw" id="cfgRaw_' + name + '"></textarea>';
+      host.querySelector("textarea").value = st.raw;
+      return;
+    }
+    if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
+    else renderGenericConfig(host, st.roots);
+  }
+
+  async function saveCfgConfig(name) {
+    const st = apState[name];
+    const root = cfgPanesRoot();
+    const host = apHostFor(name, root);
+    const statusEl = apStatusFor(name, root);
+    if (!st || !host) return;
+    let content;
+    try {
+      if (st.ext === ".html") {
+        const ta = host.querySelector("textarea");
+        content = ta ? ta.value : st.raw;
+      } else if (name === "booknavConfig") {
+        const rootN = st.roots.find((r) => r.name === "booknavConfig");
+        if (!rootN) throw new Error("未找到 booknavConfig");
+        const arrText = serializeBooknav(st.booknavModel || []);
+        content = st.raw.slice(0, rootN.node.start) + arrText + st.raw.slice(rootN.node.end);
+      } else {
+        const edits = collectConfigEdits(host);
+        content = FireflyConfig.applyConfigEdits(st.raw, edits);
+      }
+    } catch (e) {
+      if (statusEl) { statusEl.textContent = e.message || "内容构建失败"; statusEl.className = "ap-pane-status err"; }
+      return;
+    }
+    const payload = {
+      path: "src/config/" + name + (st.ext || ".ts"),
+      content,
+      sha: st.sha || undefined,
+      message: "Update " + name + (st.ext || ".ts") + " via FireflyCMS",
+    };
+    try {
+      const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
+      if (status === 200 || status === 201) {
+        st.sha = data.sha || st.sha;
+        okPopup("✅ 已保存，GitHub 将自动重新部署");
+        if (statusEl) statusEl.textContent = "";
+      } else {
+        if (statusEl) { statusEl.textContent = (data && (data.error || data.message)) || "保存失败"; statusEl.className = "ap-pane-status err"; }
+      }
+    } catch (e) {
+      if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
+    }
+  }
+
+  // 极简 Markdown 渲染（用于配置区操作说明）
+  function renderMarkdownSimple(md) {
+    const escHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const inline = (s) => escHtml(s)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    const lines = (md || "").split(/\r?\n/);
+    let html = "", i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (/^```/.test(line)) {
+        let code = ""; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) { code += lines[i] + "\n"; i++; }
+        i++;
+        html += "<pre><code>" + escHtml(code) + "</code></pre>";
+        continue;
+      }
+      const hm = line.match(/^(#{1,4})\s+(.*)$/);
+      if (hm) { const l = hm[1].length; html += "<h" + l + ">" + inline(hm[2]) + "</h" + l + ">"; i++; continue; }
+      if (/^\s*[-*]\s+/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*]\s+/, "")); i++; }
+        html += "<ul>" + items.map((it) => "<li>" + inline(it) + "</li>").join("") + "</ul>";
+        continue;
+      }
+      if (/^\s*\d+\.\s+/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { items.push(lines[i].replace(/^\s*\d+\.\s+/, "")); i++; }
+        html += "<ol>" + items.map((it) => "<li>" + inline(it) + "</li>").join("") + "</ol>";
+        continue;
+      }
+      if (line.trim() === "") { i++; continue; }
+      const para = [];
+      while (i < lines.length && lines[i].trim() !== "" && !/^(#{1,4})\s/.test(lines[i]) && !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i]) && !/^```/.test(lines[i])) { para.push(lines[i]); i++; }
+      html += "<p>" + inline(para.join(" ")) + "</p>";
+      continue;
+    }
+    return html;
+  }
+
+  async function loadConfigReadme() {
+    const el = $("cfgReadme");
+    if (!el) return;
+    try {
+      const { status, data } = await api("/api/file?path=" + encodeURIComponent("src/config/README.md"));
+      if (status === 200 && data.content != null) el.innerHTML = renderMarkdownSimple(data.content);
+      else el.innerHTML = '<div class="cfg-readme-empty">暂无操作说明（仓库中不存在 src/config/README.md）。</div>';
+    } catch (e) {
+      el.innerHTML = '<div class="cfg-readme-empty">操作说明加载失败。</div>';
     }
   }
 
@@ -2297,6 +2547,25 @@
       const b = e.target.closest(".ap-save");
       if (b) saveApConfig(apPaneName(b));
     });
+
+    // 配置页面：左侧分类导航切换
+    const cfgNavListEl = $("cfgNavList");
+    if (cfgNavListEl) cfgNavListEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".cfg-nav-item");
+      if (b) selectCfgTab(b.dataset.cfg);
+    });
+    // 配置页面：保存按钮（作用域隔离到 #cfgPanes）
+    const cfgPanesEl = $("cfgPanes");
+    if (cfgPanesEl) cfgPanesEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".ap-save");
+      if (b) {
+        const fname = b.dataset.save || "";
+        const name = fname.replace(/\.(ts|html)$/, "");
+        saveCfgConfig(name);
+      }
+    });
+    // 配置页面：上传资源（复用隐藏的 #fileInput）
+    on("cfgUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
 
     // 已上传列表：点击「插入」
     const ul = $("upList");

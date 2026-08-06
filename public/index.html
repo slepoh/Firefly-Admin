@@ -52,6 +52,7 @@
           <div class="ct-actions">
             <button id="batchDelBtn" class="btn danger sm">🗑 批量删除</button>
             <button id="newBtn" class="btn primary sm">＋ 新建</button>
+            <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
           </div>
         </div>
         <div class="list-tools">
@@ -59,10 +60,9 @@
           <input type="text" id="searchInput" placeholder="搜索文件名…" />
           <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
         </div>
-        <!-- 快捷操作：新建分类 + 上传资源（常驻可见） -->
+        <!-- 快捷操作：新建分类（配置页不显示，因配置页已改为左侧分类导航） -->
         <div class="list-tools2">
           <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
-          <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
         </div>
         <div class="file-list" id="fileList"></div>
         <div class="crumb" id="crumb"></div>
@@ -126,6 +126,21 @@
           <!-- 其余配置 Tab 对应的编辑面板由 app.js 动态生成 -->
           <div id="apConfigPanes"></div>
         </div>
+      </div>
+
+      <!-- 配置视图：左侧分类导航 + 右侧操作说明 / 配置编辑 -->
+      <div class="config-view" id="configView" hidden>
+        <aside class="cfg-nav" id="cfgNav">
+          <div class="cfg-nav-head">
+            <span class="cfg-nav-title">配置分类</span>
+            <button id="cfgUploadBtn" class="btn ghost sm" type="button" title="上传资源到仓库">📤 上传</button>
+          </div>
+          <div class="cfg-nav-list" id="cfgNavList"></div>
+        </aside>
+        <section class="cfg-content" id="cfgContent">
+          <div class="cfg-readme" id="cfgReadme"><div class="cfg-readme-empty">加载操作说明…</div></div>
+          <div id="cfgPanes"></div>
+        </section>
       </div>
 
       <!-- 编辑区 -->
@@ -212,6 +227,9 @@
 
   <!-- 提示条 -->
   <div class="toast" id="toast" hidden></div>
+
+  <!-- 保存成功弹窗（自动消失） -->
+  <div class="ok-popup" id="okPopup" hidden></div>
 
   <script src="/vendor/toastui/toastui-editor-all.min.js"></script>
   <script src="/config-parser.js"></script>
