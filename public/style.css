@@ -172,7 +172,20 @@ body {
 /* 主导航分组板块：功能菜单 / 信息 分开展示，视觉上成为两个导航板块 */
 .nav-group { display: flex; flex-direction: column; }
 .nav-group + .nav-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-.nav-group-title { font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 13px 2px; letter-spacing: .4px; }
+.nav-group-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 800;
+  color: #5d6673;
+  padding: 6px 14px 4px;
+  letter-spacing: .8px;
+  user-select: none;
+}
+/* 板块标题前置主色竖条，强化分组层次 */
+.nav-group-title::before {
+  content: ""; flex: none;
+  width: 3px; height: 11px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--primary), var(--primary-d));
+}
 
 /* 退出分区：桌面端整体隐藏；移动端独立显示并靠底部（与功能菜单 / 信息分开） */
 .nav-group-logout { display: none; margin-top: auto; }
@@ -689,7 +702,7 @@ textarea { resize: vertical; }
   .sidebar.open { transform: translateX(0); }
   /* 桌面折叠态在移动端还原为全宽抽屉：避免窗口缩小时折叠类把抽屉压成 64px */
   .layout.sidebar-collapsed .sidebar { width: 230px; min-width: 230px; padding: 0; }
-  .layout.sidebar-collapsed .nav-group-title { display: block; }
+  .layout.sidebar-collapsed .nav-group-title { display: flex; }
   .layout.sidebar-collapsed .nav-group + .nav-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
   .layout.sidebar-collapsed .nav-btn, .layout.sidebar-collapsed .nav-link { justify-content: flex-start; padding: 12px; }
   .layout.sidebar-collapsed .nav-btn .ni-tx, .layout.sidebar-collapsed .nav-link .ni-tx { display: inline; }
