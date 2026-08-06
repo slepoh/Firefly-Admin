@@ -553,6 +553,13 @@
     // 图片与文档分开：图片走宫格预览，文档走可编辑列表
     const _docs = _files.filter((f) => !IMG_RE.test(f.name));
     const _imgs = _files.filter((f) => IMG_RE.test(f.name));
+    // 文档列表表格化：有文档时插入表头（文件名称 / 大小 / 操作），列宽与 .file-item 的 grid 模板一致
+    if (_docs.length) {
+      const head = document.createElement("div");
+      head.className = "file-list-head";
+      head.innerHTML = '<span class="flh-name">文件名称</span><span class="flh-size">大小</span><span class="flh-actions">操作</span>';
+      box.appendChild(head);
+    }
     _docs.forEach((f) => {
         const div = document.createElement("div");
         div.className = "file-item";
@@ -595,15 +602,14 @@
 
         div.innerHTML =
           check +
-          `<div class="fi-main"><span class="fi-icon">${icon}</span>${nameHtml}` +
+          `<div class="fi-main"><span class="fi-icon">${icon}</span>${nameHtml}</div>` +
           (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`) +
-          `</div>` +
           `<div class="fi-actions">${actions}</div>`;
         div.title = f.name; // 悬停显示完整文件名（含后缀）
 
-        // 点击主区域：目录进入、文件打开编辑
-        const main = div.querySelector(".fi-main");
-        main.onclick = () => {
+        // 点击整行：目录进入、文件打开编辑（复选框与行内按钮不触发）
+        div.onclick = (e) => {
+          if (e.target.closest(".fi-check") || e.target.closest(".fi-act")) return;
           if (isDir) navigate(f);
           else openFile(f);
           if (isMobile()) closeDrawer();
