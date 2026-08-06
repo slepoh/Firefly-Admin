@@ -48,6 +48,8 @@
         <button class="nav-btn" type="button" data-type="cfgfunc"><span class="ni-ico">🧩</span><span class="ni-tx">功能配置</span></button>
         <button class="nav-btn" type="button" data-type="cfgpage"><span class="ni-ico">📑</span><span class="ni-tx">页面配置</span></button>
         <button class="nav-btn" type="button" data-type="cfgext"><span class="ni-ico">🧪</span><span class="ni-tx">扩展功能</span></button>
+        <button class="nav-btn" type="button" data-type="readme"><span class="ni-ico">📖</span><span class="ni-tx">操作说明</span></button>
+        <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
         <button class="nav-btn" type="button" id="logoutNavBtn"><span class="ni-ico">🚪</span><span class="ni-tx">退出登录</span></button>
       </nav>
       <div class="nav-foot" id="navFoot">
@@ -108,7 +110,6 @@
           <div class="cfg-nav-scroll" id="cfgNavScroll"></div>
         </aside>
         <section class="cfg-content" id="cfgContent">
-          <div class="cfg-readme" id="cfgReadme"><div class="cfg-readme-empty">加载操作说明…</div></div>
           <div id="cfgPanes"></div>
           <!-- 站点资源：Logo（深/浅两套）与作者头像，从「站点外观」合并而来 -->
           <div class="cfg-resource" id="cfgResource" hidden>
@@ -146,6 +147,42 @@
             </div>
           </div>
         </section>
+      </div>
+
+      <!-- 信息视图：操作说明（README） / 关于 -->
+      <div class="info-view" id="infoView" hidden>
+        <div class="info-pane info-readme" id="infoReadme"><div class="info-empty">加载操作说明…</div></div>
+        <div class="info-pane info-about" id="infoAbout" hidden>
+          <section class="about-card">
+            <h3 class="about-h">📌 项目介绍</h3>
+            <p><strong>Firefly-Admin</strong> 是 Firefly 博客（<a href="https://github.com/slepoh/Firefly" target="_blank" rel="noopener">slepoh/Firefly</a>）的可视化管理后台：通过 GitHub API 远程增删改文章、动态、单页与图库素材，在线编辑全部站点配置文件，保存即提交到 GitHub，由 Cloudflare 自动重新部署，无需服务器与构建。</p>
+            <ul>
+              <li><strong>文章内容</strong> — Markdown / MDX 结构化编辑，支持子目录分类</li>
+              <li><strong>我的动态</strong> — 时间线式动态发布，自动按时间命名</li>
+              <li><strong>页面信息</strong> — 关于 / 友链 / 留言等单页管理</li>
+              <li><strong>图库素材</strong> — 图片资源集中浏览、上传与管理</li>
+              <li><strong>基础 / 功能 / 页面 / 扩展配置</strong> — 站点全部配置在线可视化编辑</li>
+            </ul>
+          </section>
+          <section class="about-card">
+            <h3 class="about-h">🏭 业务范围</h3>
+            <p>机械加工制造与工业设备贸易，主营 <strong>金属破碎机、撕碎机</strong> 等再生资源处理设备的设计、生产与销售，可提供整机、配件与定制化 OEM / ODM 方案，产品服务于国内外市场。</p>
+          </section>
+          <section class="about-card">
+            <h3 class="about-h">📮 联系信息</h3>
+            <p class="about-line">📧 邮箱：<a href="mailto:your@email.com">your@email.com</a>（占位，可联系作者替换为实际邮箱）</p>
+            <div class="about-qrs">
+              <figure class="about-qr">
+                <img src="/uploads/qr-whatsapp.jpg" alt="WhatsApp 二维码" />
+                <figcaption>WhatsApp · 联系作者</figcaption>
+              </figure>
+              <figure class="about-qr">
+                <img src="/uploads/qr-telegram.jpg" alt="Telegram 二维码" />
+                <figcaption>Telegram · 加群交流</figcaption>
+              </figure>
+            </div>
+          </section>
+        </div>
       </div>
 
       <!-- 编辑区 -->

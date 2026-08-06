@@ -2029,6 +2029,7 @@
     $("contentView").hidden = name !== "content";
     $("editorPane").hidden = name !== "editor";
     $("configView").hidden = name !== "config";
+    $("infoView").hidden = name !== "info";
   }
 
   function backToEmpty() {
@@ -2489,7 +2490,7 @@
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
-    const titles = { posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能" };
+    const titles = { posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能", readme: "操作说明", about: "关于" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
     const isConfig = state.type === "config";
@@ -2508,8 +2509,17 @@
 
     if (isConfig) {
       showView("config");
-      // 左侧分类导航 + 右侧操作说明（README）/ 配置编辑（含站点资源：Logo / 头像）
+      // 左侧分类导航 + 右侧配置编辑（含站点资源：Logo / 头像）
       loadConfigNav(state.cfgGroup);
+      return;
+    }
+    // 信息类菜单：操作说明（README）/ 关于——独立于内容与配置视图，点击直接显示内容
+    if (type === "readme" || type === "about") {
+      const isReadme = type === "readme";
+      $("infoReadme").hidden = !isReadme;
+      $("infoAbout").hidden = isReadme;
+      showView("info");
+      if (isReadme) loadInfoReadme();
       return;
     }
     if (type === "gallery") {
@@ -2906,13 +2916,6 @@
     panes.innerHTML = "";
     const headTitle = scroll.parentElement && scroll.parentElement.querySelector(".cfg-nav-title");
     if (headTitle) headTitle.textContent = groupFilter ? groupFilter : "配置分类";
-    // 操作说明（默认选中）
-    const readmeItem = document.createElement("button");
-    readmeItem.type = "button";
-    readmeItem.className = "cfg-nav-item active";
-    readmeItem.dataset.cfg = "__readme__";
-    readmeItem.innerHTML = '<span class="cni-tx">操作说明</span>';
-    scroll.appendChild(readmeItem);
 
     // 已规划的配置文件基名集合（用于把其余文件归入「其他配置」）
     const curatedBases = new Set();
@@ -3022,31 +3025,24 @@
       grpEl.appendChild(list);
       scroll.appendChild(grpEl);
     }
-    loadConfigReadme();
+    // 进入配置页默认选中第一个导航项（原「操作说明」已移至主菜单）
+    const firstItem = scroll.querySelector(".cfg-nav-item");
+    if (firstItem) selectCfgTab(firstItem.dataset.cfg);
   }
 
   function selectCfgTab(name) {
     document.querySelectorAll("#cfgNav .cfg-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.cfg === name));
     const resource = $("cfgResource");
-    const readme = $("cfgReadme");
     const panes = $("cfgPanes");
     // 站点资源（Logo / 头像）：从「站点外观」合并而来，仅图片上传，不读取结构化配置
     if (name === "logo" || name === "avatar") {
       if (resource) resource.hidden = false;
-      if (readme) readme.hidden = true;
       if (panes) { panes.hidden = true; panes.querySelectorAll(".ap-pane").forEach((p) => (p.hidden = true)); }
       if (resource) resource.querySelectorAll(".res-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
       loadAppearance();
       return;
     }
     if (resource) resource.hidden = true;
-    if (name === "__readme__") {
-      readme.hidden = false;
-      panes.hidden = true;
-      panes.querySelectorAll(".ap-pane").forEach((p) => (p.hidden = true));
-      return;
-    }
-    readme.hidden = true;
     panes.hidden = false;
     panes.querySelectorAll(".ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
     const tabEl = document.querySelector('#cfgNavScroll .cfg-nav-item[data-cfg="' + name + '"]');
@@ -3281,15 +3277,15 @@
     return html;
   }
 
-  async function loadConfigReadme() {
-    const el = $("cfgReadme");
+  async function loadInfoReadme() {
+    const el = $("infoReadme");
     if (!el) return;
     try {
       const { status, data } = await api("/api/file?path=" + encodeURIComponent("src/config/README.md"));
       if (status === 200 && data.content != null) el.innerHTML = renderMarkdownSimple(data.content);
-      else el.innerHTML = '<div class="cfg-readme-empty">暂无操作说明（仓库中不存在 src/config/README.md）。</div>';
+      else el.innerHTML = '<div class="info-empty">暂无操作说明（仓库中不存在 src/config/README.md）。</div>';
     } catch (e) {
-      el.innerHTML = '<div class="cfg-readme-empty">操作说明加载失败。</div>';
+      el.innerHTML = '<div class="info-empty">操作说明加载失败。</div>';
     }
   }
 
