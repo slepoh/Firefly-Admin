@@ -43,8 +43,8 @@ body {
   cursor: pointer; padding: 4px 8px; border-radius: 8px; color: var(--text);
 }
 .icon-btn:hover { background: #f0f2f5; }
-/* PC 端侧边栏常驻，汉堡按钮仅在移动端（抽屉）显示 */
-#menuBtn { display: none; }
+/* PC 端侧边栏常驻，汉堡按钮同时承担折叠（桌面）与抽屉（移动）入口 */
+#menuBtn { display: inline-flex; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 .brand .logo {
   width: 32px; height: 32px; display: grid; place-items: center;
@@ -687,6 +687,12 @@ textarea { resize: vertical; }
     box-shadow: var(--shadow); overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
   .sidebar.open { transform: translateX(0); }
+  /* 桌面折叠态在移动端还原为全宽抽屉：避免窗口缩小时折叠类把抽屉压成 64px */
+  .layout.sidebar-collapsed .sidebar { width: 230px; min-width: 230px; padding: 0; }
+  .layout.sidebar-collapsed .nav-group-title { display: block; }
+  .layout.sidebar-collapsed .nav-group + .nav-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .layout.sidebar-collapsed .nav-btn, .layout.sidebar-collapsed .nav-link { justify-content: flex-start; padding: 12px; }
+  .layout.sidebar-collapsed .nav-btn .ni-tx, .layout.sidebar-collapsed .nav-link .ni-tx { display: inline; }
   .drawer-backdrop.show { display: block; }
   .brand .sub { display: none; }
   .editor { min-height: 0; }
