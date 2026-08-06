@@ -37,6 +37,11 @@
         <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span></button>
         <button class="nav-btn" type="button" data-type="appearance"><span class="ni-ico">🎨</span><span class="ni-tx">站点外观</span></button>
       </nav>
+      <div class="nav-foot">
+        <a class="nav-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener" title="GitHub 开源地址">
+          <span class="ni-ico">🔗</span><span class="ni-tx">开源地址</span>
+        </a>
+      </div>
     </aside>
 
     <!-- 右侧主区域：内容列表 / 站点外观 / 编辑器（同一时刻仅显示一个） -->
@@ -87,7 +92,7 @@
       <div class="appearance-view" id="appearanceView" hidden>
         <div class="ap-tabs" id="apTabs">
           <button class="ap-tab active" type="button" data-tab="logo">站点Logo</button>
-          <button class="ap-tab" type="button" data-tab="avatar">作者头像</button>
+          <button class="ap-tab" type="button" data-tab="profileConfig">作者资料</button>
           <!-- 其余配置 Tab 由 app.js 动态从 GitHub 拉取 src/config 下全部 .ts 生成 -->
         </div>
         <div class="ap-body" id="apBody">
@@ -110,7 +115,7 @@
               </div>
             </div>
           </div>
-          <div class="ap-pane" data-pane="avatar" hidden>
+          <div class="ap-pane" data-pane="profileConfig" hidden>
             <div class="ap-group">
               <div class="ap-group-title">作者头像</div>
               <div class="ap-cards">
@@ -122,6 +127,12 @@
                 </div>
               </div>
             </div>
+            <div class="ap-pane-head">
+              <span class="ap-pane-title">用户资料配置 · profileConfig</span>
+              <button class="btn primary sm ap-save" type="button" data-save="profileConfig.ts">💾 保存</button>
+            </div>
+            <div class="ap-cfg-host config-editor"></div>
+            <div class="ap-pane-status" data-status="profileConfig.ts"></div>
           </div>
           <!-- 其余配置 Tab 对应的编辑面板由 app.js 动态生成 -->
           <div id="apConfigPanes"></div>

@@ -455,10 +455,11 @@
         if (modifiable) state.selectableCount++;
 
         // 行内操作按钮：编辑常驻；重命名 / 删除仅可修改板块
-        let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️ 编辑</button>`;
+        // 文字包入 .fi-act-label，移动端隐藏文字仅留图标，避免遮挡文件名
+        let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️<span class="fi-act-label">编辑</span></button>`;
         if (modifiable) {
-          if (!isDir) actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">✏️ 重命名</button>`;
-          actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑 删除</button>`;
+          if (!isDir) actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">✏️<span class="fi-act-label">重命名</span></button>`;
+          actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑<span class="fi-act-label">删除</span></button>`;
         }
 
         div.innerHTML =
@@ -1947,7 +1948,8 @@
   function selectApTab(name) {
     document.querySelectorAll("#apTabs .ap-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
     document.querySelectorAll("#apBody .ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-    if (name !== "logo" && name !== "avatar") loadApConfig(name);
+    // 作者头像已合并进 profileConfig 面板；logo 为纯资源、无需读取配置
+    if (name !== "logo") loadApConfig(name);
   }
 
   // 动态生成站点外观的配置 Tab：从 GitHub 拉取 src/config 下全部 .ts（排除 index.ts），
@@ -1964,6 +1966,8 @@
     } catch (e) { /* 忽略：仅展示资源 Tab */ }
     // 常用顺序靠前；其余按文件名
     const order = ["profileConfig", "backgroundWallpaper", "booknavConfig", "announcementConfig", "sponsorConfig", "sidebarConfig"];
+    // 作者头像已与 profileConfig 合并为「作者资料」面板，故 profileConfig 不再单独生成动态 Tab
+    items = items.filter((f) => f.name.replace(/\.ts$/, "") !== "profileConfig");
     items.sort((a, b) => {
       const ia = order.indexOf(a.name.replace(/\.ts$/, ""));
       const ib = order.indexOf(b.name.replace(/\.ts$/, ""));
@@ -1994,9 +1998,12 @@
   }
 
   async function loadApConfig(name, root) {
-    if (apState[name] && apState[name].loaded) { renderApConfig(name, root); return; }
     const host = apHostFor(name, root);
     if (!host) return;
+    const st = apState[name];
+    // 远程优先：打开配置时始终从 GitHub 读取最新文件；
+    // 仅当本地存在未保存修改（dirty）时才保留已编辑内容、不覆盖远程。
+    if (st && st.dirty) { renderApConfig(name, root); return; }
     host.innerHTML = '<div class="cfg-empty">加载中…</div>';
     const path = "src/config/" + name + ".ts";
     try {
@@ -2006,9 +2013,9 @@
         return;
       }
       const parsed = FireflyConfig.parseConfig(data.content);
-      const st = { raw: data.content, sha: data.sha, roots: parsed.roots, name: name, loaded: true };
-      if (name === "booknavConfig") st.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
-      apState[name] = st;
+      const newSt = { raw: data.content, sha: data.sha, roots: parsed.roots, name: name, loaded: true, dirty: false };
+      if (name === "booknavConfig") newSt.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
+      apState[name] = newSt;
       renderApConfig(name, root);
     } catch (e) {
       host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
@@ -2081,6 +2088,7 @@
       const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
       if (status === 200 || status === 201) {
         st.sha = data.sha || st.sha;
+        st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
         okPopup("✅ 已保存，GitHub 将自动重新部署");
         if (statusEl) statusEl.textContent = "";
       } else {
@@ -2192,7 +2200,9 @@
     const root = cfgPanesRoot();
     const host = apHostFor(name, root);
     if (!host) return;
-    if (apState[name] && apState[name].loaded) { apState[name].ext = ext; renderCfgConfig(name); return; }
+    const st = apState[name];
+    // 远程优先：非 dirty 时重新从 GitHub 读取最新文件；dirty 时保留未保存编辑
+    if (st && st.dirty) { st.ext = ext; renderCfgConfig(name); return; }
     host.innerHTML = '<div class="cfg-empty">加载中…</div>';
     const path = "src/config/" + name + ext;
     try {
@@ -2201,13 +2211,13 @@
         host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(path) + "</div>";
         return;
       }
-      const st = { raw: data.content, sha: data.sha, name, ext, loaded: true };
+      const newSt = { raw: data.content, sha: data.sha, name, ext, loaded: true, dirty: false };
       if (ext === ".ts") {
         const parsed = FireflyConfig.parseConfig(data.content);
-        st.roots = parsed.roots;
-        if (name === "booknavConfig") st.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
+        newSt.roots = parsed.roots;
+        if (name === "booknavConfig") newSt.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
       }
-      apState[name] = st;
+      apState[name] = newSt;
       renderCfgConfig(name);
     } catch (e) {
       host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
@@ -2261,6 +2271,7 @@
       const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
       if (status === 200 || status === 201) {
         st.sha = data.sha || st.sha;
+        st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
         okPopup("✅ 已保存，GitHub 将自动重新部署");
         if (statusEl) statusEl.textContent = "";
       } else {
@@ -2564,6 +2575,22 @@
         saveCfgConfig(name);
       }
     });
+    // 配置编辑「脏标记」：任何输入/选择/书签增删都标记为未保存，
+    // 使远程优先读取逻辑在存在本地编辑时不会覆盖用户修改。
+    function markCfgDirty(e) {
+      const host = e.target.closest && e.target.closest(".ap-cfg-host");
+      if (!host) return;
+      const pane = host.closest(".ap-pane");
+      if (!pane || !pane.dataset.pane) return;
+      if (!apState[pane.dataset.pane]) return;
+      // 输入框/选择框直接标记；点击仅当作用在按钮上（书签的结构性增删改）
+      if (e.type === "click" && !(e.target.closest && e.target.closest("button"))) return;
+      apState[pane.dataset.pane].dirty = true;
+    }
+    document.addEventListener("input", markCfgDirty);
+    document.addEventListener("change", markCfgDirty);
+    document.addEventListener("click", markCfgDirty);
+
     // 配置页面：上传资源（复用隐藏的 #fileInput）
     on("cfgUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
 

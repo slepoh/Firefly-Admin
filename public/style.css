@@ -76,8 +76,14 @@ body {
 
 /* 布局 */
 .layout { display: flex; height: calc(100vh - 56px); height: calc(100dvh - 56px); overflow: hidden; }
-/* 桌面端折叠侧边栏：释放横向空间，编辑区铺满 */
-.layout.sidebar-collapsed .sidebar { width: 0; min-width: 0; border-right: none; padding: 0; }
+/* 桌面端折叠侧边栏：折叠为窄图标栏，仍显示导航图标，而非完全隐藏 */
+.layout.sidebar-collapsed .sidebar { width: 64px; min-width: 64px; border-right: 1px solid var(--border); padding: 0; }
+.layout.sidebar-collapsed .nav-bar { padding: 14px 8px; }
+.layout.sidebar-collapsed .nav-btn { justify-content: center; padding: 12px 0; }
+.layout.sidebar-collapsed .nav-btn .ni-tx { display: none; }
+.layout.sidebar-collapsed .nav-foot { padding: 10px 0; border-top: 1px solid var(--border); }
+.layout.sidebar-collapsed .nav-link { justify-content: center; padding: 10px 0; }
+.layout.sidebar-collapsed .nav-link .ni-tx { display: none; }
 
 .sidebar {
   width: 218px;
@@ -91,7 +97,7 @@ body {
 }
 
 /* 左侧：纯导航栏 */
-.nav-bar { display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; }
+.nav-bar { display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; flex: 1; min-height: 0; }
 .nav-btn {
   display: flex; align-items: center; gap: 11px; width: 100%;
   border: none; background: transparent; padding: 12px 13px; border-radius: 11px;
@@ -101,6 +107,17 @@ body {
 .nav-btn .ni-ico { font-size: 17px; width: 20px; text-align: center; flex: none; }
 .nav-btn:hover { background: #f0f2f5; }
 .nav-btn.active { background: linear-gradient(135deg, #fff1e3, #ffe6d2); color: var(--primary-d); }
+
+/* 侧栏底部：开源地址 */
+.nav-foot { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); flex: none; }
+.nav-link {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 10px 13px; border-radius: 11px; text-decoration: none;
+  font-size: 14.5px; font-weight: 600; color: #51585f;
+  transition: background .15s, color .15s;
+}
+.nav-link:hover { background: #f0f2f5; color: var(--primary-d); }
+.nav-link .ni-ico { font-size: 17px; width: 20px; text-align: center; flex: none; }
 
 /* 右侧主区域：内容列表 / 站点外观 / 编辑器 三视图 */
 .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -626,6 +643,11 @@ textarea { resize: vertical; }
   .cfg-group-body { padding-left: 6px; }
   .cfg-group { margin: 8px 8px; }
   .cfg-locked-note { align-self: flex-end; }
+  /* 移动端：列表行内操作按钮仅显示图标，避免遮挡文件名 */
+  .fi-act { padding: 6px 9px; }
+  .fi-act-label { display: none; }
+  .fi-size { display: none; }
+  .fi-origin { max-width: 84px; }
 }
 
 /* 编辑器顶部操作栏（返回 / 删除 / 保存） */
