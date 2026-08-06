@@ -258,6 +258,10 @@
       var elemStart = sc.next;
       var leading = sc.comments;
       if (src[elemStart] === "]") { i = elemStart + 1; break; }
+      // 容忍空元素（如 ["a",, "b"] 中的双逗号 / 多余逗号 / 残留尾逗号）：
+      // 直接跳到下一个逗号后继续，避免 parseValue 在「,」上抛错导致整段数组乃至
+      // 整个配置对象被上层 catch 吞掉（表现为后台配置选项整片消失）。
+      if (src[elemStart] === ",") { prevEnd = elemStart + 1; continue; }
       var val = parseValue(src, elemStart);
       var afterVal = skipTypeAssertion(src, val.end);
       var trail = inlineTrailingComment(src, afterVal);
@@ -349,6 +353,9 @@
         var node = parseValue(src, i);
         var rootComment = leadingCommentBefore(src, m.index);
         roots.push({ name: name, node: node, start: node.start, end: node.end, comment: rootComment });
+        // 关键：解析完一个根后，把正则扫描位置推进到「值末尾」，避免下次 exec 从值内部
+        // （尤其字符串值）重新开始，从而把值文本里出现的 const 误判为新的配置根。
+        re.lastIndex = node.end;
       } catch (e) {
         // 单个定义解析失败：跳过该定义，避免整文件不可用
       }
