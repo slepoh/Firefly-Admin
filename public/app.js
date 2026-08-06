@@ -2464,16 +2464,22 @@
   // 事件绑定
   // ----------------------------------------------------------------------
   // 切换板块：左侧导航选中，右侧显示对应视图（内容列表 / 站点外观）
+  // 配置子菜单映射：功能配置 / 页面配置 / 扩展功能 提升为与「配置」平级的左侧导航
+  const CFG_GROUP_FOR_TYPE = { cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能" };
+
+  // 切换板块：左侧导航选中，右侧显示对应视图（内容列表 / 站点外观 / 配置）
   function selectSection(type) {
-    state.type = type;
+    const cfgGroupType = CFG_GROUP_FOR_TYPE[type];
+    state.type = cfgGroupType ? "config" : type;
+    state.cfgGroup = cfgGroupType || null;
     state.subdir = "";
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
-    const titles = { posts: "文章", dynamic: "动态", spec: "单页", gallery: "图库", config: "配置" };
+    const titles = { posts: "文章", dynamic: "动态", spec: "单页", gallery: "图库", config: "配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能" };
     $("ctTitle").textContent = titles[type] || type;
-    // 配置类：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类（仅文章/动态/单页/图库可写）
-    const isConfig = type === "config";
+    // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
+    const isConfig = state.type === "config";
     const isGallery = type === "gallery";
     // 图库：启用 上传 / 新建分类 / 全选 / 批量删除（每项自带删除按钮）；隐藏 新建文件 与 搜索框
     $("selectAllRow").hidden = isConfig;
@@ -2487,10 +2493,10 @@
 
     state.selected.clear();
 
-    if (type === "config") {
+    if (isConfig) {
       showView("config");
       // 左侧分类导航 + 右侧操作说明（README）/ 配置编辑（含站点资源：Logo / 头像）
-      loadConfigNav();
+      loadConfigNav(state.cfgGroup);
       return;
     }
     if (type === "gallery") {
@@ -2641,6 +2647,7 @@
       { key: "backgroundWallpaper", label: "背景壁纸配置", file: "backgroundWallpaper.ts" },
       { key: "sidebarConfig", label: "侧边栏布局配置", file: "sidebarConfig.ts" },
       { key: "announcementConfig", label: "公告配置", file: "announcementConfig.ts" },
+      { key: "profileConfig", label: "用户资料配置", file: "profileConfig.ts" },
     ]},
     { title: "功能配置", items: [
       { key: "fontConfig", label: "字体配置", file: "fontConfig.ts" },
@@ -2649,6 +2656,7 @@
       { key: "musicConfig", label: "音乐播放器配置", file: "musicConfig.ts" },
       { key: "plantumlConfig", label: "PlantUML 图表配置", file: "plantumlConfig.ts" },
       { key: "mermaidConfig", label: "Mermaid图表配置", file: "mermaidConfig.ts" },
+      { key: "analyticsConfig", label: "统计分析配置", file: "analyticsConfig.ts" },
     ]},
     { title: "页面配置", items: [
       { key: "friendsConfig", label: "友链配置", file: "friendsConfig.ts" },
@@ -2660,6 +2668,9 @@
       { key: "effectsConfig", label: "动画特效配置", file: "effectsConfig.ts" },
       { key: "licenseConfig", label: "许可证配置", file: "licenseConfig.ts" },
       { key: "pioConfig", label: "看板娘配置", file: "pioConfig.ts" },
+      { key: "dynamicConfig", label: "动态页面配置", file: "dynamicConfig.ts" },
+      { key: "expressiveCodeConfig", label: "代码高亮配置", file: "expressiveCodeConfig.ts" },
+      { key: "displaySettingsConfig", label: "显示设置面板配置", file: "displaySettingsConfig.ts" },
     ]},
   ];
 
@@ -2873,12 +2884,14 @@
     host.appendChild(wrap);
   }
 
-  async function loadConfigNav() {
+  async function loadConfigNav(groupFilter) {
     const scroll = $("cfgNavScroll");
     const panes = $("cfgPanes");
     if (!scroll || !panes) return;
     scroll.innerHTML = "";
     panes.innerHTML = "";
+    const headTitle = scroll.parentElement && scroll.parentElement.querySelector(".cfg-nav-title");
+    if (headTitle) headTitle.textContent = groupFilter ? groupFilter : "配置分类";
     // 操作说明（默认选中）
     const readmeItem = document.createElement("button");
     readmeItem.type = "button";
@@ -2952,12 +2965,17 @@
       btn.innerHTML = '<span class="cni-tx">' + esc(label) + "</span>";
       return btn;
     };
-    CFG_NAV_GROUPS.forEach((g) => {
+    // 分组筛选：配置菜单只显示「基础配置」；功能/页面/扩展菜单各只显示对应分组
+    const groupsToRender = groupFilter
+      ? CFG_NAV_GROUPS.filter((g) => g.title === groupFilter)
+      : CFG_NAV_GROUPS.filter((g) => g.title === "基础配置");
+    groupsToRender.forEach((g) => {
       const grpEl = document.createElement("div");
       grpEl.className = "cfg-nav-group";
       const title = document.createElement("div");
       title.className = "cfg-nav-group-title";
       title.textContent = g.title;
+      if (groupFilter) title.style.display = "none"; // 单组菜单下隐藏冗余分组标题
       grpEl.appendChild(title);
       const list = document.createElement("div");
       list.className = "cfg-nav-list";
@@ -2973,7 +2991,7 @@
       if (f.name === "FooterConfig.html") return false; // 已合并进 footerConfig
       return true;
     });
-    if (otherFiles.length) {
+    if (!groupFilter && otherFiles.length) {
       const grpEl = document.createElement("div");
       grpEl.className = "cfg-nav-group collapsible collapsed";
       const title = document.createElement("div");
