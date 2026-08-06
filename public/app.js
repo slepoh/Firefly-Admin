@@ -2376,42 +2376,9 @@
   }
 
   // 「站点外观」导航已移除：站点Logo / 作者头像 合并进「配置」视图（见 selectCfgTab 的 logo/avatar 分支）；
-  // 原 selectApTab / loadApTabs 一并删除（不再依赖 #apTabs / #apBody）。
+  // 原站点外观相关函数 selectApTab / loadApTabs / loadApConfig / renderApConfig / saveApConfig 一并删除（不再依赖 #apTabs / #apBody）。
 
-  async function loadApConfig(name, root) {
-    const host = apHostFor(name, root);
-    if (!host) return;
-    const st = apState[name];
-    // 远程优先：打开配置时始终从 GitHub 读取最新文件；
-    // 仅当本地存在未保存修改（dirty）时才保留已编辑内容、不覆盖远程。
-    if (st && st.dirty) { renderApConfig(name, root); return; }
-    host.innerHTML = '<div class="cfg-empty">加载中…</div>';
-    const path = "src/config/" + name + ".ts";
-    try {
-      const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
-      if (status !== 200 || data.content == null) {
-        host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(name) + ".ts</div>";
-        return;
-      }
-      const parsed = FireflyConfig.parseConfig(data.content);
-      const newSt = { raw: data.content, sha: data.sha, roots: parsed.roots, name: name, loaded: true, dirty: false };
-      if (name === "booknavConfig") newSt.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
-      apState[name] = newSt;
-      renderApConfig(name, root);
-    } catch (e) {
-      host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
-    }
-  }
-
-  function renderApConfig(name, root) {
-    const st = apState[name];
-    const host = apHostFor(name, root);
-    if (!st || !host) return;
-    if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
-    else renderGenericConfig(host, st.roots, name, st.raw);
-  }
-
-  // 通用配置渲染（供站点外观 Tab 与编辑器复用），渲染到指定 host
+  // 通用配置渲染（供配置视图与编辑器复用），渲染到指定 host
   // cfgName：文件名（用于字段级枚举覆盖）；raw：源码（用于标量数组重序列化缩进还原）
   function renderGenericConfig(host, roots, cfgName, raw) {
     cfgRawSrc = raw || "";
@@ -2441,50 +2408,7 @@
     });
   }
 
-  async function saveApConfig(name, root, silent) {
-    const st = apState[name];
-    const host = apHostFor(name, root);
-    const statusEl = apStatusFor(name, root);
-    if (!st || !host) return;
-    let content;
-    try {
-      if (name === "booknavConfig") {
-        const rootN = st.roots.find((r) => r.name === "booknavConfig");
-        if (!rootN) throw new Error("未找到 booknavConfig");
-        const arrText = serializeBooknav(st.booknavModel || []);
-        content = st.raw.slice(0, rootN.node.start) + arrText + st.raw.slice(rootN.node.end);
-      } else {
-        const edits = collectConfigEdits(host);
-        content = FireflyConfig.applyConfigEdits(st.raw, edits);
-      }
-    } catch (e) {
-      if (statusEl) { statusEl.textContent = e.message || "内容构建失败"; statusEl.className = "ap-pane-status err"; }
-      return;
-    }
-    const payload = {
-      path: "src/config/" + name + ".ts",
-      content,
-      sha: st.sha || undefined,
-      message: "Update " + name + ".ts via FireflyCMS",
-    };
-    try {
-      const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
-      if (status === 200 || status === 201) {
-        st.sha = data.sha || st.sha;
-        st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
-        if (silent) {
-          if (statusEl) { statusEl.textContent = "已自动保存"; statusEl.className = "ap-pane-status"; }
-        } else {
-          okPopup("✅ 已保存，GitHub 将自动重新部署");
-          if (statusEl) statusEl.textContent = "";
-        }
-      } else {
-        if (statusEl) { statusEl.textContent = (data && (data.error || data.message)) || "保存失败"; statusEl.className = "ap-pane-status err"; }
-      }
-    } catch (e) {
-      if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
-    }
-  }
+  // 配置保存已统一收敛到 saveCfgConfig（站点外观视图移除后，旧的 saveApConfig 不再使用）。
 
   // ----------------------------------------------------------------------
   // 保存成功弹窗（居中、自动消失，替换原来的「已保存，GitHub 将自动重新部署」提示）
@@ -3100,8 +3024,7 @@
         const pane = document.querySelector('.ap-pane[data-pane="' + paneName + '"]');
         if (!pane || pane.hidden) return; // 仅当该面板当前可见时才自动保存
         try {
-          if (pane.closest("#apBody")) await saveApConfig(paneName, null, true);
-          else if (pane.closest("#cfgPanes")) await saveCfgConfig(paneName, true);
+          if (pane.closest("#cfgPanes")) await saveCfgConfig(paneName, true);
         } catch (e) { /* 自动保存失败不影响手动保存 */ }
       }, 1500);
     }
