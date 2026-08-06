@@ -649,6 +649,7 @@
   async function loadGallery() {
     const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
     try {
+      state.files = []; // 重置：图库项也纳入 state.files，供批量删除按 path 查找
       const { data } = await api("/api/list?type=posts");
       const top = data.items || [];
       const dirs = top.filter((f) => f.type === "dir");
@@ -673,6 +674,7 @@
   function renderGallery(groups, IMG_RE) {
     const box = $("fileList");
     box.innerHTML = "";
+    state.selectableCount = 0;
     if (!groups.length) {
       box.innerHTML = '<div class="gallery-empty">图库为空（src/content/posts 下暂无子目录或资源）</div>';
       updateBatchCount();
@@ -686,6 +688,16 @@
       title.innerHTML =
         "<span>📁</span><span>" + esc(g.name) + "</span>" +
         '<span class="gg-count">' + (g.error ? "加载失败" : items.length + " 项") + "</span>";
+      // 非根目录分组：提供「删除整个分类」按钮
+      if (!g.root) {
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "gallery-group-del";
+        delBtn.title = "删除整个分类目录";
+        delBtn.textContent = "🗑 删除分类";
+        delBtn.onclick = () => removeItem({ name: g.name, path: "src/content/posts/" + g.name, type: "dir" });
+        title.appendChild(delBtn);
+      }
       box.appendChild(title);
       if (g.error) {
         const err = document.createElement("div");
@@ -721,11 +733,24 @@
           const meta = document.createElement("div");
           meta.className = "img-meta";
           meta.textContent = (fmtSize(f.size) ? fmtSize(f.size) + " · " : "") + f.name;
+          // 勾选框（批量删除用）+ 删除按钮
+          const chk = document.createElement("input");
+          chk.type = "checkbox"; chk.className = "fi-check gallery-chk"; chk.dataset.path = f.path;
+          if (state.selected.has(f.path)) chk.checked = true;
+          chk.onchange = () => { if (chk.checked) state.selected.add(f.path); else state.selected.delete(f.path); updateBatchCount(); };
+          const del = document.createElement("button");
+          del.type = "button"; del.className = "gallery-img-del"; del.title = "删除";
+          del.textContent = "🗑";
+          del.onclick = (ev) => { ev.stopPropagation(); removeItem(f); };
+          card.appendChild(chk);
+          card.appendChild(del);
           card.appendChild(thumb);
           card.appendChild(cap);
           card.appendChild(meta);
           card.onclick = () => openImagePreview(f.path, f.name);
           grid.appendChild(card);
+          state.selectableCount++;
+          state.files.push(f);
         });
         box.appendChild(grid);
       }
@@ -735,12 +760,24 @@
         docs.forEach((f) => {
           const row = document.createElement("div");
           row.className = "gallery-file-item";
+          const chk = document.createElement("input");
+          chk.type = "checkbox"; chk.className = "fi-check"; chk.dataset.path = f.path;
+          if (state.selected.has(f.path)) chk.checked = true;
+          chk.onchange = () => { if (chk.checked) state.selected.add(f.path); else state.selected.delete(f.path); updateBatchCount(); };
           const url = rawUrl(f.path);
           row.innerHTML =
             '<span class="gf-icon">📄</span>' +
             '<span class="gf-name">' + esc(f.name) + "</span>" +
             '<a href="' + esc(url) + '" target="_blank" rel="noopener">打开</a>';
+          const del = document.createElement("button");
+          del.type = "button"; del.className = "gallery-file-del"; del.title = "删除";
+          del.textContent = "🗑";
+          del.onclick = (ev) => { ev.stopPropagation(); removeItem(f); };
+          row.insertBefore(chk, row.firstChild);
+          row.appendChild(del);
           list.appendChild(row);
+          state.selectableCount++;
+          state.files.push(f);
         });
         box.appendChild(list);
       }
@@ -2178,7 +2215,7 @@
           state.current.name = newName;
           $("fileName").value = newName;
         }
-        await loadList();
+        await refreshCurrent();
       } else {
         toast((data && data.error) || "重命名失败", "err");
       }
@@ -2214,7 +2251,7 @@
       toast("已删除");
       if (state.current && state.current.path && state.current.path.startsWith(item.path)) backToEmpty();
     }
-    await loadList();
+    await refreshCurrent();
   }
 
   // 批量删除：删除已勾选的内容（重命名/删除仅对文章/动态/单页有效，配置不在可选范围内）
@@ -2235,7 +2272,7 @@
     }
     state.selected.clear();
     toast("已删除 " + done + " 项内容");
-    await loadList();
+    await refreshCurrent();
   }
 
   // 更新批量相关 UI：全选状态、按钮计数、可见性（配置类隐藏）
@@ -2259,7 +2296,9 @@
     if (!name) return;
     const safe = name.trim().replace(/[^\w.\-\u4e00-\u9fa5]+/g, "-").replace(/^-+|-+$/g, "");
     if (!safe) { toast("目录名称无效", "err"); return; }
-    const base = state.type === "config" ? "src/config" : "src/content/" + state.type;
+    const base = state.type === "config" ? "src/config"
+      : state.type === "gallery" ? "src/content/posts"
+      : "src/content/" + state.type;
     const p = base + (state.subdir ? "/" + state.subdir : "") + "/" + safe;
     try {
       const { status, data } = await api("/api/mkdir", {
@@ -2363,7 +2402,52 @@
 
   async function handleFiles(files) {
     if (!files || !files.length) return;
+    // 图库模式：先选择目标分类目录，再上传到 src/content/posts/<分类>
+    if (state.type === "gallery") {
+      const dir = await chooseGalleryUploadDir();
+      if (dir === null) return; // 取消
+      for (const f of files) await uploadFileToDir(f, dir);
+      await loadGallery();
+      return;
+    }
     for (const f of files) await uploadFile(f);
+  }
+
+  // 图库上传：选择目标分类目录（现有分类 + 根目录），返回完整仓库相对路径或 null（取消）
+  function chooseGalleryUploadDir() {
+    return new Promise((resolve) => {
+      let dirs = [];
+      api("/api/list?type=posts").then((r) => {
+        dirs = ((r && r.data && r.data.items) || []).filter((f) => f.type === "dir").map((f) => f.name);
+        show();
+      }).catch(() => { dirs = []; show(); });
+      function show() {
+        const optsHtml =
+          '<option value="">根目录（src/content/posts）</option>' +
+          dirs.map((d) => '<option value="' + esc(d) + '">📁 ' + esc(d) + "</option>").join("");
+        const overlay = document.createElement("div");
+        overlay.className = "modal-overlay";
+        overlay.innerHTML =
+          '<div class="modal-card" role="dialog" aria-modal="true">' +
+            '<div class="modal-title">上传到哪个分类？</div>' +
+            '<div class="modal-body"><select class="modal-select" id="gDirSel">' + optsHtml + '</select></div>' +
+            '<div class="modal-hint">选择目标文件夹后，文件将上传到该目录。</div>' +
+            '<div class="modal-actions">' +
+              '<button class="btn ghost modal-cancel" type="button">取消</button>' +
+              '<button class="btn primary modal-ok" type="button">确定</button>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        const sel = overlay.querySelector("#gDirSel");
+        const okBtn = overlay.querySelector(".modal-ok");
+        const cancelBtn = overlay.querySelector(".modal-cancel");
+        function close(val) { overlay.remove(); resolve(val); }
+        okBtn.addEventListener("click", () => close("src/content/posts" + (sel.value ? "/" + sel.value : "")));
+        cancelBtn.addEventListener("click", () => close(null));
+        overlay.addEventListener("click", (e) => { if (e.target === overlay) close(null); });
+        sel.focus();
+      }
+    });
   }
 
   function insertAsset(url, isImage) {
@@ -2401,17 +2485,17 @@
     });
     const titles = { posts: "文章", dynamic: "动态", spec: "单页", gallery: "图库", config: "配置" };
     $("ctTitle").textContent = titles[type] || type;
-    // 配置类：禁止批量删除与全选（重命名/删除仅对文章/动态/单页有效）
+    // 配置类：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类（仅文章/动态/单页/图库可写）
     const isConfig = type === "config";
     const isGallery = type === "gallery";
-    // 图库为只读浏览视图：隐藏所有写操作与搜索框（刷新仍可用）
-    $("selectAllRow").hidden = isConfig || isGallery;
-    $("batchDelBtn").hidden = isConfig || isGallery;
-    $("newBtn").hidden = isGallery;
-    $("quickUploadBtn").hidden = isGallery;
-    $("newCatBtn").hidden = isGallery;
-    $("searchInput").hidden = isGallery;
-    $("refreshBtn").hidden = isGallery;
+    // 图库：启用 上传 / 新建分类 / 全选 / 批量删除（每项自带删除按钮）；隐藏 新建文件 与 搜索框
+    $("selectAllRow").hidden = isConfig;
+    $("batchDelBtn").hidden = isConfig;
+    $("newBtn").hidden = isConfig || isGallery;
+    $("quickUploadBtn").hidden = isConfig;
+    $("newCatBtn").hidden = isConfig;
+    $("searchInput").hidden = isConfig || isGallery;
+    $("refreshBtn").hidden = isConfig || isGallery;
     if (isGallery) $("searchInput").value = "";
 
     state.selected.clear();
