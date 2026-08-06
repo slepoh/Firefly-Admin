@@ -1,7 +1,7 @@
 # Firefly-Admin
 
 Firefly 博客（[slepoh/Firefly](https://github.com/slepoh/Firefly)）的内容管理后台。
-本项目是Firefly项目的**可视化管理后台**，直接通过 GitHub API 远程增删改 `src/content` 下的内容，
+本项目是Firefly项目的**可视化管理后台**，直接通过 GitHub API 远程增删改博客内容、配置博客信息等操作，
 保存即提交到 GitHub，Cloudflare 自动重新部署。
 
 支持三类内容：
