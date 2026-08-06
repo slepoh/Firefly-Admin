@@ -665,7 +665,8 @@ textarea { resize: vertical; }
 /* 响应式 */
 @media (max-width: 900px) {
   #menuBtn { display: inline-flex; }
-  .layout { height: calc(100vh - 56px); height: calc(100dvh - 56px); }
+  /* 移动端用 svh（最小视口）锚定高度，避免地址栏显隐导致布局高于可视区、内容被裁切不可达 */
+  .layout { height: calc(100vh - 56px); height: calc(100svh - 56px); }
   .sidebar {
     position: fixed; top: 56px; bottom: 0; left: 0; z-index: 40; width: 230px; min-width: 230px;
     transform: translateX(-100%); transition: transform .22s ease, width .22s ease;
@@ -1047,7 +1048,7 @@ textarea { resize: vertical; }
 
 /* ===================== 移动端适配 ===================== */
 @media (max-width: 720px) {
-  .config-view { flex-direction: column; }
+  .config-view { flex-direction: column; height: 100%; }
   /* 配置分类导航：改为顶部横向胶囊导航，可滑动，避免占用竖向空间 */
   .cfg-nav {
     width: auto; flex: none; max-height: none; border-right: none;
@@ -1091,8 +1092,13 @@ textarea { resize: vertical; }
   .ap-body { overflow: hidden; }
   .appearance-view, .config-view { min-height: 0; }
   /* 移动端：配置数据内容整体可下拉滚动（修复「配置内容无法下拉」） */
-  .cfg-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-  #cfgPanes { overflow: visible; flex: none; }
+  /* 关键：.cfg-content 改为普通块级滚动容器，避免 flex 列嵌套导致的滚动失效（部分移动端引擎不触发 flex 子项滚动） */
+  .cfg-content {
+    display: block;
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  }
+  #cfgPanes { overflow: visible; }
   .cfg-readme { flex: none; overflow: visible; }
   .cfg-resource { flex: none; overflow: visible; }
 }
