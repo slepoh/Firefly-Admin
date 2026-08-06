@@ -135,11 +135,9 @@ Firefly-Admin/
 
 ## 七、后台功能一览
 
-- **内容管理**：文章 / 最新动态 / 单页，支持列表批量删除、单独编辑 / 重命名 / 删除、新建；图片以宫格展示并支持点击预览（不再打开源码编辑器）。
-- **配置管理**：左侧为 `src/config` 下各配置文件的分类导航（README 不进列表），右侧默认显示 `src/config/README.md` 作为操作说明；点击分类即在右侧加载该配置的结构化编辑界面（参数名锁定、仅改值），保存即提交到 GitHub。
+- **内容管理**：文章 / 最新动态 / 单页，支持列表批量删除、单独编辑 / 重命名 / 删除、新建；图片以宫格展示并支持点击预览。
+- **配置管理**：点击分类即在右侧加载该配置的结构化编辑界面（参数名锁定、仅改值），保存即提交到 GitHub。
   - 文件名已做中文映射（如 `siteConfig.ts → 站点基础配置`、`booknavConfig.ts → 书签导航配置`、`displaySettingsConfig.ts → 显示设置面板配置`、`mermaidConfig.ts → Mermaid图表配置`、`FooterConfig.html → 页脚内容`）。
-  - 注释中给出多个可选项的字段（如 `commentConfig.type`）自动渲染为下拉选择，且只取注释中明确列出的数值（不会把「默认为 none」这类说明误当选项）。
+  - 注释中给出多个可选项的字段（如 `commentConfig.type`）自动渲染为下拉选择，且只取注释中明确列出的数值。
 - **站点外观**：顶部 Tab 形式为 Logo / 头像 + 常用配置（`profileConfig`、`backgroundWallpaper`、`booknavConfig`、`announcementConfig`、`sponsorConfig`、`sidebarConfig` 等），Tab 由 GitHub 动态拉取，新增配置自动出现；外观 Tab 显示名更简洁（`booknavConfig → 书签导航`、`displaySettingsConfig → 显示设置面板`）。
 - **书签导航**：`booknavConfig.ts` 以分组 / 书签的扁平列表展示，支持新增分组与书签，保存按偏移量整体回写原始文件。
-- **资源上传**：左侧导航栏「上传资源」常驻，资源上传面板默认折叠，点击展开。
-- **交互细节**：退出登录与删除均有确认弹窗；保存 / 提交成功后以居中弹窗提示并自动消失。
