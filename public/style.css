@@ -165,7 +165,7 @@ body {
 .nav-link .ni-ico { font-size: 17px; width: 20px; text-align: center; flex: none; }
 
 /* 右侧主区域：内容列表 / 站点外观 / 编辑器 三视图 */
-.main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.main-area { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .content-view, .appearance-view, .editor { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .content-view[hidden], .appearance-view[hidden], .editor[hidden] { display: none !important; }
 
@@ -1049,7 +1049,8 @@ textarea { resize: vertical; }
 
 /* ===================== 移动端适配 ===================== */
 @media (max-width: 720px) {
-  .config-view { flex-direction: column; height: 100%; }
+  /* 移动端：用视口锚定高度 + flex 双保险，保证内部滚动容器始终有确定高度 */
+  .config-view { flex-direction: column; flex: 1 1 auto; min-height: 0; height: calc(100svh - 56px); }
   /* 配置分类导航：改为顶部横向胶囊导航，可滑动，避免占用竖向空间 */
   .cfg-nav {
     width: auto; flex: none; max-height: none; border-right: none;
@@ -1092,13 +1093,17 @@ textarea { resize: vertical; }
   .ap-tab.active { border-color: #ffd9b8; background: #fff4ea; }
   .ap-body { overflow: hidden; }
   .appearance-view, .config-view { min-height: 0; }
-  /* 移动端：复用桌面已被验证的可滚动链——cfg-content 为 flex 列(overflow hidden)，#cfgPanes 作为滚动容器。
-     此前误将 cfg-content 改成 block、#cfgPanes 改成 overflow:visible，导致数据编辑器页面无法滚动，现恢复。 */
+  /* 移动端：单一滚动容器策略——.cfg-content 自身 overflow-y:auto 并锚定确定高度，
+     内部 #cfgPanes / 说明 / 资源均为自然高度、不再单独滚动。
+     此前的根因是「嵌套 flex 滚动链」(#cfgPanes 作为独立 overflow:auto 子项)在部分触屏浏览器中
+     因父链高度未确定而失效；改为单容器后彻底消除该问题。 */
   .cfg-content {
     display: flex; flex-direction: column;
-    flex: 1 1 auto; min-height: 0; overflow: hidden;
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   }
-  #cfgPanes { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  /* 移动端：滚动交给 .cfg-content 单一容器，#cfgPanes 不再单独滚动（避免嵌套 flex 滚动链在触屏失效） */
+  #cfgPanes { flex: none; height: auto; overflow: visible; }
   .cfg-readme { flex: none; overflow: visible; }
   .cfg-resource { flex: none; overflow: visible; }
 }
