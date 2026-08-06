@@ -966,7 +966,9 @@
     $("emptyState").hidden = true;
     $("editForm").hidden = false;
     $("deleteBtn").hidden = state.current.isNew;
-    $("fileName").value = name;
+    // 文件名输入框只填基础名（后缀由右侧 extSelect 下拉承载，避免重复显示）
+    const baseDot = (name || "").lastIndexOf(".");
+    $("fileName").value = baseDot > 0 ? name.slice(0, baseDot) : name;
     $("fileName").readOnly = !state.current.isNew;
 
     // 后缀选择框：按板块给出可选后缀；新建可改、已有锁定
@@ -2228,7 +2230,9 @@
         if (state.current && state.current.path === item.path) {
           state.current.path = newPath;
           state.current.name = newName;
-          $("fileName").value = newName;
+          // 重命名同步：输入框只填基础名，后缀由锁定下拉承载
+          const ndot = (newName || "").lastIndexOf(".");
+          $("fileName").value = ndot > 0 ? newName.slice(0, ndot) : newName;
         }
         await refreshCurrent();
       } else {

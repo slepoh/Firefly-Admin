@@ -701,6 +701,8 @@ textarea { resize: vertical; }
   .editor-main { flex-direction: column; }
   .editor-head { flex-wrap: wrap; }
   .eh-right { flex-wrap: wrap; justify-content: flex-end; }
+  /* 移动端：类型徽标与后缀下拉信息冗余，隐藏避免与标题挤占一行 */
+  .ed-type-badge { display: none; }
   /* 富文本工具栏在窄屏可横向滚动，避免撑破布局 */
   .toastui-editor-defaultUI, .toastui-editor-main { min-width: 0; max-width: 100%; }
   .toastui-editor-toolbar { overflow-x: auto; }
