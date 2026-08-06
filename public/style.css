@@ -113,6 +113,8 @@ body {
 /* 桌面端折叠侧边栏：折叠为窄图标栏，仍显示导航图标，而非完全隐藏 */
 .layout.sidebar-collapsed .sidebar { width: 64px; min-width: 64px; border-right: 1px solid var(--border); padding: 0; }
 .layout.sidebar-collapsed .nav-bar { padding: 14px 8px; }
+.layout.sidebar-collapsed .nav-group-title { display: none; }
+.layout.sidebar-collapsed .nav-group + .nav-group { margin-top: 0; padding-top: 0; border-top: 0; }
 .layout.sidebar-collapsed .nav-btn { justify-content: center; padding: 12px 0; }
 .layout.sidebar-collapsed .nav-btn .ni-tx { display: none; }
 .layout.sidebar-collapsed .nav-foot { padding: 10px 0; border-top: 1px solid var(--border); }
@@ -166,6 +168,14 @@ body {
 
 /* 左侧导航内的退出按钮：仅移动端显示（移动端顶栏的退出按钮隐藏） */
 #logoutNavBtn { display: none; }
+
+/* 主导航分组板块：功能菜单 / 信息 分开展示，视觉上成为两个导航板块 */
+.nav-group { display: flex; flex-direction: column; }
+.nav-group + .nav-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.nav-group-title { font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 13px 2px; letter-spacing: .4px; }
+
+/* 退出分区：桌面端整体隐藏；移动端独立显示并靠底部（与功能菜单 / 信息分开） */
+.nav-group-logout { display: none; margin-top: auto; }
 
 /* 右侧主区域：内容列表 / 站点外观 / 编辑器 三视图 */
 .main-area { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -708,6 +718,11 @@ textarea { resize: vertical; }
   /* 移动端（抽屉断点）：退出按钮移入左侧导航；顶栏的退出按钮隐藏 */
   .top-actions #logoutBtn { display: none !important; }
   #logoutNavBtn { display: flex; }
+  /* 退出分区：移动端独立显示于底部（margin-top:auto 推底），nav-foot 紧贴其下 */
+  .nav-group-logout { display: flex; padding: 12px 12px 0; border-top: 1px solid var(--border); }
+  .nav-foot { margin-top: 0; }
+  /* 关于页：移动端 WhatsApp / Telegram 二维码靠右显示 */
+  .about-qrs { justify-content: flex-end; }
 }
 
 @media (max-width: 560px) {

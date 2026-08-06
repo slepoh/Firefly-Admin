@@ -40,18 +40,29 @@
     <aside class="sidebar" id="sidebar">
       <!-- 移动端抽屉内的一级导航（PC 隐藏） -->
       <nav class="nav-bar" id="navBar" aria-label="主导航">
-        <button class="nav-btn active" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
-        <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">我的动态</span></button>
-        <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">页面信息</span></button>
-        <button class="nav-btn" type="button" data-type="gallery"><span class="ni-ico">🖼️</span><span class="ni-tx">图库素材</span></button>
-        <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">基础配置</span></button>
-        <button class="nav-btn" type="button" data-type="cfgfunc"><span class="ni-ico">🧩</span><span class="ni-tx">功能配置</span></button>
-        <button class="nav-btn" type="button" data-type="cfgpage"><span class="ni-ico">📑</span><span class="ni-tx">页面配置</span></button>
-        <button class="nav-btn" type="button" data-type="cfgext"><span class="ni-ico">🧪</span><span class="ni-tx">扩展功能</span></button>
-        <button class="nav-btn" type="button" data-type="readme"><span class="ni-ico">📖</span><span class="ni-tx">操作说明</span></button>
-        <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
-        <button class="nav-btn" type="button" id="logoutNavBtn"><span class="ni-ico">🚪</span><span class="ni-tx">退出登录</span></button>
+        <!-- 板块一：功能菜单 -->
+        <div class="nav-group">
+          <div class="nav-group-title">功能菜单</div>
+          <button class="nav-btn active" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
+          <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">我的动态</span></button>
+          <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">页面信息</span></button>
+          <button class="nav-btn" type="button" data-type="gallery"><span class="ni-ico">🖼️</span><span class="ni-tx">图库素材</span></button>
+          <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">基础配置</span></button>
+          <button class="nav-btn" type="button" data-type="cfgfunc"><span class="ni-ico">🧩</span><span class="ni-tx">功能配置</span></button>
+          <button class="nav-btn" type="button" data-type="cfgpage"><span class="ni-ico">📑</span><span class="ni-tx">页面配置</span></button>
+          <button class="nav-btn" type="button" data-type="cfgext"><span class="ni-ico">🧪</span><span class="ni-tx">扩展功能</span></button>
+        </div>
+        <!-- 板块二：信息（操作说明 / 关于） -->
+        <div class="nav-group">
+          <div class="nav-group-title">信息</div>
+          <button class="nav-btn" type="button" data-type="readme"><span class="ni-ico">📖</span><span class="ni-tx">操作说明</span></button>
+          <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
+        </div>
       </nav>
+      <!-- 退出：移动端独立分区（与功能菜单 / 信息板块分开，靠底部显示） -->
+      <div class="nav-group nav-group-logout" id="navLogout">
+        <button class="nav-btn" type="button" id="logoutNavBtn"><span class="ni-ico">🚪</span><span class="ni-tx">退出登录</span></button>
+      </div>
       <div class="nav-foot" id="navFoot">
         <a class="nav-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener" title="GitHub 开源地址">
           <span class="ni-ico">🔗</span><span class="ni-tx">开源地址</span>
