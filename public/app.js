@@ -14,6 +14,8 @@
     type: "posts",
     subdir: "",
     files: [],
+    selected: new Set(), // 批量删除已勾选的文件 path
+    selectableCount: 0,  // 当前列表可勾选（非配置）条目数
     current: null, // {path, sha, name, isNew, type}
     mode: "rich", // rich | raw
     htmlMode: false,   // 当前文件为 HTML（如 FooterConfig.html），用 WYSIWYG 富文本
@@ -342,7 +344,7 @@
     state.branch = s.branch || "master";
     $("repoInfo").textContent = `${s.owner}/${s.repo}@${s.branch}`;
     bindEvents();
-    await loadList();
+    await selectSection("posts");
   }
 
   // ----------------------------------------------------------------------
@@ -360,10 +362,17 @@
     }
   }
 
+  // 当前板块是否允许重命名 / 删除（配置类禁止，仅文章 / 动态 / 单页有效）
+  function canModify() {
+    return state.type !== "config";
+  }
+
   function renderList() {
     const box = $("fileList");
     box.innerHTML = "";
     const kw = ($("searchInput").value || "").toLowerCase();
+    const modifiable = canModify();
+    state.selectableCount = 0;
     state.files
       .filter((f) => f.name.toLowerCase().includes(kw))
       .forEach((f) => {
@@ -384,25 +393,58 @@
           const ext = dot > 0 ? f.name.slice(dot) : "";
           nameHtml = `<span class="fi-name">${esc(base)}</span><span class="fi-ext">${esc(ext)}</span>`;
         }
-        div.innerHTML = `<span class="fi-icon">${icon}</span>${nameHtml}` +
+
+        // 左侧可勾选（仅可修改板块的内容，配置类不可批量操作）
+        const check = modifiable
+          ? `<input type="checkbox" class="fi-check" data-path="${esc(f.path)}"${state.selected.has(f.path) ? " checked" : ""} />`
+          : "";
+        if (modifiable) state.selectableCount++;
+
+        // 行内操作按钮：编辑常驻；重命名 / 删除仅可修改板块
+        let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️ 编辑</button>`;
+        if (modifiable) {
+          if (!isDir) actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">✏️ 重命名</button>`;
+          actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑 删除</button>`;
+        }
+
+        div.innerHTML =
+          check +
+          `<div class="fi-main"><span class="fi-icon">${icon}</span>${nameHtml}` +
           (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`) +
-          `<button class="fi-more" type="button" aria-label="更多操作" title="更多操作（重命名 / 删除）">⋯</button>`;
+          `</div>` +
+          `<div class="fi-actions">${actions}</div>`;
         div.title = f.name; // 悬停显示完整文件名（含后缀）
-        div.onclick = () => {
+
+        // 点击主区域：目录进入、文件打开编辑
+        const main = div.querySelector(".fi-main");
+        main.onclick = () => {
           if (isDir) navigate(f);
           else openFile(f);
           if (isMobile()) closeDrawer();
         };
+        // 右键菜单（桌面）：构建与类型相关的菜单项
         div.oncontextmenu = (e) => onItemContext(e, f);
-        // 移动端用「⋯」按钮弹出操作表，替代长按右键菜单；桌面也可直接点开
-        const more = div.querySelector(".fi-more");
-        if (more) more.onclick = (ev) => {
-          ev.stopPropagation();
-          if (isMobile()) openActionSheet(f);
-          else openCtx(ev.clientX, ev.clientY, ctxItemsFor(f));
+        // 行内按钮
+        div.querySelectorAll(".fi-act").forEach((b) => {
+          b.onclick = (ev) => {
+            ev.stopPropagation();
+            const act = b.dataset.act;
+            if (act === "edit") { if (isDir) navigate(f); else openFile(f); if (isMobile()) closeDrawer(); }
+            else if (act === "rename") renameItem(f);
+            else if (act === "delete") removeItem(f);
+          };
+        });
+        // 复选框：切换批量选中
+        const cb = div.querySelector(".fi-check");
+        if (cb) cb.onchange = () => {
+          if (cb.checked) state.selected.add(f.path);
+          else state.selected.delete(f.path);
+          updateBatchCount();
         };
+
         box.appendChild(div);
       });
+    updateBatchCount();
   }
 
   function typePrefix() {
@@ -561,6 +603,7 @@
   // 编辑器渲染
   // ----------------------------------------------------------------------
   function showEditor(body, fm, name) {
+    showView("editor");
     $("emptyState").hidden = true;
     $("editForm").hidden = false;
     $("deleteBtn").hidden = state.current.isNew;
@@ -1072,10 +1115,20 @@
     }
   }
 
+  // 切换右侧三视图之一：content（内容列表）/ editor（编辑器）/ appearance（站点外观）
+  function showView(name) {
+    $("contentView").hidden = name !== "content";
+    $("editorPane").hidden = name !== "editor";
+    $("appearanceView").hidden = name !== "appearance";
+  }
+
   function backToEmpty() {
     state.current = null;
+    state.selected.clear();
     $("editForm").hidden = true;
-    $("emptyState").hidden = false;
+    $("emptyState").hidden = true;
+    showView("content");
+    updateBatchCount();
   }
 
   // ----------------------------------------------------------------------
@@ -1148,7 +1201,7 @@
   }
   function closeCtx() { const m = $("ctxMenu"); if (m) m.hidden = true; }
 
-  // 构建右键 / 操作表的菜单项（桌面右键与移动端「⋯」共用）
+  // 构建右键 / 操作表的菜单项（桌面右键与移动端「⋯」共用）；配置类禁重命名/删除
   function ctxItemsFor(item) {
     const isDir = item.type === "dir";
     const items = [];
@@ -1156,8 +1209,11 @@
       items.push({ label: "📂 进入目录", action: () => navigate(item) });
       items.push({ label: "⬆️ 上传到此目录", action: () => triggerUpload(dirForUpload(item.path)) });
     }
-    items.push({ label: "✏️ 重命名", action: () => renameItem(item) });
-    items.push({ label: "🗑 删除", danger: true, action: () => removeItem(item) });
+    if (!isDir) items.push({ label: "✏️ 编辑", action: () => openFile(item) });
+    if (canModify()) {
+      if (!isDir) items.push({ label: "✏️ 重命名", action: () => renameItem(item) });
+      items.push({ label: "🗑 删除", danger: true, action: () => removeItem(item) });
+    }
     return items;
   }
 
@@ -1244,6 +1300,20 @@
     }
   }
 
+  // 真正执行删除（无确认弹窗），供单条删除与批量删除复用
+  async function doRemove(item) {
+    try {
+      const { status, data } = await api("/api/remove", {
+        method: "POST",
+        body: JSON.stringify({ path: item.path, isDir: item.type === "dir" }),
+      });
+      return status === 200 && data && data.ok;
+    } catch (e) {
+      toast(e.message || "删除失败", "err");
+      return false;
+    }
+  }
+
   async function removeItem(item) {
     const tip = item.type === "dir" ? "（包含其下所有内容）" : "";
     const ok = await openModal({
@@ -1253,23 +1323,41 @@
       danger: true,
     });
     if (!ok) return;
-    try {
-      const { status, data } = await api("/api/remove", {
-        method: "POST",
-        body: JSON.stringify({ path: item.path, isDir: item.type === "dir" }),
-      });
-      if (status === 200 && data && data.ok) {
-        toast("已删除");
-        if (state.current && state.current.path && state.current.path.startsWith(item.path)) {
-          backToEmpty();
-        }
-        await loadList();
-      } else {
-        toast((data && data.error) || "删除失败", "err");
-      }
-    } catch (e) {
-      toast(e.message || "删除失败", "err");
+    if (await doRemove(item)) {
+      toast("已删除");
+      if (state.current && state.current.path && state.current.path.startsWith(item.path)) backToEmpty();
     }
+    await loadList();
+  }
+
+  // 批量删除：删除已勾选的内容（重命名/删除仅对文章/动态/单页有效，配置不在可选范围内）
+  async function batchDelete() {
+    const paths = [...state.selected];
+    if (!paths.length) { toast("请先勾选要删除的内容", "err"); return; }
+    const ok = await openModal({
+      title: "批量删除确认",
+      html: "<div class=\"modal-msg\">确定删除选中的 <b>" + paths.length + "</b> 项内容？<br>此操作会提交到 GitHub，不可撤销。</div>",
+      confirmText: "删除",
+      danger: true,
+    });
+    if (!ok) return;
+    let done = 0;
+    for (const p of paths) {
+      const item = state.files.find((f) => f.path === p);
+      if (item && (await doRemove(item))) done++;
+    }
+    state.selected.clear();
+    toast("已删除 " + done + " 项内容");
+    await loadList();
+  }
+
+  // 更新批量相关 UI：全选状态、按钮计数、可见性（配置类隐藏）
+  function updateBatchCount() {
+    const n = state.selected.size;
+    const all = $("selectAll");
+    if (all) all.checked = n > 0 && state.selectableCount > 0 && n === state.selectableCount;
+    const bd = $("batchDelBtn");
+    if (bd) bd.textContent = n > 0 ? "🗑 批量删除 (" + n + ")" : "🗑 批量删除";
   }
 
   // 在当前板块 / 子目录下新建分类（文件夹）。GitHub 无空目录对象，用 .gitkeep 占位文件创建。
@@ -1417,28 +1505,28 @@
   // ----------------------------------------------------------------------
   // 事件绑定
   // ----------------------------------------------------------------------
-  // 切换板块：更新激活态、把共享的文件浏览器移动到当前板块体内、加载列表
+  // 切换板块：左侧导航选中，右侧显示对应视图（内容列表 / 站点外观）
   function selectSection(type) {
     state.type = type;
     state.subdir = "";
-    document.querySelectorAll("#navAccordion .nav-section").forEach((s) => {
-      s.classList.toggle("active", s.dataset.type === type);
+    document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.type === type);
     });
-    const browser = $("browser");
-    const appearance = $("appearancePanel");
-    // 站点外观板块：隐藏共享文件列表，显示外观管理面板
+    const titles = { posts: "文章", dynamic: "动态", spec: "单页", config: "配置", appearance: "站点外观" };
+    $("ctTitle").textContent = titles[type] || type;
+    // 配置类：禁止批量删除与全选（重命名/删除仅对文章/动态/单页有效）
+    const isConfig = type === "config";
+    $("selectAllRow").hidden = isConfig;
+    $("batchDelBtn").hidden = isConfig;
+
+    state.selected.clear();
+
     if (type === "appearance") {
-      if (browser) browser.hidden = true;
-      if (appearance) appearance.hidden = false;
-      backToEmpty();
+      showView("appearance");
       loadAppearance();
       return;
     }
-    if (appearance) appearance.hidden = true;
-    // 共享的 .browser 节点移动到激活板块的 .nav-section-body 内（保持事件监听）
-    const body = document.querySelector('#navAccordion .nav-section[data-type="' + type + '"] .nav-section-body');
-    if (body && browser && browser.parentElement !== body) body.appendChild(browser);
-    if (browser) browser.hidden = false;
+    showView("content");
     backToEmpty();
     loadList();
   }
@@ -1526,6 +1614,10 @@
 
   // 打开常用配置文件；若文件不存在（如 sponsorConfig.ts）则创建默认内容后打开
   async function openConfigByPath(path, name) {
+    state.type = "config"; // 以配置类型打开，确保编辑器按 .ts 结构化渲染
+    state.subdir = "";
+    document.querySelectorAll("#navBar .nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.type === "config"));
+    $("ctTitle").textContent = "配置";
     const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
     if (status === 200 && data.content != null) {
       await openFile({ name, path, type: "file", sha: data.sha });
@@ -1589,18 +1681,32 @@
       if (el) el[prop] = fn;
     };
 
-    // 侧栏手风琴：选中板块后再展开其文件列表（同一时刻仅一个板块内容可见）
-    const accordion = $("navAccordion");
-    if (accordion) {
-      accordion.querySelectorAll(".nav-section-head").forEach((h) => {
-        h.addEventListener("click", () => {
-          const sec = h.closest(".nav-section");
-          const type = sec && sec.dataset.type;
+    // 左侧导航栏：点击切换板块（文章 / 动态 / 单页 / 配置 / 站点外观）
+    const navBar = $("navBar");
+    if (navBar) {
+      navBar.querySelectorAll(".nav-btn").forEach((b) => {
+        b.addEventListener("click", () => {
+          const type = b.dataset.type;
           if (!type || state.type === type) return; // 已是当前板块，不重复加载
           selectSection(type);
         });
       });
     }
+
+    // 批量删除：删除已勾选的内容
+    on("batchDelBtn", "onclick", batchDelete);
+    // 全选：勾选 / 取消当前列表所有可修改条目
+    const sa = $("selectAll");
+    if (sa) sa.onchange = () => {
+      const checked = sa.checked;
+      document.querySelectorAll("#fileList .fi-check").forEach((cb) => {
+        cb.checked = checked;
+        const p = cb.dataset.path;
+        if (checked) state.selected.add(p);
+        else state.selected.delete(p);
+      });
+      updateBatchCount();
+    };
 
     on("searchInput", "oninput", renderList);
     on("refreshBtn", "onclick", loadList);

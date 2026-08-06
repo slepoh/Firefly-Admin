@@ -28,178 +28,178 @@
 
   <!-- 主区域 -->
   <main class="layout" id="mainApp" hidden>
-    <!-- 侧栏：可折叠板块（手风琴）—— 选中板块后再展开其文件列表 -->
+    <!-- 左侧：纯导航栏（选中后右侧显示对应内容） -->
     <aside class="sidebar" id="sidebar">
-      <div class="nav-accordion" id="navAccordion">
-        <section class="nav-section active" data-type="posts">
-          <button class="nav-section-head" type="button">
-            <span class="ni-ico">📝</span><span class="ni-tx">文章</span><span class="chev">▾</span>
-          </button>
-          <div class="nav-section-body">
-            <div class="browser" id="browser">
-              <div class="list-tools">
-                <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
-                <input type="text" id="searchInput" placeholder="搜索文件名…" />
-                <button id="newBtn" class="btn primary sm">＋ 新建</button>
-                <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
-              </div>
-              <!-- 快捷操作：新建分类 + 上传资源（优化入口，常驻可见） -->
-              <div class="list-tools2">
-                <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
-                <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
-              </div>
-              <div class="file-list" id="fileList"></div>
-              <div class="crumb" id="crumb"></div>
-
-              <!-- 资源上传：清晰的拖拽区，可折叠 -->
-              <div class="meta-panel" id="uploadPanel">
-                <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
-                <div class="panel-body">
-                  <div class="upload-drop" id="uploadDrop">
-                    <div class="ud-icon">⬆</div>
-                    <div class="ud-text">拖拽文件到此处，或</div>
-                    <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
-                    <input type="file" id="fileInput" multiple hidden />
-                  </div>
-                  <div class="up-hint">自动上传到 <code>public/uploads</code></div>
-                  <div class="up-list" id="upList"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section class="nav-section" data-type="dynamic">
-          <button class="nav-section-head" type="button"><span class="ni-ico">⚡</span><span class="ni-tx">动态</span><span class="chev">▾</span></button>
-          <div class="nav-section-body"></div>
-        </section>
-        <section class="nav-section" data-type="spec">
-          <button class="nav-section-head" type="button"><span class="ni-ico">📄</span><span class="ni-tx">单页</span><span class="chev">▾</span></button>
-          <div class="nav-section-body"></div>
-        </section>
-        <section class="nav-section" data-type="config">
-          <button class="nav-section-head" type="button"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span><span class="chev">▾</span></button>
-          <div class="nav-section-body"></div>
-        </section>
-        <section class="nav-section" data-type="appearance">
-          <button class="nav-section-head" type="button"><span class="ni-ico">🎨</span><span class="ni-tx">站点外观</span><span class="chev">▾</span></button>
-          <div class="nav-section-body">
-            <div class="appearance-panel" id="appearancePanel" hidden>
-              <div class="ap-group">
-                <div class="ap-group-title">站点 Logo</div>
-                <div class="ap-cards">
-                  <div class="ap-card">
-                    <div class="ap-preview"><img id="prevLogoDark" alt="深色 Logo" /></div>
-                    <div class="ap-name">深色 Logo</div>
-                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-dark">更换</button>
-                    <input type="file" class="ap-file" data-asset="logo-dark" accept="image/*" hidden />
-                  </div>
-                  <div class="ap-card">
-                    <div class="ap-preview"><img id="prevLogoLight" alt="浅色 Logo" /></div>
-                    <div class="ap-name">浅色 Logo</div>
-                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-light">更换</button>
-                    <input type="file" class="ap-file" data-asset="logo-light" accept="image/*" hidden />
-                  </div>
-                </div>
-              </div>
-              <div class="ap-group">
-                <div class="ap-group-title">作者头像</div>
-                <div class="ap-cards">
-                  <div class="ap-card">
-                    <div class="ap-preview ap-preview--round"><img id="prevAvatar" alt="作者头像" /></div>
-                    <div class="ap-name">avatar.webp</div>
-                    <button class="btn ghost sm ap-btn" type="button" data-pick="avatar">更换</button>
-                    <input type="file" class="ap-file" data-asset="avatar" accept="image/*" hidden />
-                  </div>
-                </div>
-              </div>
-              <div class="ap-group">
-                <div class="ap-group-title">常用配置（点击直接编辑）</div>
-                <div class="ap-config-cards">
-                  <button class="ap-cfg-btn" type="button" data-cfg="profileConfig.ts"><span class="ap-ico">👤</span>个人资料 profileConfig</button>
-                  <button class="ap-cfg-btn" type="button" data-cfg="backgroundWallpaper.ts"><span class="ap-ico">🖼️</span>背景壁纸 backgroundWallpaper</button>
-                  <button class="ap-cfg-btn" type="button" data-cfg="booknavConfig.ts"><span class="ap-ico">🔖</span>书签导航 booknavConfig</button>
-                  <button class="ap-cfg-btn" type="button" data-cfg="announcementConfig.ts"><span class="ap-ico">📢</span>公告 announcementConfig</button>
-                  <button class="ap-cfg-btn" type="button" data-cfg="sponsorConfig.ts"><span class="ap-ico">💝</span>赞助 sponsorConfig</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
+      <nav class="nav-bar" id="navBar">
+        <button class="nav-btn active" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章</span></button>
+        <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">动态</span></button>
+        <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">单页</span></button>
+        <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span></button>
+        <button class="nav-btn" type="button" data-type="appearance"><span class="ni-ico">🎨</span><span class="ni-tx">站点外观</span></button>
+      </nav>
     </aside>
 
-    <!-- 编辑区 -->
-    <section class="editor" id="editorPane">
-      <div class="empty-state" id="emptyState">
-        <div class="big">🗂️</div>
-        <p>从左侧选择文件进行编辑，或点击「新建」创建内容。</p>
+    <!-- 右侧主区域：内容列表 / 站点外观 / 编辑器（同一时刻仅显示一个） -->
+    <section class="main-area" id="mainArea">
+
+      <!-- 内容列表视图：显示选中板块的内容，可批量删除、单独编辑/重命名/删除、新建 -->
+      <div class="content-view" id="contentView">
+        <div class="content-toolbar">
+          <label class="ct-selectall" id="selectAllRow">
+            <input type="checkbox" id="selectAll" /> 全选
+          </label>
+          <div class="ct-title" id="ctTitle">文章</div>
+          <div class="ct-actions">
+            <button id="batchDelBtn" class="btn danger sm">🗑 批量删除</button>
+            <button id="newBtn" class="btn primary sm">＋ 新建</button>
+          </div>
+        </div>
+        <div class="list-tools">
+          <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
+          <input type="text" id="searchInput" placeholder="搜索文件名…" />
+          <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
+        </div>
+        <!-- 快捷操作：新建分类 + 上传资源（常驻可见） -->
+        <div class="list-tools2">
+          <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
+          <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
+        </div>
+        <div class="file-list" id="fileList"></div>
+        <div class="crumb" id="crumb"></div>
+
+        <!-- 资源上传：清晰的拖拽区，可折叠 -->
+        <div class="meta-panel" id="uploadPanel">
+          <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
+          <div class="panel-body">
+            <div class="upload-drop" id="uploadDrop">
+              <div class="ud-icon">⬆</div>
+              <div class="ud-text">拖拽文件到此处，或</div>
+              <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
+              <input type="file" id="fileInput" multiple hidden />
+            </div>
+            <div class="up-hint">自动上传到 <code>public/uploads</code></div>
+            <div class="up-list" id="upList"></div>
+          </div>
+        </div>
       </div>
 
-      <div class="edit-form" id="editForm" hidden>
-        <div class="editor-head">
-          <span class="eh-icon" id="ehIcon">📝</span>
-          <div class="eh-meta">
-            <div class="fn-row">
-              <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
-              <select id="extSelect" class="ext-select" aria-label="文件后缀" title="选择文件后缀"></select>
-            </div>
-            <div class="eh-path" id="ehPath"></div>
-          </div>
-          <div class="eh-right">
-            <span class="ed-type-badge" id="edTypeBadge">Markdown 富文本</span>
-            <div class="edit-status" id="editStatus"></div>
-          </div>
-        </div>
-
-        <!-- 文章结构化表单（可折叠，默认收起以最大化编辑区） -->
-        <div class="meta-panel collapsed" id="postPanel" hidden>
-          <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span> <span class="chev">▾</span></button>
-          <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
-        </div>
-
-        <!-- 动态字段（可折叠） -->
-        <div class="meta-panel collapsed" id="dynamicPanel" hidden>
-          <button type="button" class="panel-head">⚡ 动态信息 <span class="chev">▾</span></button>
-          <div class="panel-body">
-            <div id="dynamicFields" class="dynamic-fields">
-              <div class="field">
-                <label>发布时间</label>
-                <input type="datetime-local" id="dynPublished" />
+      <!-- 站点外观视图 -->
+      <div class="appearance-view" id="appearanceView" hidden>
+        <div class="appearance-panel" id="appearancePanel">
+          <div class="ap-group">
+            <div class="ap-group-title">站点 Logo</div>
+            <div class="ap-cards">
+              <div class="ap-card">
+                <div class="ap-preview"><img id="prevLogoDark" alt="深色 Logo" /></div>
+                <div class="ap-name">深色 Logo</div>
+                <button class="btn ghost sm ap-btn" type="button" data-pick="logo-dark">更换</button>
+                <input type="file" class="ap-file" data-asset="logo-dark" accept="image/*" hidden />
               </div>
-              <div class="field">
-                <label>地点 (location，可选)</label>
-                <input type="text" id="dynLocation" placeholder="如 郑州" />
+              <div class="ap-card">
+                <div class="ap-preview"><img id="prevLogoLight" alt="浅色 Logo" /></div>
+                <div class="ap-name">浅色 Logo</div>
+                <button class="btn ghost sm ap-btn" type="button" data-pick="logo-light">更换</button>
+                <input type="file" class="ap-file" data-asset="logo-light" accept="image/*" hidden />
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- 编辑模式切换 -->
-        <div class="mode-switch" id="modeSwitch">
-          <span>编辑模式：</span>
-          <button class="seg active" id="modeRich" data-mode="rich">富文本</button>
-          <button class="seg" id="modeRaw" data-mode="raw">源代码</button>
-        </div>
-
-        <!-- 编辑主区：单栏，上传已移到左侧栏 -->
-        <div class="editor-main" id="editorMain">
-          <div class="editor-host" id="editorHost">
-            <div id="editor"></div>
+          <div class="ap-group">
+            <div class="ap-group-title">作者头像</div>
+            <div class="ap-cards">
+              <div class="ap-card">
+                <div class="ap-preview ap-preview--round"><img id="prevAvatar" alt="作者头像" /></div>
+                <div class="ap-name">avatar.webp</div>
+                <button class="btn ghost sm ap-btn" type="button" data-pick="avatar">更换</button>
+                <input type="file" class="ap-file" data-asset="avatar" accept="image/*" hidden />
+              </div>
+            </div>
+          </div>
+          <div class="ap-group">
+            <div class="ap-group-title">常用配置（点击直接编辑）</div>
+            <div class="ap-config-cards">
+              <button class="ap-cfg-btn" type="button" data-cfg="profileConfig.ts"><span class="ap-ico">👤</span>个人资料 profileConfig</button>
+              <button class="ap-cfg-btn" type="button" data-cfg="backgroundWallpaper.ts"><span class="ap-ico">🖼️</span>背景壁纸 backgroundWallpaper</button>
+              <button class="ap-cfg-btn" type="button" data-cfg="booknavConfig.ts"><span class="ap-ico">🔖</span>书签导航 booknavConfig</button>
+              <button class="ap-cfg-btn" type="button" data-cfg="announcementConfig.ts"><span class="ap-ico">📢</span>公告 announcementConfig</button>
+              <button class="ap-cfg-btn" type="button" data-cfg="sponsorConfig.ts"><span class="ap-ico">💝</span>赞助 sponsorConfig</button>
+            </div>
           </div>
         </div>
+      </div>
 
-        <!-- 源代码模式：整文件编辑 -->
-        <textarea id="rawEditor" class="raw-editor" hidden placeholder="编辑完整文件（含 Frontmatter）…"></textarea>
+      <!-- 编辑区 -->
+      <div class="editor" id="editorPane" hidden>
+        <div class="empty-state" id="emptyState">
+          <div class="big">🗂️</div>
+          <p>从左侧选择文件进行编辑，或点击「新建」创建内容。</p>
+        </div>
 
-        <!-- 结构化配置编辑：参数名锁定，仅值可编辑 -->
-        <div id="configEditor" class="config-editor" hidden></div>
+        <div class="edit-form" id="editForm" hidden>
+          <div class="editor-head">
+            <span class="eh-icon" id="ehIcon">📝</span>
+            <div class="eh-meta">
+              <div class="fn-row">
+                <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
+                <select id="extSelect" class="ext-select" aria-label="文件后缀" title="选择文件后缀"></select>
+              </div>
+              <div class="eh-path" id="ehPath"></div>
+            </div>
+            <div class="eh-right">
+              <span class="ed-type-badge" id="edTypeBadge">Markdown 富文本</span>
+              <div class="edit-status" id="editStatus"></div>
+            </div>
+          </div>
 
-        <!-- 底部固定操作栏：返回 / 删除 / 保存，编辑长文时始终可见 -->
-        <div class="action-bar">
-          <button id="backBtn" class="btn ghost">← 返回</button>
-          <span class="ab-spacer"></span>
-          <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
-          <button id="saveBtn" class="btn primary">💾 保存</button>
+          <!-- 文章结构化表单（可折叠，默认收起以最大化编辑区） -->
+          <div class="meta-panel collapsed" id="postPanel" hidden>
+            <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span> <span class="chev">▾</span></button>
+            <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
+          </div>
+
+          <!-- 动态字段（可折叠） -->
+          <div class="meta-panel collapsed" id="dynamicPanel" hidden>
+            <button type="button" class="panel-head">⚡ 动态信息 <span class="chev">▾</span></button>
+            <div class="panel-body">
+              <div id="dynamicFields" class="dynamic-fields">
+                <div class="field">
+                  <label>发布时间</label>
+                  <input type="datetime-local" id="dynPublished" />
+                </div>
+                <div class="field">
+                  <label>地点 (location，可选)</label>
+                  <input type="text" id="dynLocation" placeholder="如 郑州" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 编辑模式切换 -->
+          <div class="mode-switch" id="modeSwitch">
+            <span>编辑模式：</span>
+            <button class="seg active" id="modeRich" data-mode="rich">富文本</button>
+            <button class="seg" id="modeRaw" data-mode="raw">源代码</button>
+          </div>
+
+          <!-- 编辑主区 -->
+          <div class="editor-main" id="editorMain">
+            <div class="editor-host" id="editorHost">
+              <div id="editor"></div>
+            </div>
+          </div>
+
+          <!-- 源代码模式：整文件编辑 -->
+          <textarea id="rawEditor" class="raw-editor" hidden placeholder="编辑完整文件（含 Frontmatter）…"></textarea>
+
+          <!-- 结构化配置编辑：参数名锁定，仅值可编辑 -->
+          <div id="configEditor" class="config-editor" hidden></div>
+
+          <!-- 底部固定操作栏：返回 / 删除 / 保存 -->
+          <div class="action-bar">
+            <button id="backBtn" class="btn ghost">← 返回</button>
+            <span class="ab-spacer"></span>
+            <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
+            <button id="saveBtn" class="btn primary">💾 保存</button>
+          </div>
         </div>
       </div>
     </section>
