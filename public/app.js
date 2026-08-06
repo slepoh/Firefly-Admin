@@ -24,6 +24,8 @@
     forceMarkdown: false, // 当前 .md 含裸 HTML/iframe，强制用 Markdown 模式（避免 WYSIWYG 转换崩溃）
     configRaw: "",     // 原始配置源码（保存时按偏移量回写值）
     configRoots: [],   // parseConfig 解析出的配置根节点
+    booknavMode: false, // 当前配置文件为 booknavConfig.ts（数组以列表形式编辑）
+    booknavModel: null, // booknavConfig 解析出的分组模型（用于列表编辑 / 新增）
     postData: {},  // 解析出的 frontmatter（posts / spec 复用）
   };
 
@@ -62,6 +64,36 @@
   ];
   // 扁平化便于遍历（保持分组顺序）
   const POST_FIELDS = POST_GROUPS.flatMap((g) => g.fields);
+
+  // 配置 / 单页文件名 -> 列表显示名（依据 src/config/README.md 与固定页面）
+  const CONFIG_NAME_MAP = {
+    "siteConfig.ts": "站点基础配置",
+    "analyticsConfig.ts": "统计分析配置",
+    "announcementConfig.ts": "公告配置",
+    "backgroundWallpaper.ts": "背景壁纸配置",
+    "commentConfig.ts": "评论系统配置",
+    "coverImageConfig.ts": "封面图配置",
+    "dynamicConfig.ts": "动态页面配置",
+    "effectsConfig.ts": "动画特效配置",
+    "expressiveCodeConfig.ts": "代码高亮配置",
+    "fontConfig.ts": "字体配置",
+    "footerConfig.ts": "页脚配置",
+    "friendsConfig.ts": "友链配置",
+    "galleryConfig.ts": "相册配置",
+    "licenseConfig.ts": "许可证配置",
+    "musicConfig.ts": "音乐播放器配置",
+    "navBarConfig.ts": "导航栏配置",
+    "pioConfig.ts": "看板娘配置",
+    "plantumlConfig.ts": "PlantUML 图表配置",
+    "profileConfig.ts": "用户资料配置",
+    "sidebarConfig.ts": "侧边栏布局配置",
+    "sponsorConfig.ts": "打赏配置",
+  };
+  const SPEC_NAME_MAP = {
+    "about.md": "关于我",
+    "friends.mdx": "友链",
+    "guestbook.md": "留言页",
+  };
 
   // ----------------------------------------------------------------------
   // API
@@ -373,9 +405,15 @@
     const kw = ($("searchInput").value || "").toLowerCase();
     const modifiable = canModify();
     state.selectableCount = 0;
-    state.files
+    const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
+    const _files = state.files
       .filter((f) => f.name.toLowerCase().includes(kw))
-      .forEach((f) => {
+      // 配置板块隐藏 index.ts（仅为统一导出，无可视化参数）
+      .filter((f) => !(state.type === "config" && f.name === "index.ts"));
+    // 图片与文档分开：图片走宫格预览，文档走可编辑列表
+    const _docs = _files.filter((f) => !IMG_RE.test(f.name));
+    const _imgs = _files.filter((f) => IMG_RE.test(f.name));
+    _docs.forEach((f) => {
         const div = document.createElement("div");
         div.className = "file-item";
         const isDir = f.type === "dir";
@@ -391,7 +429,14 @@
           const dot = f.name.lastIndexOf(".");
           const base = dot > 0 ? f.name.slice(0, dot) : f.name;
           const ext = dot > 0 ? f.name.slice(dot) : "";
-          nameHtml = `<span class="fi-name">${esc(base)}</span><span class="fi-ext">${esc(ext)}</span>`;
+          // 配置 / 单页：优先用 README / 固定页面的中文显示名
+          let displayBase = base;
+          let mapped = false;
+          if (state.type === "config" && CONFIG_NAME_MAP[f.name]) { displayBase = CONFIG_NAME_MAP[f.name]; mapped = true; }
+          else if (state.type === "spec" && SPEC_NAME_MAP[f.name]) { displayBase = SPEC_NAME_MAP[f.name]; mapped = true; }
+          nameHtml = `<span class="fi-name">${esc(displayBase)}</span>`;
+          if (mapped) nameHtml += `<span class="fi-origin" title="${esc(f.name)}">${esc(f.name)}</span>`;
+          else nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
         }
 
         // 左侧可勾选（仅可修改板块的内容，配置类不可批量操作）
@@ -444,6 +489,51 @@
 
         box.appendChild(div);
       });
+
+    // 图片以宫格展示，点击预览而非编辑（不再打开源码/结构化编辑器）
+    if (_imgs.length) {
+      const sep = document.createElement("div");
+      sep.className = "img-grid-sep";
+      sep.textContent = "图片（" + _imgs.length + "）";
+      box.appendChild(sep);
+      const grid = document.createElement("div");
+      grid.className = "img-grid";
+      _imgs.forEach((f) => {
+        const card = document.createElement("div");
+        card.className = "img-card";
+        let display = f.name;
+        if (state.type === "spec" && SPEC_NAME_MAP[f.name]) display = SPEC_NAME_MAP[f.name];
+        else if (CONFIG_NAME_MAP[f.name]) display = CONFIG_NAME_MAP[f.name];
+        const thumb = document.createElement("img");
+        thumb.className = "img-thumb";
+        thumb.loading = "lazy";
+        thumb.src = rawUrl(f.path);
+        thumb.alt = f.name;
+        thumb.onerror = () => { thumb.alt = "🖼️"; thumb.classList.add("img-thumb--err"); };
+        const cap = document.createElement("div");
+        cap.className = "img-cap";
+        cap.textContent = display;
+        const meta = document.createElement("div");
+        meta.className = "img-meta";
+        meta.textContent = (fmtSize(f.size) ? fmtSize(f.size) + " · " : "") + f.name;
+        card.appendChild(thumb);
+        card.appendChild(cap);
+        card.appendChild(meta);
+        // 删除（仅可修改板块：文章/动态/单页）；图片不提供「编辑」
+        if (modifiable) {
+          const del = document.createElement("button");
+          del.className = "img-del";
+          del.type = "button";
+          del.title = "删除";
+          del.textContent = "🗑";
+          del.onclick = (ev) => { ev.stopPropagation(); removeItem(f); };
+          card.appendChild(del);
+        }
+        card.onclick = () => openImagePreview(f.path, f.name);
+        grid.appendChild(card);
+      });
+      box.appendChild(grid);
+    }
     updateBatchCount();
   }
 
@@ -522,6 +612,9 @@
           state.plainRaw = true; // 无法结构化（如 index.ts 纯导出）-> 源码模式
         }
       }
+      // booknavConfig.ts：以「列表」形式编辑（非树形），并解析出分组模型
+      state.booknavMode = (f.name === "booknavConfig.ts");
+      if (state.booknavMode) state.booknavModel = parseBooknavModel();
       let fm = {}, body = data.content;
       if (!state.htmlMode && !state.configStruct) {
         const parsed = parseFrontmatter(data.content);
@@ -810,6 +903,8 @@
   function renderConfigEditor() {
     const host = $("configEditor");
     host.innerHTML = "";
+    // booknavConfig.ts：以列表（非树形）形式编辑，支持自定义新增
+    if (state.booknavMode) { renderBooknavEditor(host, state.booknavModel); return; }
     if (!state.configRoots || !state.configRoots.length) {
       host.innerHTML = '<div class="cfg-empty">该配置文件无可结构化编辑的参数。</div>';
       return;
@@ -872,6 +967,25 @@
     }
     row.appendChild(lab);
 
+    // 注释中列出可选数值（枚举）：把输入框渲染为下拉选择
+    if (node.type === "string" && node.enumValues && node.enumValues.length) {
+      const sel = document.createElement("select");
+      sel.className = "cfg-input cfg-select";
+      node.enumValues.forEach((opt) => {
+        const o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.label;
+        if (String(node.value) === String(opt.value)) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.dataset.start = node.start;
+      sel.dataset.end = node.end;
+      sel.dataset.vtype = "string";
+      sel.dataset.quote = node.quote || '"';
+      row.appendChild(sel);
+      return row;
+    }
+
     if (node.type === "expr") {
       const inp = document.createElement("input");
       inp.type = "text";
@@ -924,9 +1038,12 @@
     return '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(name) + "</span>";
   }
 
-  function collectConfigEdits() {
+  function collectConfigEdits(hostEl) {
+    const root = hostEl || $("configEditor");
     const edits = [];
-    const inputs = $("configEditor").querySelectorAll(".cfg-input");
+    // 注意：布尔复选框的类名是 .cfg-check（非 .cfg-input），必须一起收集，
+    // 否则 enable 等布尔值永远不会出现在 edits 中，导致无法切换 true/false、提交到 GitHub 无变化。
+    const inputs = root.querySelectorAll(".cfg-input, .cfg-check");
     inputs.forEach((inp) => {
       if (inp.disabled) return;
       const start = Number(inp.dataset.start);
@@ -955,6 +1072,192 @@
   function buildConfigContent() {
     const edits = collectConfigEdits();
     return FireflyConfig.applyConfigEdits(state.configRaw, edits);
+  }
+
+  // ----------------------------------------------------------------------
+  // booknavConfig 列表化编辑（数组以列表展示，可自定义新增分组 / 书签）
+  // ----------------------------------------------------------------------
+  function nodeToJS(node) {
+    if (!node || typeof node !== "object") return node;
+    if (node.type === "object") {
+      const o = {};
+      (node.children || []).forEach((c) => { o[c.key] = nodeToJS(c.value); });
+      return o;
+    }
+    if (node.type === "array") {
+      return (node.children || []).map((c) => nodeToJS(c.value));
+    }
+    return node.value;
+  }
+
+  function findRoot(name) {
+    return (state.configRoots || []).find((r) => r.name === name);
+  }
+
+  // 把原始 booknav 模型标准化（确保字段类型正确、icon 缺省为 ""）
+  function normalizeBooknav(arr) {
+    return (arr || []).map((g) => ({
+      id: String(g.id != null ? g.id : ""),
+      name: String(g.name != null ? g.name : ""),
+      icon: String(g.icon != null ? g.icon : ""),
+      desc: String(g.desc != null ? g.desc : ""),
+      weight: Number(g.weight != null ? g.weight : 0),
+      items: (g.items || []).map((it) => ({
+        title: String(it.title != null ? it.title : ""),
+        url: String(it.url != null ? it.url : ""),
+        desc: String(it.desc != null ? it.desc : ""),
+        icon: it.icon != null ? String(it.icon) : "",
+        weight: Number(it.weight != null ? it.weight : 0),
+      })),
+    }));
+  }
+
+  // 把解析出的 booknavConfig 数组标准化为可编辑的 JS 模型
+  function parseBooknavModel() {
+    const root = findRoot("booknavConfig");
+    if (!root) return [];
+    return normalizeBooknav(nodeToJS(root.node));
+  }
+
+  function bnField(label, value, onChange, type) {
+    const wrap = document.createElement("div");
+    wrap.className = "bn-field";
+    const lab = document.createElement("label");
+    lab.textContent = label;
+    const inp = document.createElement("input");
+    inp.type = type || "text";
+    inp.className = "cfg-input";
+    inp.value = value != null ? value : "";
+    inp.oninput = () => onChange(inp.value);
+    wrap.appendChild(lab);
+    wrap.appendChild(inp);
+    return wrap;
+  }
+
+  function booknavItemCard(it, gi, ii, model, host) {
+    const card = document.createElement("div");
+    card.className = "bn-item";
+    const head = document.createElement("div");
+    head.className = "bn-item-head";
+    head.innerHTML = '<span class="bn-i-title">书签</span>';
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "bn-del sm";
+    del.textContent = "✕";
+    del.title = "删除此书签";
+    del.onclick = () => { model[gi].items.splice(ii, 1); renderBooknavEditor(host, model); };
+    head.appendChild(del);
+    card.appendChild(head);
+    const fields = document.createElement("div");
+    fields.className = "bn-fields";
+    fields.appendChild(bnField("标题", it.title, (v) => (it.title = v)));
+    fields.appendChild(bnField("链接 URL", it.url, (v) => (it.url = v)));
+    fields.appendChild(bnField("描述", it.desc, (v) => (it.desc = v)));
+    fields.appendChild(bnField("图标(可选)", it.icon != null ? it.icon : "", (v) => (it.icon = v)));
+    fields.appendChild(bnField("权重", String(it.weight), (v) => (it.weight = Number(v) || 0), "number"));
+    card.appendChild(fields);
+    return card;
+  }
+
+  function booknavGroupCard(group, gi, model, host) {
+    const card = document.createElement("div");
+    card.className = "bn-group";
+    const head = document.createElement("div");
+    head.className = "bn-group-head";
+    head.innerHTML = '<span class="bn-g-title">分组</span>';
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "bn-del";
+    del.textContent = "🗑 删除分组";
+    del.onclick = () => { model.splice(gi, 1); renderBooknavEditor(host, model); };
+    head.appendChild(del);
+    card.appendChild(head);
+
+    const fields = document.createElement("div");
+    fields.className = "bn-fields";
+    fields.appendChild(bnField("分组ID", group.id, (v) => (group.id = v)));
+    fields.appendChild(bnField("名称", group.name, (v) => (group.name = v)));
+    fields.appendChild(bnField("图标(astro-icon)", group.icon, (v) => (group.icon = v)));
+    fields.appendChild(bnField("描述", group.desc, (v) => (group.desc = v)));
+    fields.appendChild(bnField("权重(weight)", String(group.weight), (v) => (group.weight = Number(v) || 0), "number"));
+    card.appendChild(fields);
+
+    const itemsWrap = document.createElement("div");
+    itemsWrap.className = "bn-items";
+    const itemsTitle = document.createElement("div");
+    itemsTitle.className = "bn-items-title";
+    itemsTitle.textContent = "书签 (" + group.items.length + ")";
+    itemsWrap.appendChild(itemsTitle);
+    group.items.forEach((it, ii) => itemsWrap.appendChild(booknavItemCard(it, gi, ii, model, host)));
+    const addItem = document.createElement("button");
+    addItem.type = "button";
+    addItem.className = "bn-add-item";
+    addItem.textContent = "＋ 添加书签";
+    addItem.onclick = () => {
+      group.items.push({ title: "新书签", url: "", desc: "", icon: "", weight: 10 });
+      renderBooknavEditor(host, model);
+    };
+    itemsWrap.appendChild(addItem);
+    card.appendChild(itemsWrap);
+    return card;
+  }
+
+  // 渲染 booknav 列表编辑器；host / model 可外部传入（供站点外观 Tab 复用）
+  function renderBooknavEditor(host, model) {
+    host = host || $("configEditor");
+    model = model || state.booknavModel || [];
+    host.innerHTML = "";
+    if (!model.length) host.innerHTML = '<div class="cfg-empty">暂无书签分组。点击下方「添加分组」创建。</div>';
+    model.forEach((group, gi) => host.appendChild(booknavGroupCard(group, gi, model, host)));
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "bn-add-group";
+    addBtn.textContent = "＋ 添加分组";
+    addBtn.onclick = () => {
+      model.push({ id: "group" + (model.length + 1), name: "新分组", icon: "", desc: "", weight: 50, items: [] });
+      renderBooknavEditor(host, model);
+    };
+    host.appendChild(addBtn);
+  }
+
+  function bnQuote(s) {
+    return FireflyConfig.encodeValue("string", s != null ? s : "", '"');
+  }
+
+  // 把分组模型序列化回 Firefly 风格的 TS 数组文本（与原文件缩进一致：Tab）
+  function serializeBooknav(groups) {
+    const T = "\t";
+    const lines = ["["];
+    (groups || []).forEach((g) => {
+      lines.push(T + "{");
+      lines.push(T + T + "id: " + bnQuote(g.id) + ",");
+      lines.push(T + T + "name: " + bnQuote(g.name) + ",");
+      lines.push(T + T + "icon: " + bnQuote(g.icon) + ",");
+      lines.push(T + T + "desc: " + bnQuote(g.desc) + ",");
+      lines.push(T + T + "weight: " + (Number(g.weight) || 0) + ",");
+      lines.push(T + T + "items: [");
+      (g.items || []).forEach((it) => {
+        lines.push(T + T + T + "{");
+        lines.push(T + T + T + T + "title: " + bnQuote(it.title) + ",");
+        lines.push(T + T + T + T + "url: " + bnQuote(it.url) + ",");
+        lines.push(T + T + T + T + "desc: " + bnQuote(it.desc) + ",");
+        if (it.icon != null && it.icon !== "") lines.push(T + T + T + T + "icon: " + bnQuote(it.icon) + ",");
+        lines.push(T + T + T + T + "weight: " + (Number(it.weight) || 0) + ",");
+        lines.push(T + T + T + "},");
+      });
+      lines.push(T + T + "]");
+      lines.push(T + "},");
+    });
+    lines.push("]");
+    return lines.join("\n");
+  }
+
+  // 整体替换 booknavConfig 的数组文本（基于解析偏移量，保留其上方的导出语句与注释）
+  function buildBooknavContent() {
+    const root = findRoot("booknavConfig");
+    if (!root) return state.configRaw;
+    const arrText = serializeBooknav(state.booknavModel || []);
+    return state.configRaw.slice(0, root.node.start) + arrText + state.configRaw.slice(root.node.end);
   }
 
   // ----------------------------------------------------------------------
@@ -1009,6 +1312,7 @@
   // 构建文件内容
   // ----------------------------------------------------------------------
   function buildContent() {
+    if (state.booknavMode) return buildBooknavContent();
     if (state.configStruct) return buildConfigContent();
     if (state.plainRaw) return $("rawEditor").value;
     if (state.mode === "raw") return $("rawEditor").value;
@@ -1179,6 +1483,30 @@
       document.addEventListener("keydown", onKey);
       if (input) { input.focus(); input.select(); }
     });
+  }
+
+  // ----------------------------------------------------------------------
+  // 图片预览灯箱（列表中的图片点击后查看，而非打开编辑器）
+  // ----------------------------------------------------------------------
+  function openImagePreview(path, name) {
+    const url = rawUrl(path);
+    const overlay = document.createElement("div");
+    overlay.className = "img-preview-overlay";
+    overlay.innerHTML =
+      '<div class="img-preview-card" role="dialog" aria-modal="true">' +
+        '<div class="img-preview-head"><span class="img-preview-name">' + esc(name) + '</span>' +
+        '<button class="img-preview-close" type="button" title="关闭">✕</button></div>' +
+        '<div class="img-preview-body"><img class="img-preview-img" src="' + esc(url) + '" alt="' + esc(name) + '" /></div>' +
+        '<div class="img-preview-actions">' +
+          '<a class="btn ghost sm" href="' + esc(url) + '" target="_blank" rel="noopener">新窗口打开</a>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    function close() { overlay.remove(); document.removeEventListener("keydown", onKey); }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector(".img-preview-close").addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
   }
 
   // ----------------------------------------------------------------------
@@ -1524,6 +1852,9 @@
     if (type === "appearance") {
       showView("appearance");
       loadAppearance();
+      // 动态从 GitHub 拉取 src/config 下全部 .ts，生成配置 Tab 与编辑面板（不再写死）
+      loadApTabs();
+      selectApTab("logo");
       return;
     }
     showView("content");
@@ -1577,6 +1908,170 @@
     setPrev("prevLogoDark", "src/assets/images/logo/firefly-dark.png");
     setPrev("prevLogoLight", "src/assets/images/logo/firefly-light.png");
     setPrev("prevAvatar", "src/assets/images/avatar.webp");
+  }
+
+  // ----------------------------------------------------------------------
+  // 站点外观：常用配置以顶部 Tab 形式切换（内联编辑，避免跳转）
+  // ----------------------------------------------------------------------
+  const apState = {}; // name(去 .ts) -> { raw, sha, roots, booknavModel, loaded }
+
+  function apHostFor(name) {
+    const pane = document.querySelector('.ap-pane[data-pane="' + name + '"]');
+    return pane ? pane.querySelector(".ap-cfg-host") : null;
+  }
+  function apStatusFor(name) {
+    const pane = document.querySelector('.ap-pane[data-pane="' + name + '"]');
+    return pane ? pane.querySelector(".ap-pane-status") : null;
+  }
+  function apPaneName(btn) {
+    return (btn.dataset.save || "").replace(/\.ts$/, "");
+  }
+
+  function selectApTab(name) {
+    document.querySelectorAll("#apTabs .ap-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll("#apBody .ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
+    if (name !== "logo" && name !== "avatar") loadApConfig(name);
+  }
+
+  // 动态生成站点外观的配置 Tab：从 GitHub 拉取 src/config 下全部 .ts（排除 index.ts），
+  // 按常用顺序排序后生成 Tab 与对应编辑面板，复用 loadApConfig / renderApConfig / saveApConfig。
+  async function loadApTabs() {
+    const holder = $("apConfigPanes");
+    const tabsEl = $("apTabs");
+    if (!holder || !tabsEl) return;
+    holder.innerHTML = "";
+    let items = [];
+    try {
+      const { data } = await api("/api/list?type=config");
+      items = (data.items || []).filter((f) => f.name.endsWith(".ts") && f.name !== "index.ts");
+    } catch (e) { /* 忽略：仅展示资源 Tab */ }
+    // 常用顺序靠前；其余按文件名
+    const order = ["profileConfig", "backgroundWallpaper", "booknavConfig", "announcementConfig", "sponsorConfig", "sidebarConfig"];
+    items.sort((a, b) => {
+      const ia = order.indexOf(a.name.replace(/\.ts$/, ""));
+      const ib = order.indexOf(b.name.replace(/\.ts$/, ""));
+      const wa = ia === -1 ? order.length : ia;
+      const wb = ib === -1 ? order.length : ib;
+      return wa - wb;
+    });
+    items.forEach((f) => {
+      const name = f.name.replace(/\.ts$/, "");
+      const label = CONFIG_NAME_MAP[f.name] || name;
+      const tab = document.createElement("button");
+      tab.className = "ap-tab";
+      tab.type = "button";
+      tab.dataset.tab = name;
+      tab.textContent = label;
+      tabsEl.appendChild(tab);
+      const pane = document.createElement("div");
+      pane.className = "ap-pane ap-config-pane";
+      pane.dataset.pane = name;
+      pane.hidden = true;
+      pane.innerHTML =
+        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + " · " + esc(name) + '</span>' +
+        '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
+        '<div class="ap-cfg-host config-editor"></div>' +
+        '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
+      holder.appendChild(pane);
+    });
+  }
+
+  async function loadApConfig(name) {
+    if (apState[name] && apState[name].loaded) return;
+    const host = apHostFor(name);
+    if (!host) return;
+    host.innerHTML = '<div class="cfg-empty">加载中…</div>';
+    const path = "src/config/" + name + ".ts";
+    try {
+      const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
+      if (status !== 200 || data.content == null) {
+        host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(name) + ".ts</div>";
+        return;
+      }
+      const parsed = FireflyConfig.parseConfig(data.content);
+      const st = { raw: data.content, sha: data.sha, roots: parsed.roots, name: name, loaded: true };
+      if (name === "booknavConfig") st.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
+      apState[name] = st;
+      renderApConfig(name);
+    } catch (e) {
+      host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
+    }
+  }
+
+  function renderApConfig(name) {
+    const st = apState[name];
+    const host = apHostFor(name);
+    if (!st || !host) return;
+    if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
+    else renderGenericConfig(host, st.roots);
+  }
+
+  // 通用配置渲染（供站点外观 Tab 与编辑器复用），渲染到指定 host
+  function renderGenericConfig(host, roots) {
+    host.innerHTML = "";
+    if (!roots || !roots.length) {
+      host.innerHTML = '<div class="cfg-empty">该配置文件无可结构化编辑的参数。</div>';
+      return;
+    }
+    roots.forEach((r) => {
+      const sec = document.createElement("div");
+      sec.className = "cfg-section";
+      const head = document.createElement("div");
+      head.className = "cfg-section-head";
+      const titleText = r.comment ? esc(r.comment) : esc(r.name);
+      const varChip = r.comment ? '<span class="cfg-key-chip" title="变量名固定，不可修改">🔒 ' + esc(r.name) + "</span>" : "";
+      head.innerHTML =
+        '<span class="cfg-lock" title="变量名固定，不可修改">🔒</span>' +
+        '<span class="cfg-var">' + titleText + "</span>" + varChip +
+        '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
+      sec.appendChild(head);
+      if (r.node.type === "object" && r.node.children && r.node.children.length) {
+        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0)));
+      } else {
+        sec.appendChild(cfgNodeEl(r.node, r.name, 0));
+      }
+      host.appendChild(sec);
+    });
+  }
+
+  async function saveApConfig(name) {
+    const st = apState[name];
+    const host = apHostFor(name);
+    const statusEl = apStatusFor(name);
+    if (!st || !host) return;
+    let content;
+    try {
+      if (name === "booknavConfig") {
+        const root = st.roots.find((r) => r.name === "booknavConfig");
+        if (!root) throw new Error("未找到 booknavConfig");
+        const arrText = serializeBooknav(st.booknavModel || []);
+        content = st.raw.slice(0, root.node.start) + arrText + st.raw.slice(root.node.end);
+      } else {
+        const edits = collectConfigEdits(host);
+        content = FireflyConfig.applyConfigEdits(st.raw, edits);
+      }
+    } catch (e) {
+      if (statusEl) { statusEl.textContent = e.message || "内容构建失败"; statusEl.className = "ap-pane-status err"; }
+      return;
+    }
+    const payload = {
+      path: "src/config/" + name + ".ts",
+      content,
+      sha: st.sha || undefined,
+      message: "Update " + name + ".ts via FireflyCMS",
+    };
+    try {
+      const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
+      if (status === 200 || status === 201) {
+        st.sha = data.sha || st.sha;
+        if (statusEl) { statusEl.textContent = "✅ 已保存，GitHub 将自动重新部署"; statusEl.className = "ap-pane-status ok"; }
+        toast("保存成功");
+      } else {
+        if (statusEl) { statusEl.textContent = (data && (data.error || data.message)) || "保存失败"; statusEl.className = "ap-pane-status err"; }
+      }
+    } catch (e) {
+      if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
+    }
   }
 
   function uploadAsset(asset, file) {
@@ -1719,6 +2214,14 @@
     on("deleteBtn", "onclick", deleteFile);
     on("backBtn", "onclick", backToEmpty);
     on("logoutBtn", "onclick", async () => {
+      // 与删除一致：先确认再执行
+      const ok = await openModal({
+        title: "退出登录",
+        html: "确定要退出当前账号吗？退出后需重新登录才能管理站点。",
+        confirmText: "退出登录",
+        danger: true,
+      });
+      if (!ok) return;
       try { await api("/api/logout", { method: "POST" }); } catch (e) { /* ignore */ }
       localStorage.removeItem("ff_token");
       location.replace("login.html");
@@ -1782,13 +2285,17 @@
         fi.value = "";
       });
     });
-    // 站点外观：常用配置快捷入口
-    document.querySelectorAll(".ap-cfg-btn").forEach((b) => {
-      b.addEventListener("click", () => {
-        const name = b.dataset.cfg;
-        openConfigByPath("src/config/" + name, name);
-        if (isMobile()) closeDrawer();
-      });
+    // 站点外观：Tab 切换（含动态生成的配置 Tab，用事件委托）
+    const apTabsEl = $("apTabs");
+    if (apTabsEl) apTabsEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".ap-tab");
+      if (b) selectApTab(b.dataset.tab);
+    });
+    // 站点外观：保存按钮（含动态生成的配置 pane，用事件委托）
+    const apBodyEl = $("apBody");
+    if (apBodyEl) apBodyEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".ap-save");
+      if (b) saveApConfig(apPaneName(b));
     });
 
     // 已上传列表：点击「插入」

@@ -89,6 +89,56 @@
       .trim();
   }
 
+  /* 从注释中识别「多选数值（枚举）」，用于把输入框渲染为下拉选择。
+   * 例：// 评论系统类型: none, twikoo, waline, giscus, disqus, artalk，默认为none
+   *   -> ["none","twikoo","waline","giscus","disqus","artalk"]（不含「默认为none」）
+   * 识别策略：
+   *  1) 注释中的纯标识符引号串 'enable' "force" 等（排除 URL / 含特殊字符的串）。
+   *  2) 冒号之后的逗号分隔片段，取每段开头的连续标识符（如 none / waline），
+   *     跳过含中文描述的片段（如「默认为none」只取不到 none，因为段首是中文）。
+   * 返回 [{value,label}] 或 null（候选 < 2 视为非枚举，避免误判）。
+   */
+  function detectEnum(comment, val) {
+    if (!comment) return null;
+    var vals = [];
+    // 1) 引号内的纯标识符（排除 URL 等含 : / @ 的内容）
+    var qRe = /['"]([A-Za-z][A-Za-z0-9_-]*)['"]/g;
+    var m;
+    while ((m = qRe.exec(comment)) !== null) {
+      vals.push({ value: m[1], label: m[1] });
+    }
+    // 2) 冒号之后的逗号分隔片段，取段首连续标识符
+    var ci = comment.search(/[:：]/);
+    if (ci >= 0) {
+      var after = comment.slice(ci + 1);
+      after.split(/[，,]/).forEach(function (chunk) {
+        var mm = chunk.match(/^\s*([A-Za-z][A-Za-z0-9_-]*)/);
+        if (mm) {
+          var v = mm[1];
+          // 排除明显像 URL / 协议头 / 超长串，降低误判
+          if (/^https?$/i.test(v)) return;
+          if (v.length > 24) return;
+          vals.push({ value: v, label: v });
+        }
+      });
+    }
+    // 去重
+    var seen = {};
+    var out = [];
+    vals.forEach(function (x) {
+      if (seen[x.value]) return;
+      seen[x.value] = true;
+      out.push(x);
+    });
+    if (out.length < 2) return null;
+    // 确保当前值也在选项中（即使不在枚举列表内也保留，标注「当前」）
+    if (val && val.value != null) {
+      var cur = String(val.value);
+      if (!seen[cur]) out.push({ value: cur, label: cur + "（当前值）" });
+    }
+    return out;
+  }
+
   // 提取某个位置之前的连续 // 注释行（用于根 const 的标题）
   function leadingCommentBefore(src, pos) {
     var lineStart = src.lastIndexOf("\n", pos - 1) + 1; // const 所在行开头
@@ -156,7 +206,12 @@
       var comment = leading.length ? joinComments(leading) : (trail || null);
       // 关键：把注释同步到 value 节点本身，否则嵌套对象/数组/叶子在渲染时读不到 comment，
       // 会回退为显示「参数名 / 函数名」。comment 仅用于显示，不参与偏移量回写。
-      if (val && typeof val === "object") val.comment = comment;
+      if (val && typeof val === "object") {
+        val.comment = comment;
+        // 注释中若列出可选数值（枚举），附加 enumValues 供前端渲染为下拉选择
+        var enums = detectEnum(comment, val);
+        if (enums && enums.length) val.enumValues = enums;
+      }
       node.children.push({ key: key, value: val, comment: comment });
       i = val.end;
       i = skipWs(src, i);
@@ -181,7 +236,11 @@
       var val = parseValue(src, elemStart);
       var trail = inlineTrailingComment(src, val.end);
       var comment = leading.length ? joinComments(leading) : (trail || null);
-      if (val && typeof val === "object") val.comment = comment;
+      if (val && typeof val === "object") {
+        val.comment = comment;
+        var enums2 = detectEnum(comment, val);
+        if (enums2 && enums2.length) val.enumValues = enums2;
+      }
       node.children.push({ value: val, comment: comment });
       i = val.end;
       i = skipWs(src, i);
