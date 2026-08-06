@@ -3447,6 +3447,10 @@
       });
     }
 
+    // 顶部图标：帮助 → 操作说明，关于 → 关于（与左侧导航同入口，移动端先收起抽屉）
+    on("topHelpBtn", "onclick", () => { if (isMobile()) closeDrawer(); selectSection("readme"); });
+    on("topAboutBtn", "onclick", () => { if (isMobile()) closeDrawer(); selectSection("about"); });
+
     // 批量删除：删除已勾选的内容
     on("batchDelBtn", "onclick", batchDelete);
     // 全选：勾选 / 取消当前列表所有可修改条目
