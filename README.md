@@ -137,7 +137,10 @@ Firefly-Admin/
 
 - **内容管理**：文章 / 最新动态 / 单页，支持列表批量删除、单独编辑 / 重命名 / 删除、新建；图片以宫格展示并支持点击预览。
 - **配置管理**：点击分类即在右侧加载该配置的结构化编辑界面（参数名锁定、仅改值），保存即提交到 GitHub。
-  - 文件名已做中文映射（如 `siteConfig.ts → 站点基础配置`、`booknavConfig.ts → 书签导航配置`、`displaySettingsConfig.ts → 显示设置面板配置`、`mermaidConfig.ts → Mermaid图表配置`、`FooterConfig.html → 页脚内容`）。
-  - 注释中给出多个可选项的字段（如 `commentConfig.type`）自动渲染为下拉选择，且只取注释中明确列出的数值。
+  - 文件名已做中文映射（如 `siteConfig.ts → 站点基础配置`、`booknavConfig.ts → 书签导航配置`、`displaySettingsConfig.ts → 显示设置面板配置`、`mermaidConfig.ts → Mermaid图表配置`、`footerConfig.ts → 页脚配置`）。
+  - 枚举下拉：注释中给出多可选项的字段自动渲染为下拉；此外对常用字段做了**字段级覆盖**（优先于注释），如 `mermaidConfig` 的 `lightTheme`/`darkTheme`、`pioConfig` 的 `position`、`sidebarConfig` 的 `position`/`tabletSidebar` 均为下拉；`siteConfig.SITE_LANG` 为下拉且支持「自定义…」输入。
+  - **标量数组可增删**：如 `siteConfig.keywords`（站点关键词）不再限定条数，可自由添加 / 删除 / 编辑每一项。
+  - **页脚合并 + 富文本**：同名 `.ts` 与 `.html` 自动合并为一个「页脚配置」面板——上方为 `footerConfig.ts` 结构化配置，下方为 `FooterConfig.html` 的 **ToastUI 富文本编辑器**；所有 `.html` 配置均用富文本编辑。
 - **站点外观**：顶部 Tab 形式为 Logo / 头像 + 常用配置（`profileConfig`、`backgroundWallpaper`、`booknavConfig`、`announcementConfig`、`sponsorConfig`、`sidebarConfig` 等），Tab 由 GitHub 动态拉取，新增配置自动出现；外观 Tab 显示名更简洁（`booknavConfig → 书签导航`、`displaySettingsConfig → 显示设置面板`）。
 - **书签导航**：`booknavConfig.ts` 以分组 / 书签的扁平列表展示，支持新增分组与书签，保存按偏移量整体回写原始文件。
+- **列表操作图标**：文件列表的「编辑」（✏️）与「重命名」（🏷️）使用不同图标，移动端仅显示图标避免遮挡文件名。

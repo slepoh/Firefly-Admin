@@ -497,6 +497,17 @@ textarea { resize: vertical; }
 .cfg-field { display: flex; align-items: flex-start; gap: 12px; padding: 9px 10px; border-radius: 8px; }
 .cfg-field:nth-child(odd) { background: #fafbfc; }
 
+/* 标量数组（如 keywords）：增 / 删 控制 */
+.cfg-arr-foot { padding: 4px 10px 12px; }
+.cfg-arr-add { margin-left: 34%; }
+.cfg-arr-del { margin-left: 8px; flex: none; }
+/* 自定义枚举输入（SITE_LANG 等） */
+.cfg-custom { margin-top: 8px; }
+/* 合并页脚：上方结构化配置 + 下方富文本 */
+.cfg-sub { margin-bottom: 18px; }
+.cfg-footer-html { border-top: 1px dashed var(--border); padding-top: 14px; }
+.cfg-footer-editor { margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
 .cfg-field-label {
   flex: 0 0 34%; min-width: 130px; max-width: 300px;
   display: flex; flex-direction: column; gap: 3px; padding-top: 7px;

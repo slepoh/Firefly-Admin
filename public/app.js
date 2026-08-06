@@ -104,6 +104,39 @@
     "displaySettingsConfig": "显示设置面板",
   };
 
+  // 字段级枚举下拉覆盖表（key 为「文件名」→「从根 const 名起的完整路径」）。
+  // 优先级高于注释自动识别的 detectEnum。value 可为字符串数组（value 即 label），
+  // 或为 { custom:true, options:[[value,label],...] } 以支持「下拉 + 自定义输入」。
+  const CONFIG_FIELD_ENUMS = {
+    mermaidConfig: {
+      "mermaidConfig.lightTheme": ["editor-light", "gruvbox-light", "ayu-light"],
+      "mermaidConfig.darkTheme": ["editor-dark", "one-dark", "gruvbox-dark", "ayu-dark"],
+    },
+    pioConfig: {
+      "spineModelConfig.position.corner": ["bottom-left", "bottom-right", "top-left", "top-right"],
+      "live2dWidgetConfig.position": ["bottom-left", "bottom-right"],
+    },
+    sidebarConfig: {
+      "sidebarLayoutConfig.position": ["left", "right", "both"],
+      "sidebarLayoutConfig.tabletSidebar": ["left", "right"],
+    },
+    siteConfig: {
+      "SITE_LANG": {
+        custom: true,
+        options: [
+          ["zh_CN", "简体中文"],
+          ["zh_TW", "繁體中文"],
+          ["en", "English"],
+          ["ja", "日本語"],
+          ["ru", "Русский"],
+          ["ko", "한국어"],
+        ],
+      },
+    },
+  };
+  // 渲染通用配置时临时持有源码（用于标量数组整段重序列化时还原缩进）
+  let cfgRawSrc = "";
+
   // ----------------------------------------------------------------------
   // API
   // ----------------------------------------------------------------------
@@ -458,7 +491,7 @@
         // 文字包入 .fi-act-label，移动端隐藏文字仅留图标，避免遮挡文件名
         let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️<span class="fi-act-label">编辑</span></button>`;
         if (modifiable) {
-          if (!isDir) actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">✏️<span class="fi-act-label">重命名</span></button>`;
+          if (!isDir) actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">🏷️<span class="fi-act-label">重命名</span></button>`;
           actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑<span class="fi-act-label">删除</span></button>`;
         }
 
@@ -946,7 +979,75 @@
   }
 
   // 递归渲染一个配置节点；keyLabel 用于显示参数名（锁定）；depth 控制标题层级（扁平化，去嵌套盒子）
-  function cfgNodeEl(node, keyLabel, depth) {
+  // 字段级枚举覆盖查询（文件名 + 完整路径）
+  function enumOverrideFor(cfgName, path) {
+    const fm = CONFIG_FIELD_ENUMS[cfgName];
+    if (!fm) return null;
+    return fm[path] || null;
+  }
+
+  // 纯标量数组整段重序列化：从 DOM 读取当前各项值，按原始缩进重建数组文本
+  function collectArrayEdit(block) {
+    const start = Number(block.dataset.arrStart);
+    const end = Number(block.dataset.arrEnd);
+    const type = block.dataset.arrType || "string";
+    const indentItem = JSON.parse(block.dataset.arrItemIndent || '"\\n\\t\\t"');
+    const indentClose = JSON.parse(block.dataset.arrCloseIndent || '"\\n\\t"');
+    const inputs = Array.prototype.slice.call(block.querySelectorAll(".cfg-arr-val"));
+    const items = inputs.map((inp) => {
+      if (type === "number") {
+        const n = inp.value.trim();
+        return isNaN(Number(n)) ? "0" : n;
+      }
+      if (type === "boolean") return inp.checked ? "true" : "false";
+      return FireflyConfig.encodeValue("string", inp.value, '"');
+    });
+    let text;
+    if (items.length === 0) text = "[" + indentClose + "]";
+    else text = "[" + indentItem + items.join("," + indentItem) + "," + indentClose + "]";
+    return { start, end, text };
+  }
+
+  // 标记某元素所在 .ap-pane 为未保存
+  function markDirtyOf(el) {
+    const pane = el.closest && el.closest(".ap-pane");
+    if (pane && pane.dataset.pane && apState[pane.dataset.pane]) apState[pane.dataset.pane].dirty = true;
+  }
+
+  // 为标量数组追加一项（空白输入）
+  function addArrayItem(btn) {
+    const block = btn.closest('[data-array="1"]');
+    if (!block) return;
+    const type = block.dataset.arrType || "string";
+    const row = document.createElement("div");
+    row.className = "cfg-field";
+    const lab = document.createElement("label");
+    lab.className = "cfg-field-label";
+    lab.innerHTML = '<span class="cfg-key">新项</span>';
+    row.appendChild(lab);
+    let inp;
+    if (type === "boolean") {
+      inp = document.createElement("input");
+      inp.type = "checkbox";
+      inp.className = "cfg-check cfg-arr-val";
+    } else {
+      inp = document.createElement("input");
+      inp.type = type === "number" ? "number" : "text";
+      inp.className = "cfg-input cfg-arr-val";
+      inp.value = "";
+    }
+    row.appendChild(inp);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "fi-act danger cfg-arr-del";
+    del.title = "删除此项";
+    del.textContent = "🗑";
+    row.appendChild(del);
+    block.insertBefore(row, btn.closest(".cfg-arr-foot"));
+    markDirtyOf(btn);
+  }
+
+  function cfgNodeEl(node, keyLabel, depth, path, cfgName) {
     if (node.type === "object" || node.type === "array") {
       // 一级栏目：大标题；嵌套：子标题。均不再套盒子，靠缩进体现层级
       const block = document.createElement("div");
@@ -959,10 +1060,58 @@
       if (node.type === "array") inner += '<span class="cfg-tag">数组</span>';
       head.innerHTML = inner;
       block.appendChild(head);
+
+      // 纯标量数组（如 keywords）：渲染为可增删的列表
+      const allScalar = node.children.length === 0 || node.children.every((ch) =>
+        ["string", "number", "boolean", "null"].indexOf(ch.value.type) >= 0);
+
       node.children.forEach((ch) => {
-        const childKey = node.type === "array" ? (ch.value.comment || (keyLabel + "[" + node.children.indexOf(ch) + "]")) : ch.key;
-        block.appendChild(cfgNodeEl(ch.value, childKey, depth + 1));
+        const childKey = node.type === "array"
+          ? (ch.value.comment || (keyLabel + "[" + node.children.indexOf(ch) + "]"))
+          : ch.key;
+        const childPath = path ? path + "." + childKey : childKey;
+        const childRow = cfgNodeEl(ch.value, childKey, depth + 1, childPath, cfgName);
+        if (allScalar) {
+          const inp = childRow.querySelector(".cfg-input, .cfg-check");
+          if (inp) inp.classList.add("cfg-arr-val");
+          const del = document.createElement("button");
+          del.type = "button";
+          del.className = "fi-act danger cfg-arr-del";
+          del.title = "删除此项";
+          del.textContent = "🗑";
+          childRow.appendChild(del);
+        }
+        block.appendChild(childRow);
       });
+
+      if (allScalar) {
+        block.dataset.array = "1";
+        block.dataset.arrStart = node.start;
+        block.dataset.arrEnd = node.end;
+        block.dataset.arrType = node.children.length ? node.children[0].value.type : "string";
+        // 还原原始缩进，保证写回后格式一致
+        let indentItem = "\n\t\t";
+        let indentClose = "\n\t";
+        if (cfgRawSrc) {
+          if (node.children.length) {
+            indentItem = cfgRawSrc.slice(node.start + 1, node.children[0].value.start);
+            indentClose = cfgRawSrc.slice(node.children[node.children.length - 1].value.end, node.end - 1);
+          } else {
+            indentClose = cfgRawSrc.slice(node.start + 1, node.end - 1) || "\n\t\t";
+            indentItem = indentClose;
+          }
+        }
+        block.dataset.arrItemIndent = JSON.stringify(indentItem);
+        block.dataset.arrCloseIndent = JSON.stringify(indentClose);
+        const foot = document.createElement("div");
+        foot.className = "cfg-arr-foot";
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "btn ghost sm cfg-arr-add";
+        addBtn.textContent = "➕ 添加一项";
+        foot.appendChild(addBtn);
+        block.appendChild(foot);
+      }
       return block;
     }
     // 叶子：string / number / boolean / null / expr
@@ -977,23 +1126,70 @@
     }
     row.appendChild(lab);
 
-    // 注释中列出可选数值（枚举）：把输入框渲染为下拉选择
-    if (node.type === "string" && node.enumValues && node.enumValues.length) {
-      const sel = document.createElement("select");
-      sel.className = "cfg-input cfg-select";
-      node.enumValues.forEach((opt) => {
-        const o = document.createElement("option");
-        o.value = opt.value;
-        o.textContent = opt.label;
-        if (String(node.value) === String(opt.value)) o.selected = true;
-        sel.appendChild(o);
-      });
-      sel.dataset.start = node.start;
-      sel.dataset.end = node.end;
-      sel.dataset.vtype = "string";
-      sel.dataset.quote = node.quote || '"';
-      row.appendChild(sel);
-      return row;
+    // 枚举下拉：优先字段级覆盖，其次注释自动识别
+    if (node.type === "string") {
+      const ov = enumOverrideFor(cfgName, path);
+      const enumList = ov ? (ov.options || ov) : (node.enumValues || null);
+      if (enumList && enumList.length) {
+        const custom = !!(ov && ov.custom);
+        const sel = document.createElement("select");
+        sel.className = "cfg-input cfg-select";
+        let curInOpts = false;
+        enumList.forEach((opt) => {
+          const pair = Array.isArray(opt) ? opt : [opt, opt];
+          if (String(node.value) === String(pair[0])) curInOpts = true;
+          const o = document.createElement("option");
+          o.value = pair[0];
+          o.textContent = pair[1];
+          if (String(node.value) === String(pair[0])) o.selected = true;
+          sel.appendChild(o);
+        });
+        if (custom) {
+          const oc = document.createElement("option");
+          oc.value = "__custom__";
+          oc.textContent = "+ 自定义…";
+          if (!curInOpts) oc.selected = true;
+          sel.appendChild(oc);
+        }
+        sel.dataset.start = node.start;
+        sel.dataset.end = node.end;
+        sel.dataset.vtype = "string";
+        sel.dataset.quote = node.quote || '"';
+        row.appendChild(sel);
+        if (custom) {
+          const cinput = document.createElement("input");
+          cinput.type = "text";
+          cinput.className = "cfg-input cfg-custom";
+          cinput.dataset.start = node.start;
+          cinput.dataset.end = node.end;
+          cinput.dataset.vtype = "string";
+          cinput.dataset.quote = node.quote || '"';
+          cinput.placeholder = "输入自定义值";
+          cinput.style.display = "none";
+          cinput.disabled = true;
+          if (!curInOpts) {
+            cinput.style.display = "";
+            cinput.disabled = false;
+            cinput.value = node.value != null ? node.value : "";
+            sel.disabled = true;
+          }
+          row.appendChild(cinput);
+          sel.addEventListener("change", () => {
+            if (sel.value === "__custom__") {
+              cinput.style.display = "";
+              cinput.disabled = false;
+              cinput.value = "";
+              sel.disabled = true;
+              cinput.focus();
+            } else {
+              cinput.style.display = "none";
+              cinput.disabled = true;
+              sel.disabled = false;
+            }
+          });
+        }
+        return row;
+      }
     }
 
     if (node.type === "expr") {
@@ -1051,9 +1247,14 @@
   function collectConfigEdits(hostEl) {
     const root = hostEl || $("configEditor");
     const edits = [];
+    // 纯标量数组：整段重序列化（覆盖其中各项的逐值编辑，避免重复写入）
+    root.querySelectorAll('[data-array="1"]').forEach((blk) => {
+      edits.push(collectArrayEdit(blk));
+    });
     // 注意：布尔复选框的类名是 .cfg-check（非 .cfg-input），必须一起收集，
     // 否则 enable 等布尔值永远不会出现在 edits 中，导致无法切换 true/false、提交到 GitHub 无变化。
-    const inputs = root.querySelectorAll(".cfg-input, .cfg-check");
+    // 标量数组项（.cfg-arr-val）已在上面的整段重序列化中处理，此处排除，避免重复编辑。
+    const inputs = root.querySelectorAll(".cfg-input:not(.cfg-arr-val), .cfg-check:not(.cfg-arr-val)");
     inputs.forEach((inp) => {
       if (inp.disabled) return;
       const start = Number(inp.dataset.start);
@@ -2027,11 +2228,13 @@
     const host = apHostFor(name, root);
     if (!st || !host) return;
     if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
-    else renderGenericConfig(host, st.roots);
+    else renderGenericConfig(host, st.roots, name, st.raw);
   }
 
   // 通用配置渲染（供站点外观 Tab 与编辑器复用），渲染到指定 host
-  function renderGenericConfig(host, roots) {
+  // cfgName：文件名（用于字段级枚举覆盖）；raw：源码（用于标量数组重序列化缩进还原）
+  function renderGenericConfig(host, roots, cfgName, raw) {
+    cfgRawSrc = raw || "";
     host.innerHTML = "";
     if (!roots || !roots.length) {
       host.innerHTML = '<div class="cfg-empty">该配置文件无可结构化编辑的参数。</div>';
@@ -2050,9 +2253,9 @@
         '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
       sec.appendChild(head);
       if (r.node.type === "object" && r.node.children && r.node.children.length) {
-        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0)));
+        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0, r.name, cfgName)));
       } else {
-        sec.appendChild(cfgNodeEl(r.node, r.name, 0));
+        sec.appendChild(cfgNodeEl(r.node, r.name, 0, r.name, cfgName));
       }
       host.appendChild(sec);
     });
@@ -2155,15 +2358,32 @@
       const wb = ib === -1 ? order.length : ib;
       return wa - wb || a.name.localeCompare(b.name);
     });
+    // 按文件名基名（忽略大小写）分组：同名 .ts 与 .html 合并为单一面板
+    const byBase = {};
     all.forEach((f) => {
+      const base = f.name.replace(/\.(ts|html)$/, "").toLowerCase();
+      (byBase[base] = byBase[base] || []).push(f);
+    });
+    all.forEach((f) => {
+      const base = f.name.replace(/\.(ts|html)$/, "").toLowerCase();
+      const group = byBase[base];
+      const isHtml = f.name.endsWith(".html");
+      // 合并场景：组内有同名 .ts 与 .html，此处跳过 .html，仅由 .ts 项承载合并面板
+      if (group.length > 1 && isHtml) return;
+      const merged = group.length > 1;
       const name = f.name.replace(/\.(ts|html)$/, "");
-      const ext = f.name.endsWith(".html") ? ".html" : ".ts";
+      const ext = isHtml ? ".html" : ".ts";
       const label = CONFIG_NAME_MAP[f.name] || name;
       const tab = document.createElement("button");
       tab.type = "button";
       tab.className = "cfg-nav-item";
       tab.dataset.cfg = name;
       tab.dataset.ext = ext;
+      if (merged) {
+        tab.dataset.merged = "1";
+        const htmlFile = group.find((g) => g.name.endsWith(".html"));
+        if (htmlFile) tab.dataset.html = htmlFile.name;
+      }
       tab.innerHTML = '<span class="cni-ico">⚙️</span><span class="cni-tx">' + esc(label) + '</span>';
       navList.appendChild(tab);
       const pane = document.createElement("div");
@@ -2193,11 +2413,46 @@
     readme.hidden = true;
     panes.hidden = false;
     panes.querySelectorAll(".ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-    const ext = (document.querySelector('#cfgNavList .cfg-nav-item[data-cfg="' + name + '"]') || {}).dataset?.ext || ".ts";
-    loadCfgConfig(name, ext);
+    const tabEl = document.querySelector('#cfgNavList .cfg-nav-item[data-cfg="' + name + '"]');
+    const ext = (tabEl && tabEl.dataset.ext) || ".ts";
+    const merged = !!(tabEl && tabEl.dataset.merged === "1");
+    const htmlName = tabEl && tabEl.dataset.html;
+    loadCfgConfig(name, ext, merged, htmlName);
   }
 
-  async function loadCfgConfig(name, ext) {
+  // 富文本编辑器（配置页页脚 / HTML 片段）：ToastUI 懒初始化，未加载时降级为 textarea
+  let footerEditor = null;
+  function initFooterEditor(html) {
+    const host = $("footerHtmlEditor");
+    if (!host) return;
+    if (footerEditor) { try { footerEditor.destroy(); } catch (e) {} footerEditor = null; }
+    if (window.toastui && toastui.Editor) {
+      footerEditor = new toastui.Editor({
+        el: host,
+        height: "320px",
+        initialEditType: "wysiwyg",
+        previewStyle: "vertical",
+        usageStatistics: false,
+        autofocus: false,
+        initialHTML: html || "",
+      });
+    } else {
+      host.innerHTML = '<textarea class="cfg-raw">' + esc(html || "") + "</textarea>";
+    }
+  }
+
+  // 单文件写入 GitHub（返回 {status,data}）
+  async function putConfigFile(path, content, sha) {
+    const payload = {
+      path,
+      content,
+      sha: sha || undefined,
+      message: "Update " + path.split("/").pop() + " via FireflyCMS",
+    };
+    return api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
+  }
+
+  async function loadCfgConfig(name, ext, merged, htmlName) {
     const root = cfgPanesRoot();
     const host = apHostFor(name, root);
     if (!host) return;
@@ -2205,18 +2460,41 @@
     // 远程优先：非 dirty 时重新从 GitHub 读取最新文件；dirty 时保留未保存编辑
     if (st && st.dirty) { st.ext = ext; renderCfgConfig(name); return; }
     host.innerHTML = '<div class="cfg-empty">加载中…</div>';
-    const path = "src/config/" + name + ext;
     try {
-      const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
-      if (status !== 200 || data.content == null) {
-        host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(path) + "</div>";
-        return;
-      }
-      const newSt = { raw: data.content, sha: data.sha, name, ext, loaded: true, dirty: false };
-      if (ext === ".ts") {
-        const parsed = FireflyConfig.parseConfig(data.content);
-        newSt.roots = parsed.roots;
-        if (name === "booknavConfig") newSt.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
+      let newSt;
+      if (merged) {
+        // 合并页脚：同时读取 .ts 结构化配置与 .html 内容
+        const tsPath = "src/config/" + name + ".ts";
+        const htmlPath = "src/config/" + (htmlName || (name + ".html"));
+        const [tsRes, htmlRes] = await Promise.all([
+          api("/api/file?path=" + encodeURIComponent(tsPath)),
+          api("/api/file?path=" + encodeURIComponent(htmlPath)),
+        ]);
+        if (tsRes.status !== 200 || tsRes.data.content == null) {
+          host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(tsPath) + "</div>";
+          return;
+        }
+        const parsed = FireflyConfig.parseConfig(tsRes.data.content);
+        newSt = {
+          raw: tsRes.data.content, sha: tsRes.data.sha, name, ext: ".ts",
+          loaded: true, dirty: false, merged: true, htmlName: htmlName,
+          htmlRaw: (htmlRes.data && htmlRes.data.content != null) ? htmlRes.data.content : "",
+          htmlSha: (htmlRes.data && htmlRes.data.sha) || null,
+          roots: parsed.roots,
+        };
+      } else {
+        const path = "src/config/" + name + ext;
+        const { status, data } = await api("/api/file?path=" + encodeURIComponent(path));
+        if (status !== 200 || data.content == null) {
+          host.innerHTML = '<div class="cfg-empty">未找到 ' + esc(path) + "</div>";
+          return;
+        }
+        newSt = { raw: data.content, sha: data.sha, name, ext, loaded: true, dirty: false, merged: false, htmlName: null };
+        if (ext === ".ts") {
+          const parsed = FireflyConfig.parseConfig(data.content);
+          newSt.roots = parsed.roots;
+          if (name === "booknavConfig") newSt.booknavModel = normalizeBooknav(nodeToJS((parsed.roots.find((r) => r.name === "booknavConfig") || { node: { type: "array", children: [] } }).node));
+        }
       }
       apState[name] = newSt;
       renderCfgConfig(name);
@@ -2229,13 +2507,30 @@
     const st = apState[name];
     const host = apHostFor(name, cfgPanesRoot());
     if (!st || !host) return;
+    // 合并页脚：上方结构化配置 + 下方富文本 HTML 内容
+    if (st.merged) {
+      host.innerHTML = "";
+      const tsWrap = document.createElement("div");
+      tsWrap.className = "cfg-sub";
+      renderGenericConfig(tsWrap, st.roots, name, st.raw);
+      const htmlWrap = document.createElement("div");
+      htmlWrap.className = "cfg-sub cfg-footer-html";
+      htmlWrap.innerHTML = '<div class="cfg-subtitle">页脚 HTML 内容</div><div class="cfg-footer-editor" id="footerHtmlEditor"></div>';
+      host.appendChild(tsWrap);
+      host.appendChild(htmlWrap);
+      initFooterEditor(st.htmlRaw || "");
+      if (footerEditor) footerEditor.on("change", () => markDirtyOf(htmlWrap));
+      return;
+    }
+    // 独立 .html 配置：富文本编辑
     if (st.ext === ".html") {
-      host.innerHTML = '<textarea class="cfg-raw" id="cfgRaw_' + name + '"></textarea>';
-      host.querySelector("textarea").value = st.raw;
+      host.innerHTML = '<div class="cfg-footer-editor" id="footerHtmlEditor"></div>';
+      initFooterEditor(st.raw || "");
+      if (footerEditor) footerEditor.on("change", () => markDirtyOf(host));
       return;
     }
     if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
-    else renderGenericConfig(host, st.roots);
+    else renderGenericConfig(host, st.roots, name, st.raw);
   }
 
   async function saveCfgConfig(name) {
@@ -2244,40 +2539,50 @@
     const host = apHostFor(name, root);
     const statusEl = apStatusFor(name, root);
     if (!st || !host) return;
-    let content;
+    let tsContent = null, htmlContent = null, tsPath = null, htmlPath = null;
     try {
-      if (st.ext === ".html") {
-        const ta = host.querySelector("textarea");
-        content = ta ? ta.value : st.raw;
+      if (st.merged) {
+        const tsHost = host.querySelector(".cfg-sub");
+        const edits = collectConfigEdits(tsHost);
+        tsContent = FireflyConfig.applyConfigEdits(st.raw, edits);
+        tsPath = "src/config/" + name + ".ts";
+        htmlContent = footerEditor ? footerEditor.getHTML() : ((host.querySelector("textarea") || {}).value || st.htmlRaw);
+        htmlPath = "src/config/" + (st.htmlName || (name + ".html"));
+      } else if (st.ext === ".html") {
+        htmlContent = footerEditor ? footerEditor.getHTML() : ((host.querySelector("textarea") || {}).value || st.raw);
+        htmlPath = "src/config/" + name + ".html";
       } else if (name === "booknavConfig") {
         const rootN = st.roots.find((r) => r.name === "booknavConfig");
         if (!rootN) throw new Error("未找到 booknavConfig");
         const arrText = serializeBooknav(st.booknavModel || []);
-        content = st.raw.slice(0, rootN.node.start) + arrText + st.raw.slice(rootN.node.end);
+        tsContent = st.raw.slice(0, rootN.node.start) + arrText + st.raw.slice(rootN.node.end);
+        tsPath = "src/config/" + name + ".ts";
       } else {
         const edits = collectConfigEdits(host);
-        content = FireflyConfig.applyConfigEdits(st.raw, edits);
+        tsContent = FireflyConfig.applyConfigEdits(st.raw, edits);
+        tsPath = "src/config/" + name + ".ts";
       }
     } catch (e) {
       if (statusEl) { statusEl.textContent = e.message || "内容构建失败"; statusEl.className = "ap-pane-status err"; }
       return;
     }
-    const payload = {
-      path: "src/config/" + name + (st.ext || ".ts"),
-      content,
-      sha: st.sha || undefined,
-      message: "Update " + name + (st.ext || ".ts") + " via FireflyCMS",
-    };
     try {
-      const { status, data } = await api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
-      if (status === 200 || status === 201) {
-        st.sha = data.sha || st.sha;
-        st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
-        okPopup("✅ 已保存，GitHub 将自动重新部署");
-        if (statusEl) statusEl.textContent = "";
-      } else {
-        if (statusEl) { statusEl.textContent = (data && (data.error || data.message)) || "保存失败"; statusEl.className = "ap-pane-status err"; }
+      const applyRes = async (p, c, shaRef) => {
+        const { status, data } = await putConfigFile(p, c, shaRef());
+        if (status !== 200 && status !== 201) throw new Error((data && (data.error || data.message)) || "保存失败");
+        return data;
+      };
+      if (tsContent != null) {
+        const d = await applyRes(tsPath, tsContent, () => st.sha);
+        st.sha = d.sha || st.sha;
       }
+      if (htmlContent != null) {
+        const d = await applyRes(htmlPath, htmlContent, () => st.htmlSha);
+        st.htmlSha = d.sha || st.htmlSha;
+      }
+      st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
+      okPopup("✅ 已保存，GitHub 将自动重新部署");
+      if (statusEl) statusEl.textContent = "";
     } catch (e) {
       if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
     }
@@ -2591,6 +2896,18 @@
     document.addEventListener("input", markCfgDirty);
     document.addEventListener("change", markCfgDirty);
     document.addEventListener("click", markCfgDirty);
+
+    // 标量数组（如 keywords）：添加 / 删除一项
+    document.addEventListener("click", (e) => {
+      const addBtn = e.target.closest && e.target.closest(".cfg-arr-add");
+      if (addBtn) { addArrayItem(addBtn); return; }
+      const delBtn = e.target.closest && e.target.closest(".cfg-arr-del");
+      if (delBtn) {
+        const row = delBtn.closest(".cfg-field");
+        if (row) { row.remove(); markDirtyOf(delBtn); }
+        return;
+      }
+    });
 
     // 配置页面：上传资源（复用隐藏的 #fileInput）
     on("cfgUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
