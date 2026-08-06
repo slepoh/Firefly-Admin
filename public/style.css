@@ -83,6 +83,7 @@ body {
   transform: rotate(45deg);
 }
 .qr-tooltip img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.qr-cap { margin-top: 8px; text-align: center; font-size: 13px; font-weight: 600; color: #1f2329; letter-spacing: .5px; }
 .qr-icon:hover .qr-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
 
 /* 按钮 */

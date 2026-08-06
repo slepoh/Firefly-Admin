@@ -12,6 +12,7 @@
     repo: "",
     branch: "master",
     type: "posts",
+    sectionType: "posts", // 实际点击的一级菜单 data-type（用于导航去重，区别于 state.type）
     subdir: "",
     files: [],
     selected: new Set(), // 批量删除已勾选的文件 path
@@ -2469,6 +2470,7 @@
 
   // 切换板块：左侧导航选中，右侧显示对应视图（内容列表 / 站点外观 / 配置）
   function selectSection(type) {
+    state.sectionType = type; // 记录真实点击的一级菜单，供导航去重（功能/页面/扩展/基础配置均映射为 config）
     const cfgGroupType = CFG_GROUP_FOR_TYPE[type];
     state.type = cfgGroupType ? "config" : type;
     state.cfgGroup = cfgGroupType || null;
@@ -3387,7 +3389,7 @@
       navBar.querySelectorAll(".nav-btn").forEach((b) => {
         b.addEventListener("click", () => {
           const type = b.dataset.type;
-          if (!type || state.type === type) return; // 已是当前板块，不重复加载
+          if (!type || state.sectionType === type) return; // 已是当前板块，不重复加载
           selectSection(type);
         });
       });
