@@ -1136,7 +1136,11 @@
         sel.className = "cfg-input cfg-select";
         let curInOpts = false;
         enumList.forEach((opt) => {
-          const pair = Array.isArray(opt) ? opt : [opt, opt];
+          let v, lbl;
+          if (Array.isArray(opt)) { v = opt[0]; lbl = opt[1] != null ? opt[1] : opt[0]; }
+          else if (opt && typeof opt === "object") { v = opt.value; lbl = opt.label != null ? opt.label : opt.value; }
+          else { v = opt; lbl = opt; }
+          const pair = [v, lbl];
           if (String(node.value) === String(pair[0])) curInOpts = true;
           const o = document.createElement("option");
           o.value = pair[0];
