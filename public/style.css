@@ -729,13 +729,25 @@ textarea { resize: vertical; }
   .nav-foot { margin-top: 0; }
   /* 关于页：移动端 WhatsApp / Telegram 二维码靠右显示 */
   .about-qrs { justify-content: flex-end; }
+  /* 移动端：编辑器「返回 / 删除 / 保存」悬浮于页面底部，随时可达 */
+  .edit-topbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: flex; align-items: stretch; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--panel); border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, .08);
+  }
+  .edit-topbar .ab-spacer { display: none; }
+  .edit-topbar .btn { flex: 1; justify-content: center; padding: 12px 6px; font-size: 15px; }
+  /* 编辑器内容区底部留白，避免被悬浮栏遮挡（560px 断点另有覆盖） */
+  .edit-form { padding-bottom: 74px; }
 }
 
 @media (max-width: 560px) {
   .repo-info { display: none; }
   /* 窄屏 repo-info 隐藏后，头部 WhatsApp / Telegram 图标靠右显示 */
   .top-actions { margin-left: auto; }
-  .edit-form { padding: 10px; gap: 10px; }
+  .edit-form { padding: 10px 10px 76px; gap: 10px; }
   .action-bar { padding: 10px; margin: 0 -10px -10px; }
   .action-bar .btn { flex: 1; }
   /* 结构化配置：窄屏改为上下排列，名称在上、值在下，整屏利用 */
