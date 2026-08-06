@@ -1871,7 +1871,6 @@
   function showView(name) {
     $("contentView").hidden = name !== "content";
     $("editorPane").hidden = name !== "editor";
-    $("appearanceView").hidden = name !== "appearance";
     $("configView").hidden = name !== "config";
   }
 
@@ -2289,7 +2288,7 @@
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
-    const titles = { posts: "文章", dynamic: "动态", spec: "单页", config: "配置", appearance: "站点外观" };
+    const titles = { posts: "文章", dynamic: "动态", spec: "单页", config: "配置" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类：禁止批量删除与全选（重命名/删除仅对文章/动态/单页有效）
     const isConfig = type === "config";
@@ -2298,17 +2297,9 @@
 
     state.selected.clear();
 
-    if (type === "appearance") {
-      showView("appearance");
-      loadAppearance();
-      // 动态从 GitHub 拉取 src/config 下全部 .ts，生成配置 Tab 与编辑面板（不再写死）
-      loadApTabs();
-      selectApTab("logo");
-      return;
-    }
     if (type === "config") {
       showView("config");
-      // 左侧分类导航 + 右侧操作说明（README）/ 配置编辑
+      // 左侧分类导航 + 右侧操作说明（README）/ 配置编辑（含站点资源：Logo / 头像）
       loadConfigNav();
       return;
     }
@@ -2384,59 +2375,8 @@
     return (btn.dataset.save || "").replace(/\.ts$/, "");
   }
 
-  function selectApTab(name) {
-    document.querySelectorAll("#apTabs .ap-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
-    document.querySelectorAll("#apBody .ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-    // logo / avatar 为纯资源管理（图片上传），不读取结构化配置；其余交给 loadApConfig
-    if (name !== "logo" && name !== "avatar") loadApConfig(name);
-  }
-
-  // 动态生成站点外观的配置 Tab：从 GitHub 拉取 src/config 下全部 .ts（排除 index.ts），
-  // 按常用顺序排序后生成 Tab 与对应编辑面板，复用 loadApConfig / renderApConfig / saveApConfig。
-  async function loadApTabs() {
-    const holder = $("apConfigPanes");
-    const tabsEl = $("apTabs");
-    if (!holder || !tabsEl) return;
-    holder.innerHTML = "";
-    let items = [];
-    try {
-      const { data } = await api("/api/list?type=config");
-      items = (data.items || []).filter((f) => f.name.endsWith(".ts") && f.name !== "index.ts");
-    } catch (e) { /* 忽略：仅展示资源 Tab */ }
-    // 常用顺序靠前；其余按文件名
-    const order = ["profileConfig", "backgroundWallpaper", "booknavConfig", "announcementConfig", "sponsorConfig", "sidebarConfig"];
-    // 站点外观只保留「站点Logo / 作者头像」等资源管理类 Tab；
-    // src/config 下的 .ts 结构化配置统一归「配置」菜单管理（以配置为主，去除重复）。
-    const cfgSet = new Set((data.items || []).map((f) => f.name.replace(/\.(ts|html)$/, "").toLowerCase()));
-    items = items.filter((f) => !cfgSet.has(f.name.replace(/\.ts$/, "").toLowerCase()));
-    items.sort((a, b) => {
-      const ia = order.indexOf(a.name.replace(/\.ts$/, ""));
-      const ib = order.indexOf(b.name.replace(/\.ts$/, ""));
-      const wa = ia === -1 ? order.length : ia;
-      const wb = ib === -1 ? order.length : ib;
-      return wa - wb;
-    });
-    items.forEach((f) => {
-      const name = f.name.replace(/\.ts$/, "");
-      const label = AP_NAME_MAP[name] || CONFIG_NAME_MAP[f.name] || name;
-      const tab = document.createElement("button");
-      tab.className = "ap-tab";
-      tab.type = "button";
-      tab.dataset.tab = name;
-      tab.textContent = label;
-      tabsEl.appendChild(tab);
-      const pane = document.createElement("div");
-      pane.className = "ap-pane ap-config-pane";
-      pane.dataset.pane = name;
-      pane.hidden = true;
-      pane.innerHTML =
-        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + '</span>' +
-        '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
-        '<div class="ap-cfg-host config-editor"></div>' +
-        '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
-      holder.appendChild(pane);
-    });
-  }
+  // 「站点外观」导航已移除：站点Logo / 作者头像 合并进「配置」视图（见 selectCfgTab 的 logo/avatar 分支）；
+  // 原 selectApTab / loadApTabs 一并删除（不再依赖 #apTabs / #apBody）。
 
   async function loadApConfig(name, root) {
     const host = apHostFor(name, root);
@@ -2645,9 +2585,20 @@
   }
 
   function selectCfgTab(name) {
-    document.querySelectorAll("#cfgNavList .cfg-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.cfg === name));
+    document.querySelectorAll("#cfgNav .cfg-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.cfg === name));
+    const resource = $("cfgResource");
     const readme = $("cfgReadme");
     const panes = $("cfgPanes");
+    // 站点资源（Logo / 头像）：从「站点外观」合并而来，仅图片上传，不读取结构化配置
+    if (name === "logo" || name === "avatar") {
+      if (resource) resource.hidden = false;
+      if (readme) readme.hidden = true;
+      if (panes) { panes.hidden = true; panes.querySelectorAll(".ap-pane").forEach((p) => (p.hidden = true)); }
+      if (resource) resource.querySelectorAll(".res-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
+      loadAppearance();
+      return;
+    }
+    if (resource) resource.hidden = true;
     if (name === "__readme__") {
       readme.hidden = false;
       panes.hidden = true;
@@ -3120,22 +3071,9 @@
         fi.value = "";
       });
     });
-    // 站点外观：Tab 切换（含动态生成的配置 Tab，用事件委托）
-    const apTabsEl = $("apTabs");
-    if (apTabsEl) apTabsEl.addEventListener("click", (e) => {
-      const b = e.target.closest(".ap-tab");
-      if (b) selectApTab(b.dataset.tab);
-    });
-    // 站点外观：保存按钮（含动态生成的配置 pane，用事件委托）
-    const apBodyEl = $("apBody");
-    if (apBodyEl) apBodyEl.addEventListener("click", (e) => {
-      const b = e.target.closest(".ap-save");
-      if (b) saveApConfig(apPaneName(b));
-    });
-
-    // 配置页面：左侧分类导航切换
-    const cfgNavListEl = $("cfgNavList");
-    if (cfgNavListEl) cfgNavListEl.addEventListener("click", (e) => {
+    // 配置页面：左侧分类导航切换（含站点资源 Logo / 头像 与配置文件两类条目）
+    const cfgNavEl = $("cfgNav");
+    if (cfgNavEl) cfgNavEl.addEventListener("click", (e) => {
       const b = e.target.closest(".cfg-nav-item");
       if (b) selectCfgTab(b.dataset.cfg);
     });

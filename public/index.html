@@ -35,7 +35,6 @@
         <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">动态</span></button>
         <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">单页</span></button>
         <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">配置</span></button>
-        <button class="nav-btn" type="button" data-type="appearance"><span class="ni-ico">🎨</span><span class="ni-tx">站点外观</span></button>
       </nav>
       <div class="nav-foot">
         <a class="nav-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener" title="GitHub 开源地址">
@@ -44,7 +43,7 @@
       </div>
     </aside>
 
-    <!-- 右侧主区域：内容列表 / 站点外观 / 编辑器（同一时刻仅显示一个） -->
+    <!-- 右侧主区域：内容列表 / 编辑器（同一时刻仅显示一个） -->
     <section class="main-area" id="mainArea">
 
       <!-- 内容列表视图：显示选中板块的内容，可批量删除、单独编辑/重命名/删除、新建 -->
@@ -86,63 +85,61 @@
         </div>
       </div>
 
-      <!-- 站点外观视图：常用配置以顶部 Tab 形式切换 -->
-      <div class="appearance-view" id="appearanceView" hidden>
-        <div class="ap-tabs" id="apTabs">
-          <button class="ap-tab active" type="button" data-tab="logo">站点Logo</button>
-          <button class="ap-tab" type="button" data-tab="avatar">作者头像</button>
-          <!-- 其余配置 Tab 由 app.js 动态从 GitHub 拉取 src/config 下全部 .ts 生成 -->
-        </div>
-        <div class="ap-body" id="apBody">
-          <div class="ap-pane" data-pane="logo">
-            <div class="ap-group">
-              <div class="ap-group-title">站点 Logo</div>
-              <div class="ap-cards">
-                <div class="ap-card">
-                  <div class="ap-preview"><img id="prevLogoDark" alt="深色 Logo" /></div>
-                  <div class="ap-name">深色 Logo</div>
-                  <button class="btn ghost sm ap-btn" type="button" data-pick="logo-dark">更换</button>
-                  <input type="file" class="ap-file" data-asset="logo-dark" accept="image/*" hidden />
-                </div>
-                <div class="ap-card">
-                  <div class="ap-preview"><img id="prevLogoLight" alt="浅色 Logo" /></div>
-                  <div class="ap-name">浅色 Logo</div>
-                  <button class="btn ghost sm ap-btn" type="button" data-pick="logo-light">更换</button>
-                  <input type="file" class="ap-file" data-asset="logo-light" accept="image/*" hidden />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="ap-pane" data-pane="avatar" hidden>
-            <div class="ap-group">
-              <div class="ap-group-title">作者头像</div>
-              <div class="ap-cards">
-                <div class="ap-card">
-                  <div class="ap-preview ap-preview--round"><img id="prevAvatar" alt="作者头像" /></div>
-                  <div class="ap-name">avatar.webp</div>
-                  <button class="btn ghost sm ap-btn" type="button" data-pick="avatar">更换</button>
-                  <input type="file" class="ap-file" data-asset="avatar" accept="image/*" hidden />
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- 其余配置 Tab 对应的编辑面板由 app.js 动态生成 -->
-          <div id="apConfigPanes"></div>
-        </div>
-      </div>
-
-      <!-- 配置视图：左侧分类导航 + 右侧操作说明 / 配置编辑 -->
+      <!-- 配置视图：左侧分类导航 + 右侧操作说明 / 配置编辑（含站点资源：Logo / 头像，由「站点外观」合并而来） -->
       <div class="config-view" id="configView" hidden>
         <aside class="cfg-nav" id="cfgNav">
           <div class="cfg-nav-head">
             <span class="cfg-nav-title">配置分类</span>
             <button id="cfgUploadBtn" class="btn ghost sm" type="button" title="上传资源到仓库">📤 上传</button>
           </div>
-          <div class="cfg-nav-list" id="cfgNavList"></div>
+          <div class="cfg-nav-scroll">
+            <div class="cfg-nav-group-title">站点资源</div>
+            <div class="cfg-nav-list">
+              <button class="cfg-nav-item" type="button" data-cfg="logo"><span class="cni-tx">站点Logo</span></button>
+              <button class="cfg-nav-item" type="button" data-cfg="avatar"><span class="cni-tx">作者头像</span></button>
+            </div>
+            <div class="cfg-nav-group-title">配置文件</div>
+            <div class="cfg-nav-list" id="cfgNavList"></div>
+          </div>
         </aside>
         <section class="cfg-content" id="cfgContent">
           <div class="cfg-readme" id="cfgReadme"><div class="cfg-readme-empty">加载操作说明…</div></div>
           <div id="cfgPanes"></div>
+          <!-- 站点资源：Logo（深/浅两套）与作者头像，从「站点外观」合并而来 -->
+          <div class="cfg-resource" id="cfgResource" hidden>
+            <div class="res-pane" data-pane="logo">
+              <div class="ap-group">
+                <div class="ap-group-title">站点 Logo</div>
+                <div class="ap-cards">
+                  <div class="ap-card">
+                    <div class="ap-preview"><img id="prevLogoDark" alt="深色 Logo" /></div>
+                    <div class="ap-name">深色 Logo</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-dark">更换</button>
+                    <input type="file" class="ap-file" data-asset="logo-dark" accept="image/*" hidden />
+                  </div>
+                  <div class="ap-card">
+                    <div class="ap-preview"><img id="prevLogoLight" alt="浅色 Logo" /></div>
+                    <div class="ap-name">浅色 Logo</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-light">更换</button>
+                    <input type="file" class="ap-file" data-asset="logo-light" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="res-pane" data-pane="avatar" hidden>
+              <div class="ap-group">
+                <div class="ap-group-title">作者头像</div>
+                <div class="ap-cards">
+                  <div class="ap-card">
+                    <div class="ap-preview ap-preview--round"><img id="prevAvatar" alt="作者头像" /></div>
+                    <div class="ap-name">avatar.webp</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="avatar">更换</button>
+                    <input type="file" class="ap-file" data-asset="avatar" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
 
