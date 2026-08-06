@@ -2476,7 +2476,7 @@
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
-    const titles = { posts: "文章", dynamic: "动态", spec: "单页", gallery: "图库", config: "配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能" };
+    const titles = { posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
     const isConfig = state.type === "config";
