@@ -256,15 +256,22 @@
             </div>
           </div>
 
-          <!-- 文章结构化表单（可折叠，默认收起以最大化编辑区） -->
+          <!-- 内容 ⇄ 文章信息 Tab 切换（文章 / 动态类型显示，默认「内容」占满编辑区） -->
+          <div class="editor-tabs" id="editorTabs" hidden>
+            <button type="button" class="etab active" id="tabContentBtn" data-tab="content">📝 内容</button>
+            <button type="button" class="etab" id="tabMetaBtn" data-tab="meta" hidden>📋 文章信息</button>
+            <button type="button" class="etab" id="tabDynBtn" data-tab="dyn" hidden>⚡ 动态信息</button>
+          </div>
+
+          <!-- 文章结构化表单（Tab「文章信息」视图，展开占满编辑区） -->
           <div class="meta-panel collapsed" id="postPanel" hidden>
-            <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span> <span class="chev">▾</span></button>
+            <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span></button>
             <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
           </div>
 
-          <!-- 动态字段（可折叠） -->
+          <!-- 动态字段（Tab「动态信息」视图） -->
           <div class="meta-panel collapsed" id="dynamicPanel" hidden>
-            <button type="button" class="panel-head">⚡ 动态信息 <span class="chev">▾</span></button>
+            <button type="button" class="panel-head">⚡ 动态信息</button>
             <div class="panel-body">
               <div id="dynamicFields" class="dynamic-fields">
                 <div class="field">

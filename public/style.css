@@ -463,6 +463,33 @@ textarea { resize: vertical; }
 .seg { border: 1px solid var(--border); background: #fff; padding: 5px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; }
 .seg.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
+/* 内容 ⇄ 文章信息 Tab 切换栏（文章 / 动态类型） */
+.editor-tabs {
+  display: flex; gap: 4px; padding: 4px; flex: none;
+  border: 1px solid var(--border); border-radius: var(--radius); background: #f2f4f7;
+}
+.etab {
+  flex: 1; min-width: 0; padding: 8px 10px; border: none; border-radius: 8px;
+  background: transparent; font-size: 13px; font-weight: 600; color: var(--muted);
+  cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+}
+.etab:hover:not(.active) { background: #e6eaef; color: var(--text); }
+.etab.active { background: var(--primary); color: #fff; box-shadow: var(--shadow); }
+
+/* Tab 面板视图：文章/动态信息占满编辑区并独立滚动（替代原折叠挤压方案） */
+.edit-form.ed-tab-pane .meta-panel {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel);
+}
+.edit-form.ed-tab-pane .panel-head { cursor: default; }
+.edit-form.ed-tab-pane .panel-head .chev { display: none; }
+.edit-form.ed-tab-pane .panel-body {
+  flex: 1; min-height: 0; max-height: none; overflow-y: auto;
+  padding: 14px; overscroll-behavior: contain;
+}
+@media (max-width: 560px) {
+  .pf-fields, .dynamic-fields { grid-template-columns: 1fr; }
+}
+
 /* 富文本编辑器宿主：填满剩余高度 */
 .editor-host { flex: 1; min-height: 0; min-width: 0; display: flex; }
 

@@ -416,6 +416,7 @@
 
   // 同一时刻只显示一种编辑器，避免不同后缀对应的编辑器叠加显示
   function showOnlyEditor(active) {
+    state.editorActive = active; // 记录当前编辑器，供 Tab 切回「内容」时恢复
     const showMain = active === "main";   // 富文本 / HTML 所见即所得
     const showRaw = active === "raw";      // 源代码
     const showCfg = active === "config";   // 可视化配置（参数锁定）
@@ -423,6 +424,35 @@
     $("editorHost").hidden = !showMain;
     $("rawEditor").hidden = !showRaw;
     $("configEditor").hidden = !showCfg;
+  }
+
+  // 编辑器 Tab：内容 ⇄ 文章信息 / 动态信息 互斥切换（表单视图占满编辑区，独立滚动）
+  function switchEditorTab(tab) {
+    const isPane = tab !== "content"; // 面板视图（文章信息 / 动态信息）
+    $("editForm").classList.toggle("ed-tab-pane", isPane);
+    // 按钮高亮
+    $("tabContentBtn").classList.toggle("active", !isPane);
+    if ($("tabMetaBtn")) $("tabMetaBtn").classList.toggle("active", tab === "meta");
+    if ($("tabDynBtn")) $("tabDynBtn").classList.toggle("active", tab === "dyn");
+    // 面板：Tab 视图下始终展开（移除折叠态）
+    const postPanel = $("postPanel");
+    const dynPanel = $("dynamicPanel");
+    if (tab === "meta") postPanel.classList.remove("collapsed");
+    if (tab === "dyn") dynPanel.classList.remove("collapsed");
+    postPanel.hidden = tab !== "meta";
+    dynPanel.hidden = tab !== "dyn";
+    // 内容区：面板视图下全部隐藏；切回「内容」时按当前编辑器模式恢复
+    if (isPane) {
+      $("editorMain").hidden = true;
+      $("editorHost").hidden = true;
+      $("rawEditor").hidden = true;
+      $("configEditor").hidden = true;
+      $("modeSwitch").hidden = true;
+    } else {
+      showOnlyEditor(state.editorActive || "main");
+      $("modeSwitch").hidden = state.plainRaw || state.configStruct;
+    }
+    window.dispatchEvent(new Event("resize"));
   }
 
   // 根据当前文件类型推断「编辑器类型」徽标（让用户清楚当前用的是哪种编辑器）
@@ -1036,6 +1066,11 @@
 
     setModeButtons("rich");
     setStatus("");
+    // Tab 栏：仅文章 / 动态类型显示「内容 ⇄ 文章信息」，默认停在「内容」最大化编辑区
+    $("editorTabs").hidden = !(isPosts || isDynamic);
+    $("tabMetaBtn").hidden = !isPosts;
+    $("tabDynBtn").hidden = !isDynamic;
+    switchEditorTab("content");
     // 触发编辑器重排，保证移动端高度正确
     window.dispatchEvent(new Event("resize"));
   }
@@ -3526,16 +3561,10 @@
     });
     on("drawerBackdrop", "onclick", closeDrawer);
 
-    // 可折叠元信息面板（文章 / 动态字段）：点击标题栏展开或收起
-    document.querySelectorAll(".panel-head").forEach((h) => {
-      h.addEventListener("click", () => {
-        const p = h.closest(".meta-panel");
-        if (p) {
-          p.classList.toggle("collapsed");
-          window.dispatchEvent(new Event("resize"));
-        }
-      });
-    });
+    // 编辑器 Tab：内容 ⇄ 文章信息 / 动态信息 互斥切换
+    on("tabContentBtn", "onclick", () => switchEditorTab("content"));
+    on("tabMetaBtn", "onclick", () => switchEditorTab("meta"));
+    on("tabDynBtn", "onclick", () => switchEditorTab("dyn"));
 
     // 上传：选择文件
     on("pickBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
