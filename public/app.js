@@ -737,6 +737,8 @@
           const chk = document.createElement("input");
           chk.type = "checkbox"; chk.className = "fi-check gallery-chk"; chk.dataset.path = f.path;
           if (state.selected.has(f.path)) chk.checked = true;
+          // 阻止冒泡：勾选框只做选择，不触发卡片的图片预览
+          chk.onclick = (ev) => ev.stopPropagation();
           chk.onchange = () => { if (chk.checked) state.selected.add(f.path); else state.selected.delete(f.path); updateBatchCount(); };
           const del = document.createElement("button");
           del.type = "button"; del.className = "gallery-img-del"; del.title = "删除";
@@ -809,15 +811,10 @@
     return p;
   }
 
-  // 上传落点：为不破坏 Astro 内容集合构建，统一进 public/uploads，并按栏目/子目录归类
+  // 上传落点：默认上传到当前打开的分类目录；若已指定目录则使用指定目录（不再固定 public/uploads）
   function dirForUpload(folderPath) {
-    if (folderPath) {
-      const rel = folderPath.replace(/^src\/(content|config)\//, "");
-      return "public/uploads/" + rel;
-    }
-    let d = "public/uploads";
-    if (state.subdir) d += "/" + state.subdir;
-    return d;
+    if (folderPath) return folderPath; // folderPath 已是完整仓库相对路径（如 src/content/posts/guide）
+    return currentDirPath();
   }
 
   function renderCrumb() {
@@ -2372,37 +2369,24 @@
       });
       if (status === 200 && data && data.ok) {
         toast("已上传：" + file.name + (dir ? " → " + dir : ""));
+        // 文章/动态/单页等编辑场景：上传后提供「插入」入口（图库仅浏览，不需要）
+        if (state.type !== "gallery" && data.url) addUploadItem(data.url, file.name, file.type.startsWith("image/"));
+        return data;
       } else {
-        toast((data && data.error) || "上传失败", "err");
+        const msg = (data && data.error) || "上传失败";
+        toast(msg, "err");
+        if (state.type !== "gallery") addUploadItemError(file.name, msg);
       }
     } catch (e) {
-      toast(e.message || "上传失败", "err");
-    }
-  }
-
-  async function uploadFile(file) {
-    try {
-      const b64 = await fileToBase64(file);
-      const safe = file.name.replace(/\s+/g, "_");
-      const name = Date.now() + "-" + safe;
-      const { status, data } = await api("/api/upload", {
-        method: "POST",
-        body: JSON.stringify({ name, content: b64, message: "Upload " + file.name + " via Firefly-Admin" }),
-      });
-      if (status === 200 && data && data.ok) {
-        addUploadItem(data.url, file.name, file.type.startsWith("image/"));
-        toast("已上传：" + file.name);
-      } else {
-        addUploadItemError(file.name, (data && data.error) || "上传失败");
-      }
-    } catch (e) {
-      addUploadItemError(file.name, e.message || "上传失败");
+      const msg = e.message || "上传失败";
+      toast(msg, "err");
+      if (state.type !== "gallery") addUploadItemError(file.name, msg);
     }
   }
 
   async function handleFiles(files) {
     if (!files || !files.length) return;
-    // 图库模式：先选择目标分类目录，再上传到 src/content/posts/<分类>
+    // 图库模式：上传时先选择目标分类目录
     if (state.type === "gallery") {
       const dir = await chooseGalleryUploadDir();
       if (dir === null) return; // 取消
@@ -2410,7 +2394,10 @@
       await loadGallery();
       return;
     }
-    for (const f of files) await uploadFile(f);
+    // 文章/动态/单页：上传到当前打开的分类目录（不再固定 public/uploads）
+    const dir = currentDirPath();
+    for (const f of files) await uploadFileToDir(f, dir);
+    await refreshCurrent();
   }
 
   // 图库上传：选择目标分类目录（现有分类 + 根目录），返回完整仓库相对路径或 null（取消）
