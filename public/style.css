@@ -164,6 +164,9 @@ body {
 .nav-link:hover { background: #f0f2f5; color: var(--primary-d); }
 .nav-link .ni-ico { font-size: 17px; width: 20px; text-align: center; flex: none; }
 
+/* 左侧导航内的退出按钮：仅移动端显示（移动端顶栏的退出按钮隐藏） */
+#logoutNavBtn { display: none; }
+
 /* 右侧主区域：内容列表 / 站点外观 / 编辑器 三视图 */
 .main-area { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .content-view, .appearance-view, .editor { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -702,6 +705,9 @@ textarea { resize: vertical; }
   .file-list { max-height: 64vh; overflow-y: auto; }
   .file-item .fi-actions { gap: 2px; }
   .fi-act { padding: 4px 7px; }
+  /* 移动端（抽屉断点）：退出按钮移入左侧导航；顶栏的退出按钮隐藏 */
+  .top-actions #logoutBtn { display: none !important; }
+  #logoutNavBtn { display: flex; }
 }
 
 @media (max-width: 560px) {
@@ -1049,8 +1055,9 @@ textarea { resize: vertical; }
 
 /* ===================== 移动端适配 ===================== */
 @media (max-width: 720px) {
-  /* 移动端：用视口锚定高度 + flex 双保险，保证内部滚动容器始终有确定高度 */
-  .config-view { flex-direction: column; flex: 1 1 auto; min-height: 0; height: calc(100svh - 56px); }
+  /* 移动端：用视口锚定高度 + flex 双保险，保证内部滚动容器始终有确定高度
+     （先声明 100vh 回退，再声明 100svh，老浏览器不支持 svh 时自动回落） */
+  .config-view { flex-direction: column; flex: 1 1 auto; min-height: 0; height: calc(100vh - 56px); height: calc(100svh - 56px); }
   /* 配置分类导航：改为顶部横向胶囊导航，可滑动，避免占用竖向空间 */
   .cfg-nav {
     width: auto; flex: none; max-height: none; border-right: none;
@@ -1104,6 +1111,12 @@ textarea { resize: vertical; }
   }
   /* 移动端：滚动交给 .cfg-content 单一容器，#cfgPanes 不再单独滚动（避免嵌套 flex 滚动链在触屏失效） */
   #cfgPanes { flex: none; height: auto; overflow: visible; }
+  /* 关键：中和配置面板内部的嵌套滚动/flex 约束。.ap-config-pane 默认 overflow:hidden + flex 列、
+     .ap-cfg-host 默认 flex:1 + min-height:0 + overflow-y:auto —— 在部分触屏引擎下会与
+     外部单一滚动容器形成不确定高度链（flex 项高度解析歧义），导致内容被裁切不可滚动。
+     移动端统一改为自然高度块级，内容流入 .cfg-content 滚动。 */
+  #cfgPanes .ap-config-pane { display: block; flex: none; height: auto; overflow: visible; }
+  #cfgPanes .ap-cfg-host { flex: none; height: auto; overflow: visible; }
   .cfg-readme { flex: none; overflow: visible; }
   .cfg-resource { flex: none; overflow: visible; }
 }

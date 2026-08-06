@@ -122,7 +122,7 @@
       "sidebarLayoutConfig.tabletSidebar": ["left", "right"],
     },
     siteConfig: {
-      "SITE_LANG": {
+      "siteConfig.SITE_LANG": {
         custom: true,
         options: [
           ["zh_CN", "简体中文"],
@@ -164,6 +164,14 @@
       { key: "avatar", type: "string" },
       { key: "amount", type: "string" },
       { key: "date", type: "string" },
+    ],
+    "sponsorConfig.methods": [
+      { key: "name", type: "string" },
+      { key: "icon", type: "string" },
+      { key: "qrCode", type: "string" },
+      { key: "link", type: "string" },
+      { key: "description", type: "string" },
+      { key: "enabled", type: "boolean" },
     ],
     "friendsConfig": [
       { key: "title", type: "string" },
@@ -1184,10 +1192,13 @@
         '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
       sec.appendChild(head);
       // 一级栏目 = 根对象下的直接子项，渲染为大标题（而非嵌套盒子）
+      // 初始 path 必须为「根名.子键」完整路径，否则 OBJ_ARRAY_SCHEMAS（如 sponsorConfig.sponsors）与
+      // CONFIG_FIELD_ENUMS 枚举覆盖在顶层子项上永远匹配不上，导致对象数组没有增删改、枚举不生效。
+      const cfgName = state.current && state.current.name ? state.current.name.replace(/\.ts$/i, "") : "";
       if (r.node.type === "object" && r.node.children && r.node.children.length) {
-        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0)));
+        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0, r.name + "." + ch.key, cfgName)));
       } else {
-        sec.appendChild(cfgNodeEl(r.node, r.name, 0));
+        sec.appendChild(cfgNodeEl(r.node, r.name, 0, r.name, cfgName));
       }
       host.appendChild(sec);
     });
@@ -2603,8 +2614,9 @@
         '<span class="cfg-var">' + titleText + "</span>" + varChip +
         '<span class="cfg-hint">变量名固定 · 仅可修改值</span>';
       sec.appendChild(head);
+      // 顶层子项初始 path 用「根名.子键」完整路径（理由同 renderConfigEditor）
       if (r.node.type === "object" && r.node.children && r.node.children.length) {
-        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0, r.name, cfgName)));
+        r.node.children.forEach((ch) => sec.appendChild(cfgNodeEl(ch.value, ch.key, 0, r.name + "." + ch.key, cfgName)));
       } else {
         sec.appendChild(cfgNodeEl(r.node, r.name, 0, r.name, cfgName));
       }
@@ -3348,23 +3360,52 @@
       return [
         "// 赞助设置",
         "export const sponsorConfig = {",
-        "  // 赞助方式列表",
-        "  sponsors: [",
+        "",
+        "  // 页面标题，如果留空则使用 i18n 中的翻译",
+        "  title: \"\",",
+        "",
+        "  // 页面描述文本，如果留空则使用 i18n 中的翻译",
+        "  description: \"\",",
+        "",
+        "  // 打赏用途说明",
+        "  usage: \"您的打赏将用于服务器维护、内容创作和功能开发，帮助我持续提供优质内容。\",",
+        "",
+        "  // 是否显示打赏者列表",
+        "  showSponsorsList: true,",
+        "",
+        "  // 是否显示评论区，需要先在commentConfig.ts启用评论系统",
+        "  showComment: true,",
+        "",
+        "  // 是否在文章详情页底部显示打赏按钮",
+        "  showButtonInPost: true,",
+        "",
+        "  // 打赏方式列表",
+        "  methods: [",
         "    {",
-        "      // 名称",
         "      name: \"支付宝\",",
-        "      // 跳转链接",
+        "      icon: \"fa7-brands:alipay\",",
+        "      // 收款码图片路径（需要放在 public 目录下）",
+        "      qrCode: \"\",",
         "      link: \"\",",
-        "      // 图标（emoji 或图片地址）",
-        "      icon: \"💰\",",
-        "      // 二维码图片地址",
-        "      qrcode: \"\",",
+        "      description: \"使用 支付宝 扫码打赏\",",
+        "      enabled: true,",
         "    },",
         "    {",
         "      name: \"微信\",",
+        "      icon: \"fa7-brands:weixin\",",
+        "      qrCode: \"\",",
         "      link: \"\",",
-        "      icon: \"💚\",",
-        "      qrcode: \"\",",
+        "      description: \"使用 微信 扫码打赏\",",
+        "      enabled: true,",
+        "    },",
+        "  ],",
+        "",
+        "  // 打赏者列表（可选）",
+        "  sponsors: [",
+        "    {",
+        "      name: \"匿名用户\",",
+        "      amount: \"¥20\",",
+        "      date: \"2025-01-01\",",
         "    },",
         "  ],",
         "};",
@@ -3389,6 +3430,8 @@
       navBar.querySelectorAll(".nav-btn").forEach((b) => {
         b.addEventListener("click", () => {
           const type = b.dataset.type;
+          // 移动端：点击任意导航项先收起抽屉，避免遮罩挡住右侧内容区交互
+          if (isMobile()) closeDrawer();
           if (!type || state.sectionType === type) return; // 已是当前板块，不重复加载
           selectSection(type);
         });
@@ -3438,7 +3481,8 @@
     on("saveBtn", "onclick", saveFile);
     on("deleteBtn", "onclick", deleteFile);
     on("backBtn", "onclick", backToEmpty);
-    on("logoutBtn", "onclick", async () => {
+    // 退出登录：顶栏按钮（PC）与左侧导航按钮（移动端）共用同一逻辑
+    const doLogout = async () => {
       // 与删除一致：先确认再执行
       const ok = await openModal({
         title: "退出登录",
@@ -3450,7 +3494,9 @@
       try { await api("/api/logout", { method: "POST" }); } catch (e) { /* ignore */ }
       localStorage.removeItem("ff_token");
       location.replace("login.html");
-    });
+    };
+    on("logoutBtn", "onclick", doLogout);
+    on("logoutNavBtn", "onclick", doLogout);
 
     on("modeRich", "onclick", () => applyMode("rich"));
     on("modeRaw", "onclick", () => applyMode("raw"));
