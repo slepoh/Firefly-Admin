@@ -3012,7 +3012,8 @@
         '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + '</span>' +
         '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
         '<div class="ap-cfg-host config-editor"></div>' +
-        '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
+        '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>' +
+        '<div class="ap-save-bar"><button class="btn primary ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存配置</button></div>';
       panes.appendChild(pane);
     });
 
