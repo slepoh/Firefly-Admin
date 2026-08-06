@@ -89,6 +89,30 @@
       .trim();
   }
 
+  // 跳过 TypeScript 类型断言：as const | as TypeName [<...>] | as Foo.Bar
+  // 配置值可能带 `as const` / `as SomeType`（如 position: "bottom-left" as const），
+  // 不处理会导致解析在值后遇到 `as` 直接抛错（整个 const 根被跳过）。
+  function skipTypeAssertion(src, i) {
+    i = skipWs(src, i);
+    if (!/^as\b/.test(src.slice(i))) return i;
+    i += 2; // 跳过 "as"
+    i = skipWs(src, i);
+    if (src.startsWith("const", i)) {
+      i += 5;
+    } else if (isIdentStart(src[i])) {
+      while (i < src.length && (isIdentPart(src[i]) || src[i] === ".")) i++;
+      if (src[i] === "<") {
+        var depth = 0;
+        while (i < src.length) {
+          if (src[i] === "<") depth++;
+          else if (src[i] === ">") { depth--; if (depth === 0) { i++; break; } }
+          i++;
+        }
+      }
+    }
+    return i;
+  }
+
   /* 从注释中识别「多选数值（枚举）」，用于把输入框渲染为下拉选择。
    * 例：// 评论系统类型: none, twikoo, waline, giscus, disqus, artalk，默认为none
    *   -> ["none","twikoo","waline","giscus","disqus","artalk"]（不含「默认为none」）
@@ -202,7 +226,8 @@
       if (src[i] !== ":") throw new Error("缺少冒号（位置 " + i + "）");
       i++;
       var val = parseValue(src, i);
-      var trail = inlineTrailingComment(src, val.end);
+      var afterVal = skipTypeAssertion(src, val.end);
+      var trail = inlineTrailingComment(src, afterVal);
       var comment = leading.length ? joinComments(leading) : (trail || null);
       // 关键：把注释同步到 value 节点本身，否则嵌套对象/数组/叶子在渲染时读不到 comment，
       // 会回退为显示「参数名 / 函数名」。comment 仅用于显示，不参与偏移量回写。
@@ -213,7 +238,7 @@
         if (enums && enums.length) val.enumValues = enums;
       }
       node.children.push({ key: key, value: val, comment: comment });
-      i = val.end;
+      i = afterVal;
       i = skipWs(src, i);
       if (src[i] === ",") { i++; prevEnd = i; continue; }
       if (src[i] === "}") { i++; break; }
@@ -234,7 +259,8 @@
       var leading = sc.comments;
       if (src[elemStart] === "]") { i = elemStart + 1; break; }
       var val = parseValue(src, elemStart);
-      var trail = inlineTrailingComment(src, val.end);
+      var afterVal = skipTypeAssertion(src, val.end);
+      var trail = inlineTrailingComment(src, afterVal);
       var comment = leading.length ? joinComments(leading) : (trail || null);
       if (val && typeof val === "object") {
         val.comment = comment;
@@ -242,7 +268,7 @@
         if (enums2 && enums2.length) val.enumValues = enums2;
       }
       node.children.push({ value: val, comment: comment });
-      i = val.end;
+      i = afterVal;
       i = skipWs(src, i);
       if (src[i] === ",") { i++; prevEnd = i; continue; }
       if (src[i] === "]") { i++; break; }

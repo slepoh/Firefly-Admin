@@ -114,7 +114,7 @@
     },
     pioConfig: {
       "spineModelConfig.position.corner": ["bottom-left", "bottom-right", "top-left", "top-right"],
-      "live2dWidgetConfig.position": ["bottom-left", "bottom-right"],
+      "live2dWidgetConfig.position": ["bottom-left", "bottom-right", "top-left", "top-right"],
     },
     sidebarConfig: {
       "sidebarLayoutConfig.position": ["left", "right", "both"],
@@ -132,6 +132,7 @@
           ["ko", "한국어"],
         ],
       },
+      "siteConfig.post.rehypeCallouts.theme": ["github", "obsidian", "vitepress", "docusaurus"],
     },
   };
   // 渲染通用配置时临时持有源码（用于标量数组整段重序列化时还原缩进）
@@ -2153,8 +2154,8 @@
   function selectApTab(name) {
     document.querySelectorAll("#apTabs .ap-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
     document.querySelectorAll("#apBody .ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-    // 作者头像已合并进 profileConfig 面板；logo 为纯资源、无需读取配置
-    if (name !== "logo") loadApConfig(name);
+    // logo / avatar 为纯资源管理（图片上传），不读取结构化配置；其余交给 loadApConfig
+    if (name !== "logo" && name !== "avatar") loadApConfig(name);
   }
 
   // 动态生成站点外观的配置 Tab：从 GitHub 拉取 src/config 下全部 .ts（排除 index.ts），
@@ -2171,8 +2172,10 @@
     } catch (e) { /* 忽略：仅展示资源 Tab */ }
     // 常用顺序靠前；其余按文件名
     const order = ["profileConfig", "backgroundWallpaper", "booknavConfig", "announcementConfig", "sponsorConfig", "sidebarConfig"];
-    // 作者头像已与 profileConfig 合并为「作者资料」面板，故 profileConfig 不再单独生成动态 Tab
-    items = items.filter((f) => f.name.replace(/\.ts$/, "") !== "profileConfig");
+    // 站点外观只保留「站点Logo / 作者头像」等资源管理类 Tab；
+    // src/config 下的 .ts 结构化配置统一归「配置」菜单管理（以配置为主，去除重复）。
+    const cfgSet = new Set((data.items || []).map((f) => f.name.replace(/\.(ts|html)$/, "").toLowerCase()));
+    items = items.filter((f) => !cfgSet.has(f.name.replace(/\.ts$/, "").toLowerCase()));
     items.sort((a, b) => {
       const ia = order.indexOf(a.name.replace(/\.ts$/, ""));
       const ib = order.indexOf(b.name.replace(/\.ts$/, ""));
@@ -2438,8 +2441,9 @@
         previewStyle: "vertical",
         usageStatistics: false,
         autofocus: false,
-        initialHTML: html || "",
       });
+      // 用 setHTML 显式灌入内容（initialHTML 在编辑器初次布局未完成时偶尔不渲染）
+      try { footerEditor.setHTML(html || ""); } catch (e) { /* 忽略 */ }
     } else {
       host.innerHTML = '<textarea class="cfg-raw">' + esc(html || "") + "</textarea>";
     }
@@ -2523,14 +2527,15 @@
       host.appendChild(tsWrap);
       host.appendChild(htmlWrap);
       initFooterEditor(st.htmlRaw || "");
-      if (footerEditor) footerEditor.on("change", () => markDirtyOf(htmlWrap));
+      // 延迟绑定变更监听：避免初始化 setHTML 误触发「未保存」标记
+      if (footerEditor) setTimeout(() => footerEditor.on("change", () => markDirtyOf(htmlWrap)), 0);
       return;
     }
     // 独立 .html 配置：富文本编辑
     if (st.ext === ".html") {
       host.innerHTML = '<div class="cfg-footer-editor" id="footerHtmlEditor"></div>';
       initFooterEditor(st.raw || "");
-      if (footerEditor) footerEditor.on("change", () => markDirtyOf(host));
+      if (footerEditor) setTimeout(() => footerEditor.on("change", () => markDirtyOf(host)), 0);
       return;
     }
     if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
