@@ -2643,11 +2643,254 @@
   // ----------------------------------------------------------------------
   function cfgPanesRoot() { return $("cfgPanes"); }
 
+  // ===== 配置左侧导航分组（基础 / 功能 / 页面 / 扩展；其余文件自动归入「其他配置」） =====
+  const CFG_NAV_GROUPS = [
+    { title: "基础配置", items: [
+      { key: "logo", label: "站点Logo", resource: true },
+      { key: "avatar", label: "作者头像", resource: true },
+      { key: "siteConfig", label: "站点基础配置", file: "siteConfig.ts" },
+      { key: "navBarConfig", label: "导航栏配置", file: "navBarConfig.ts", custom: "navbar" },
+      { key: "footerConfig", label: "页脚配置", file: "footerConfig.ts", merged: true },
+      { key: "backgroundWallpaper", label: "背景壁纸配置", file: "backgroundWallpaper.ts" },
+      { key: "sidebarConfig", label: "侧边栏布局配置", file: "sidebarConfig.ts" },
+      { key: "announcementConfig", label: "公告配置", file: "announcementConfig.ts" },
+    ]},
+    { title: "功能配置", items: [
+      { key: "fontConfig", label: "字体配置", file: "fontConfig.ts" },
+      { key: "commentConfig", label: "评论系统配置", file: "commentConfig.ts" },
+      { key: "coverImageConfig", label: "封面图配置", file: "coverImageConfig.ts" },
+      { key: "musicConfig", label: "音乐播放器配置", file: "musicConfig.ts" },
+      { key: "plantumlConfig", label: "PlantUML 图表配置", file: "plantumlConfig.ts" },
+      { key: "mermaidConfig", label: "Mermaid图表配置", file: "mermaidConfig.ts" },
+    ]},
+    { title: "页面配置", items: [
+      { key: "friendsConfig", label: "友链配置", file: "friendsConfig.ts" },
+      { key: "galleryConfig", label: "相册配置", file: "galleryConfig.ts" },
+      { key: "sponsorConfig", label: "打赏配置", file: "sponsorConfig.ts" },
+      { key: "booknavConfig", label: "书签导航配置", file: "booknavConfig.ts" },
+    ]},
+    { title: "扩展功能", items: [
+      { key: "effectsConfig", label: "动画特效配置", file: "effectsConfig.ts" },
+      { key: "licenseConfig", label: "许可证配置", file: "licenseConfig.ts" },
+      { key: "pioConfig", label: "看板娘配置", file: "pioConfig.ts" },
+    ]},
+  ];
+
+  // ===== 导航栏自定义链接编辑器（navBarConfig.ts） =====
+  // navBarConfig.ts 是函数式构建（getDynamicNavBarConfig），无法用通用配置编辑器安全编辑，
+  // 因此单独管理其中「// 自定义导航栏链接」区域（自定义分组 + 子链接）的增删改。
+  const NAVBAR_START = "FireflyCMS:NAVBAR_CUSTOM_START";
+  const NAVBAR_END = "FireflyCMS:NAVBAR_CUSTOM_END";
+
+  // 将 TS 对象字面量（含未引号键、单行/块注释、单引号、尾逗号）转为可 JSON.parse 的文本
+  function tsObjToJsonish(src) {
+    let out = "", i = 0, n = src.length, inStr = null;
+    while (i < n) {
+      const c = src[i];
+      if (inStr) {
+        out += c;
+        if (c === "\\") { if (i + 1 < n) { out += src[i + 1]; i += 2; } else { i++; } continue; }
+        if (c === inStr) inStr = null;
+        i++; continue;
+      }
+      if (c === '"' || c === "'") { inStr = c; out += c; i++; continue; }
+      if (c === "/" && src[i + 1] === "/") { while (i < n && src[i] !== "\n") i++; continue; }
+      if (c === "/" && src[i + 1] === "*") { i += 2; while (i + 2 <= n && !(src[i] === "*" && src[i + 1] === "/")) i++; i += 2; continue; }
+      const m = /^[A-Za-z_$][\w$]*/.exec(src.slice(i));
+      if (m) {
+        let j = i + m[0].length;
+        while (j < n && (src[j] === " " || src[j] === "\t" || src[j] === "\n" || src[j] === "\r")) j++;
+        if (src[j] === ":") { out += '"' + m[0] + '"'; i = j; continue; }
+      }
+      out += c; i++;
+    }
+    return out;
+  }
+  function parseTsValue(text) {
+    let j = tsObjToJsonish(text);
+    j = j.replace(/,(\s*[}\]])/g, "$1"); // 去除尾逗号
+    try { return JSON.parse(j); } catch (e) { return null; }
+  }
+  // 从字符串 s 的 openIdx（'(' 位置）提取到匹配 ')' 之间的内容（跳过字符串内的括号）
+  function extractBalanced(s, openIdx) {
+    let depth = 0, i = openIdx, inStr = null;
+    for (; i < s.length; i++) {
+      const c = s[i];
+      if (inStr) { if (c === "\\") { i++; continue; } if (c === inStr) inStr = null; continue; }
+      if (c === '"' || c === "'") { inStr = c; continue; }
+      if (c === "(") depth++;
+      else if (c === ")") { depth--; if (depth === 0) return s.slice(openIdx + 1, i); }
+    }
+    return s.slice(openIdx + 1);
+  }
+  // 解析 navBarConfig.ts 中的自定义链接区域，返回分组数组
+  function parseNavBarCustom(raw) {
+    let region;
+    const sS = raw.indexOf(NAVBAR_START), eS = raw.indexOf(NAVBAR_END);
+    if (sS !== -1 && eS !== -1) {
+      region = raw.slice(raw.indexOf("\n", sS) + 1, raw.lastIndexOf("\n", eS));
+    } else {
+      const a = raw.indexOf("自定义导航栏链接");
+      if (a === -1) return [];
+      const regionStart = raw.lastIndexOf("\n", a) + 1;
+      const ret = raw.indexOf("return { links }");
+      const regionEnd = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
+      region = raw.slice(regionStart, regionEnd);
+    }
+    const groups = [];
+    const re = /links\.push\(/g; let m;
+    while ((m = re.exec(region))) {
+      const ls = region.lastIndexOf("\n", m.index) + 1;
+      const line = region.slice(ls, region.indexOf("\n", m.index));
+      if (/^\s*\/\//.test(line)) continue; // 跳过被注释掉的 links.push
+      const openIdx = m.index + m[0].length - 1;
+      const inner = extractBalanced(region, openIdx);
+      const obj = parseTsValue(inner);
+      if (!obj || typeof obj !== "object") continue;
+      groups.push({
+        name: typeof obj.name === "string" ? obj.name : "",
+        url: typeof obj.url === "string" ? obj.url : "#",
+        icon: typeof obj.icon === "string" ? obj.icon : "",
+        children: Array.isArray(obj.children) ? obj.children.map((c) => ({
+          name: typeof c.name === "string" ? c.name : "",
+          url: typeof c.url === "string" ? c.url : "",
+          icon: typeof c.icon === "string" ? c.icon : "",
+          external: !!c.external,
+        })) : [],
+      });
+    }
+    return groups;
+  }
+  // 将分组模型序列化回 navBarConfig.ts 的自定义链接区域
+  function serializeNavBarCustom(model, raw) {
+    const blocks = (model || []).map((g) => {
+      const children = (g.children || []).map((c) =>
+        "\t\t\t{\n" +
+        "\t\t\t\tname: " + JSON.stringify(c.name || "") + ",\n" +
+        "\t\t\t\turl: " + JSON.stringify(c.url || "") + ",\n" +
+        (c.icon ? "\t\t\t\ticon: " + JSON.stringify(c.icon) + ",\n" : "") +
+        "\t\t\t\texternal: " + (c.external ? "true" : "false") + "\n" +
+        "\t\t\t}"
+      ).join(",\n");
+      return "\tlinks.push({\n" +
+        "\t\tname: " + JSON.stringify(g.name || "") + ",\n" +
+        "\t\turl: " + JSON.stringify(g.url || "#") + ",\n" +
+        (g.icon ? "\t\ticon: " + JSON.stringify(g.icon) + ",\n" : "") +
+        "\t\t// 子菜单\n" +
+        "\t\tchildren: [\n" + children + "\n\t\t],\n" +
+        "\t});";
+    }).join("\n\n");
+    const custom = "\t// ===== " + NAVBAR_START + " =====\n" +
+      (blocks || "\t// （暂无自定义分组）") + "\n" +
+      "\t// ===== " + NAVBAR_END + " =====";
+    let regionStart, regionEnd;
+    const ss = raw.indexOf(NAVBAR_START), es = raw.indexOf(NAVBAR_END);
+    if (ss !== -1 && es !== -1) {
+      regionStart = raw.lastIndexOf("\n", ss);
+      regionEnd = raw.indexOf("\n", es);
+    } else {
+      const a = raw.indexOf("自定义导航栏链接");
+      if (a === -1) {
+        const ret = raw.indexOf("return { links }");
+        regionStart = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
+        regionEnd = regionStart;
+      } else {
+        regionStart = raw.lastIndexOf("\n", a);
+        const ret = raw.indexOf("return { links }");
+        regionEnd = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
+      }
+    }
+    return raw.slice(0, regionStart) + "\n" + custom + "\n" + raw.slice(regionEnd);
+  }
+  function nvField(label, obj, key) {
+    const d = document.createElement("label"); d.className = "nv-field";
+    const s = document.createElement("span"); s.className = "nv-field-label"; s.textContent = label;
+    const inp = document.createElement("input"); inp.type = "text"; inp.value = obj[key] || ""; inp.className = "nv-input";
+    inp.oninput = () => { obj[key] = inp.value; };
+    d.appendChild(s); d.appendChild(inp); return d;
+  }
+  function nvFieldInline(label, obj, key) {
+    const d = document.createElement("div"); d.className = "nv-field-inline";
+    const s = document.createElement("span"); s.textContent = label;
+    const inp = document.createElement("input"); inp.type = "text"; inp.value = obj[key] || ""; inp.className = "nv-input";
+    inp.oninput = () => { obj[key] = inp.value; };
+    d.appendChild(s); d.appendChild(inp); return d;
+  }
+  async function loadNavBarConfig(host) {
+    host.innerHTML = '<div class="cfg-empty">加载中…</div>';
+    try {
+      const { status, data } = await api("/api/file?path=" + encodeURIComponent("src/config/navBarConfig.ts"));
+      if (status !== 200 || data.content == null) { host.innerHTML = '<div class="cfg-empty">未找到 src/config/navBarConfig.ts</div>'; return; }
+      let model = null;
+      try { model = parseNavBarCustom(data.content); } catch (e) { model = null; }
+      apState["navBarConfig"] = { raw: data.content, sha: data.sha, name: "navBarConfig", ext: ".ts", loaded: true, dirty: false, navModel: model || [], rawFallback: model === null };
+      renderNavBarLinksEditor(host);
+      if (model === null) {
+        const warn = document.createElement("div"); warn.className = "nv-hint";
+        warn.textContent = "⚠️ 自定义链接区域解析失败，已切换为原始文本编辑（保存将直接写入文本）。";
+        host.insertBefore(warn, host.firstChild);
+        const ta = document.createElement("textarea"); ta.className = "nv-raw"; ta.value = data.content; host.appendChild(ta);
+      }
+    } catch (e) {
+      host.innerHTML = '<div class="cfg-empty">加载失败：' + esc(e.message || "") + "</div>";
+    }
+  }
+  function renderNavBarLinksEditor(host) {
+    const st = apState["navBarConfig"];
+    if (!st) return;
+    const model = st.navModel || (st.navModel = []);
+    host.innerHTML = "";
+    if (st.rawFallback) {
+      const warn = document.createElement("div"); warn.className = "nv-hint";
+      warn.textContent = "⚠️ 自定义链接区域解析失败，已切换为原始文本编辑。"; host.appendChild(warn);
+      const ta = document.createElement("textarea"); ta.className = "nv-raw"; ta.value = st.raw || ""; host.appendChild(ta);
+      return;
+    }
+    const wrap = document.createElement("div"); wrap.className = "navlinks-editor";
+    const hint = document.createElement("div"); hint.className = "nv-hint";
+    hint.textContent = "管理导航栏的「自定义链接」（不影响文章/社交等预设菜单）。可新增/删除整个自定义分组，或编辑每个分组下的外链（名称、网址、图标、是否外链）。";
+    wrap.appendChild(hint);
+    model.forEach((g, gi) => {
+      const card = document.createElement("div"); card.className = "nv-group";
+      const head = document.createElement("div"); head.className = "nv-group-head";
+      const t = document.createElement("span"); t.className = "nv-group-title"; t.textContent = "自定义分组 " + (gi + 1);
+      const delG = document.createElement("button"); delG.type = "button"; delG.className = "btn ghost sm nv-del-group"; delG.textContent = "删除分组";
+      delG.onclick = () => { model.splice(gi, 1); renderNavBarLinksEditor(host); };
+      head.appendChild(t); head.appendChild(delG); card.appendChild(head);
+      card.appendChild(nvField("分组名称", g, "name"));
+      card.appendChild(nvField("链接（一般为 #）", g, "url"));
+      card.appendChild(nvField("图标（astro-icon 名称）", g, "icon"));
+      const cw = document.createElement("div"); cw.className = "nv-children";
+      const ct = document.createElement("div"); ct.className = "nv-children-title"; ct.textContent = "子链接"; cw.appendChild(ct);
+      (g.children || (g.children = [])).forEach((c, ci) => {
+        const row = document.createElement("div"); row.className = "nv-child-row";
+        row.appendChild(nvFieldInline("名称", c, "name"));
+        row.appendChild(nvFieldInline("网址", c, "url"));
+        row.appendChild(nvFieldInline("图标", c, "icon"));
+        const extW = document.createElement("label"); extW.className = "nv-ext";
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!c.external; cb.onchange = () => { c.external = cb.checked; };
+        extW.appendChild(cb); extW.appendChild(document.createTextNode("外链")); row.appendChild(extW);
+        const delC = document.createElement("button"); delC.type = "button"; delC.className = "btn ghost sm nv-del-child"; delC.textContent = "删除";
+        delC.onclick = () => { g.children.splice(ci, 1); renderNavBarLinksEditor(host); };
+        row.appendChild(delC);
+        cw.appendChild(row);
+      });
+      const addC = document.createElement("button"); addC.type = "button"; addC.className = "btn ghost sm nv-add-child"; addC.textContent = "+ 添加子链接";
+      addC.onclick = () => { g.children.push({ name: "", url: "", icon: "", external: false }); renderNavBarLinksEditor(host); };
+      cw.appendChild(addC); card.appendChild(cw);
+      wrap.appendChild(card);
+    });
+    const addG = document.createElement("button"); addG.type = "button"; addG.className = "btn primary sm nv-add-group"; addG.textContent = "+ 添加自定义分组";
+    addG.onclick = () => { model.push({ name: "新分组", url: "#", icon: "material-symbols:link", children: [] }); renderNavBarLinksEditor(host); };
+    wrap.appendChild(addG);
+    host.appendChild(wrap);
+  }
+
   async function loadConfigNav() {
-    const navList = $("cfgNavList");
+    const scroll = $("cfgNavScroll");
     const panes = $("cfgPanes");
-    if (!navList || !panes) return;
-    navList.innerHTML = "";
+    if (!scroll || !panes) return;
+    scroll.innerHTML = "";
     panes.innerHTML = "";
     // 操作说明（默认选中）
     const readmeItem = document.createElement("button");
@@ -2655,7 +2898,11 @@
     readmeItem.className = "cfg-nav-item active";
     readmeItem.dataset.cfg = "__readme__";
     readmeItem.innerHTML = '<span class="cni-tx">操作说明</span>';
-    navList.appendChild(readmeItem);
+    scroll.appendChild(readmeItem);
+
+    // 已规划的配置文件基名集合（用于把其余文件归入「其他配置」）
+    const curatedBases = new Set();
+    CFG_NAV_GROUPS.forEach((g) => g.items.forEach((it) => { if (it.file) curatedBases.add(it.file.replace(/\.(ts|html)$/, "").toLowerCase()); }));
 
     let items = [];
     try {
@@ -2675,34 +2922,19 @@
       const wb = ib === -1 ? order.length : ib;
       return wa - wb || a.name.localeCompare(b.name);
     });
-    // 按文件名基名（忽略大小写）分组：同名 .ts 与 .html 合并为单一面板
     const byBase = {};
     all.forEach((f) => {
       const base = f.name.replace(/\.(ts|html)$/, "").toLowerCase();
       (byBase[base] = byBase[base] || []).push(f);
     });
+    // 为每个配置文件创建面板（含保存按钮）；同名 .ts+.html 标记为 merged（由 .ts 承载）
     all.forEach((f) => {
       const base = f.name.replace(/\.(ts|html)$/, "").toLowerCase();
       const group = byBase[base];
       const isHtml = f.name.endsWith(".html");
-      // 合并场景：组内有同名 .ts 与 .html，此处跳过 .html，仅由 .ts 项承载合并面板
       if (group.length > 1 && isHtml) return;
-      const merged = group.length > 1;
       const name = f.name.replace(/\.(ts|html)$/, "");
-      const ext = isHtml ? ".html" : ".ts";
       const label = CONFIG_NAME_MAP[f.name] || name;
-      const tab = document.createElement("button");
-      tab.type = "button";
-      tab.className = "cfg-nav-item";
-      tab.dataset.cfg = name;
-      tab.dataset.ext = ext;
-      if (merged) {
-        tab.dataset.merged = "1";
-        const htmlFile = group.find((g) => g.name.endsWith(".html"));
-        if (htmlFile) tab.dataset.html = htmlFile.name;
-      }
-      tab.innerHTML = '<span class="cni-tx">' + esc(label) + "</span>";
-      navList.appendChild(tab);
       const pane = document.createElement("div");
       pane.className = "ap-pane ap-config-pane";
       pane.dataset.pane = name;
@@ -2714,6 +2946,63 @@
         '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
       panes.appendChild(pane);
     });
+
+    // 构建分组导航按钮（资源类不创建面板，仅创建按钮）
+    const makeNavBtn = (key, label, file) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cfg-nav-item";
+      btn.dataset.cfg = key;
+      if (file) {
+        const base = file.replace(/\.(ts|html)$/, "").toLowerCase();
+        const f = all.find((x) => x.name.replace(/\.(ts|html)$/, "").toLowerCase() === base);
+        btn.dataset.ext = (f && f.name.endsWith(".html")) ? ".html" : ".ts";
+        if (f) {
+          const grp = byBase[base] || [];
+          if (grp.length > 1) { btn.dataset.merged = "1"; const hf = grp.find((g) => g.name.endsWith(".html")); if (hf) btn.dataset.html = hf.name; }
+        }
+      }
+      btn.innerHTML = '<span class="cni-tx">' + esc(label) + "</span>";
+      return btn;
+    };
+    CFG_NAV_GROUPS.forEach((g) => {
+      const grpEl = document.createElement("div");
+      grpEl.className = "cfg-nav-group";
+      const title = document.createElement("div");
+      title.className = "cfg-nav-group-title";
+      title.textContent = g.title;
+      grpEl.appendChild(title);
+      const list = document.createElement("div");
+      list.className = "cfg-nav-list";
+      g.items.forEach((it) => list.appendChild(makeNavBtn(it.key, it.label, it.file)));
+      grpEl.appendChild(list);
+      scroll.appendChild(grpEl);
+    });
+
+    // 其他配置（未规划的文件），折叠且默认收起
+    const otherFiles = all.filter((f) => {
+      const base = f.name.replace(/\.(ts|html)$/, "").toLowerCase();
+      if (curatedBases.has(base)) return false;
+      if (f.name === "FooterConfig.html") return false; // 已合并进 footerConfig
+      return true;
+    });
+    if (otherFiles.length) {
+      const grpEl = document.createElement("div");
+      grpEl.className = "cfg-nav-group collapsible collapsed";
+      const title = document.createElement("div");
+      title.className = "cfg-nav-group-title";
+      title.textContent = "其他配置";
+      title.onclick = () => grpEl.classList.toggle("collapsed");
+      grpEl.appendChild(title);
+      const list = document.createElement("div");
+      list.className = "cfg-nav-list";
+      otherFiles.forEach((f) => {
+        const name = f.name.replace(/\.(ts|html)$/, "");
+        list.appendChild(makeNavBtn(name, CONFIG_NAME_MAP[f.name] || name, f.name));
+      });
+      grpEl.appendChild(list);
+      scroll.appendChild(grpEl);
+    }
     loadConfigReadme();
   }
 
@@ -2741,7 +3030,7 @@
     readme.hidden = true;
     panes.hidden = false;
     panes.querySelectorAll(".ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-    const tabEl = document.querySelector('#cfgNavList .cfg-nav-item[data-cfg="' + name + '"]');
+    const tabEl = document.querySelector('#cfgNavScroll .cfg-nav-item[data-cfg="' + name + '"]');
     const ext = (tabEl && tabEl.dataset.ext) || ".ts";
     const merged = !!(tabEl && tabEl.dataset.merged === "1");
     const htmlName = tabEl && tabEl.dataset.html;
@@ -2785,6 +3074,7 @@
     const root = cfgPanesRoot();
     const host = apHostFor(name, root);
     if (!host) return;
+    if (name === "navBarConfig") { await loadNavBarConfig(host); return; }
     const st = apState[name];
     // 远程优先：非 dirty 时重新从 GitHub 读取最新文件；dirty 时保留未保存编辑
     if (st && st.dirty) { st.ext = ext; renderCfgConfig(name); return; }
@@ -2881,6 +3171,15 @@
       } else if (st.ext === ".html") {
         htmlContent = footerEditor ? footerEditor.getHTML() : ((host.querySelector("textarea") || {}).value || st.raw);
         htmlPath = "src/config/" + name + ".html";
+      } else if (name === "navBarConfig") {
+        if (st.rawFallback) {
+          const ta = host.querySelector("textarea.nv-raw");
+          tsContent = ta ? ta.value : st.raw;
+        } else {
+          tsContent = serializeNavBarCustom(st.navModel || [], st.raw);
+        }
+        st.raw = tsContent;
+        tsPath = "src/config/navBarConfig.ts";
       } else if (name === "booknavConfig") {
         const rootN = st.roots.find((r) => r.name === "booknavConfig");
         if (!rootN) throw new Error("未找到 booknavConfig");
