@@ -58,16 +58,13 @@
             <button id="batchDelBtn" class="btn danger sm">🗑 批量删除</button>
             <button id="newBtn" class="btn primary sm">＋ 新建</button>
             <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
+            <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
           </div>
         </div>
         <div class="list-tools">
           <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
           <input type="text" id="searchInput" placeholder="搜索文件名…" />
           <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
-        </div>
-        <!-- 快捷操作：新建分类（配置页不显示，因配置页已改为左侧分类导航） -->
-        <div class="list-tools2">
-          <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
         </div>
         <div class="file-list" id="fileList"></div>
         <div class="crumb" id="crumb"></div>
@@ -128,7 +125,7 @@
               </div>
             </div>
             <div class="ap-pane-head">
-              <span class="ap-pane-title">用户资料配置 · profileConfig</span>
+              <span class="ap-pane-title">用户资料配置</span>
               <button class="btn primary sm ap-save" type="button" data-save="profileConfig.ts">💾 保存</button>
             </div>
             <div class="ap-cfg-host config-editor"></div>

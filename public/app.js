@@ -1989,7 +1989,7 @@
       pane.dataset.pane = name;
       pane.hidden = true;
       pane.innerHTML =
-        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + " · " + esc(name) + '</span>' +
+        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + '</span>' +
         '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
         '<div class="ap-cfg-host config-editor"></div>' +
         '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
@@ -2171,7 +2171,7 @@
       pane.dataset.pane = name;
       pane.hidden = true;
       pane.innerHTML =
-        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + " · " + esc(name) + '</span>' +
+        '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + '</span>' +
         '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
         '<div class="ap-cfg-host config-editor"></div>' +
         '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>';
@@ -2186,10 +2186,12 @@
     const panes = $("cfgPanes");
     if (name === "__readme__") {
       readme.hidden = false;
+      panes.hidden = true;
       panes.querySelectorAll(".ap-pane").forEach((p) => (p.hidden = true));
       return;
     }
     readme.hidden = true;
+    panes.hidden = false;
     panes.querySelectorAll(".ap-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
     const ext = (document.querySelector('#cfgNavList .cfg-nav-item[data-cfg="' + name + '"]') || {}).dataset?.ext || ".ts";
     loadCfgConfig(name, ext);
