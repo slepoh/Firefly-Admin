@@ -57,16 +57,19 @@ body {
 .repo-info { margin-left: auto; color: var(--muted); font-size: 13px; padding-right: 8px; font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
 
-/* 右上角 WhatsApp / Telegram 二维码图标 */
+/* 右上角 操作说明 / 关于 图标（带文字标签） */
 .qr-icon {
   position: relative;
-  width: 32px; height: 32px; border-radius: 8px;
-  display: grid; place-items: center; cursor: pointer; flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 11px 0 8px; border-radius: 999px;
+  cursor: pointer; flex: none; white-space: nowrap;
   color: #51585f; background: var(--panel); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 600;
   transition: background .15s, color .15s, border-color .15s;
 }
 .qr-icon:hover { background: #f0f2f5; color: var(--primary-d); border-color: #c7ccd2; }
-.qr-icon svg { width: 20px; height: 20px; }
+.qr-icon svg { width: 20px; height: 20px; flex: none; }
+.qr-label { line-height: 1; }
 .qr-tooltip {
   position: absolute; top: calc(100% + 10px); right: 0;
   width: 180px; padding: 10px; border-radius: 12px;
@@ -793,6 +796,8 @@ textarea { resize: vertical; }
   /* 移动端（抽屉断点）：退出按钮移入左侧导航；顶栏的退出按钮隐藏 */
   .top-actions #logoutBtn { display: none !important; }
   #logoutNavBtn { display: flex; }
+  /* 移动端：顶栏图标只显示图形，隐藏文字标题 */
+  .qr-label { display: none; }
   /* 退出分区：移动端独立显示于底部（margin-top:auto 推底），nav-foot 紧贴其下 */
   .nav-group-logout { display: flex; padding: 12px 12px 0; border-top: 1px solid var(--border); }
   .nav-foot { margin-top: 0; }
