@@ -2156,8 +2156,7 @@
       tab.className = "cfg-nav-item";
       tab.dataset.cfg = name;
       tab.dataset.ext = ext;
-      tab.innerHTML = '<span class="cni-ico">⚙️</span><span class="cni-tx">' + esc(label) + '</span>' +
-        '<span class="cni-origin">' + esc(f.name) + "</span>";
+      tab.innerHTML = '<span class="cni-ico">⚙️</span><span class="cni-tx">' + esc(label) + '</span>";
       navList.appendChild(tab);
       const pane = document.createElement("div");
       pane.className = "ap-pane ap-config-pane";
