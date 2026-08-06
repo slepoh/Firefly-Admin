@@ -1971,7 +1971,8 @@
       sha: state.current.sha || undefined,
       message: (state.current.isNew ? "Create " : "Update ") + path + " via FireflyCMS",
     };
-    setStatus("保存中…");
+    setStatus("上传至 GitHub 中，请等待…");
+    okPopup("⏳ 上传至 GitHub 中，请等待…", true);
     try {
       const { status, data } = await api("/api/file", {
         method: state.current.isNew ? "POST" : "PUT",
@@ -1985,12 +1986,16 @@
         $("deleteBtn").hidden = false;
         $("fileName").readOnly = true;
         $("extSelect").disabled = true;
-        okPopup("✅ 已保存，GitHub 将自动重新部署");
+        setStatus("已保存，GitHub 自动部署中");
+        okPopup("✅ 已保存，GitHub 自动部署中");
       } else {
-        setStatus((data && (data.error || data.message)) || "保存失败", "err");
+        const errMsg = (data && (data.error || data.message)) || "保存失败";
+        setStatus(errMsg, "err");
+        okPopup("❌ " + errMsg, false);
       }
     } catch (e) {
       setStatus(e.message || "保存失败", "err");
+      okPopup("❌ " + (e.message || "保存失败"), false);
     }
   }
 
@@ -2640,7 +2645,8 @@
   // 保存成功弹窗（居中、自动消失，替换原来的「已保存，GitHub 将自动重新部署」提示）
   // ----------------------------------------------------------------------
   let okPopupTimer = null;
-  function okPopup(msg) {
+  // hold=true 时为「等待模式」：持续显示不自动消失，等待后续调用替换（用于保存上传中的友好提示）
+  function okPopup(msg, hold) {
     const el = $("okPopup");
     if (!el) return;
     el.textContent = msg;
@@ -2648,6 +2654,7 @@
     // 触发过渡
     requestAnimationFrame(() => el.classList.add("show"));
     clearTimeout(okPopupTimer);
+    if (hold) return; // 保持显示，等待保存结果后替换
     okPopupTimer = setTimeout(() => {
       el.classList.remove("show");
       setTimeout(() => (el.hidden = true), 280);
@@ -3211,6 +3218,7 @@
       return;
     }
     try {
+      if (!silent) okPopup("⏳ 上传至 GitHub 中，请等待…", true);
       const applyRes = async (p, c, shaRef) => {
         const { status, data } = await putConfigFile(p, c, shaRef());
         if (status !== 200 && status !== 201) throw new Error((data && (data.error || data.message)) || "保存失败");
@@ -3228,11 +3236,12 @@
       if (silent) {
         if (statusEl) { statusEl.textContent = "已自动保存"; statusEl.className = "ap-pane-status"; }
       } else {
-        okPopup("✅ 已保存，GitHub 将自动重新部署");
+        okPopup("✅ 已保存，GitHub 自动部署中");
         if (statusEl) statusEl.textContent = "";
       }
     } catch (e) {
       if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
+      if (!silent) okPopup("❌ " + (e.message || "保存失败"), false);
     }
   }
 
