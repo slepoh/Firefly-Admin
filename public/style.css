@@ -1092,14 +1092,13 @@ textarea { resize: vertical; }
   .ap-tab.active { border-color: #ffd9b8; background: #fff4ea; }
   .ap-body { overflow: hidden; }
   .appearance-view, .config-view { min-height: 0; }
-  /* 移动端：配置数据内容整体可下拉滚动（修复「配置内容无法下拉」） */
-  /* 关键：.cfg-content 改为普通块级滚动容器，避免 flex 列嵌套导致的滚动失效（部分移动端引擎不触发 flex 子项滚动） */
+  /* 移动端：复用桌面已被验证的可滚动链——cfg-content 为 flex 列(overflow hidden)，#cfgPanes 作为滚动容器。
+     此前误将 cfg-content 改成 block、#cfgPanes 改成 overflow:visible，导致数据编辑器页面无法滚动，现恢复。 */
   .cfg-content {
-    display: block;
-    flex: 1 1 auto; min-height: 0;
-    overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 0; overflow: hidden;
   }
-  #cfgPanes { overflow: visible; }
+  #cfgPanes { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .cfg-readme { flex: none; overflow: visible; }
   .cfg-resource { flex: none; overflow: visible; }
 }
@@ -1110,7 +1109,6 @@ textarea { resize: vertical; }
   .ap-tab { padding: 7px 12px; font-size: 12.5px; }
   .cfg-obj-item { padding: 9px 10px; border-radius: 10px; }
   .cfg-objarr-add { padding: 8px; }
-  .cfg-content { overflow-y: auto; }
   .ap-pane { padding: 10px; }
 }
 
