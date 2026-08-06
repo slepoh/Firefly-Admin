@@ -508,6 +508,24 @@ textarea { resize: vertical; }
 .cfg-footer-html { border-top: 1px dashed var(--border); padding-top: 14px; }
 .cfg-footer-editor { margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 
+/* 对象数组（links / sponsors / friendsConfig / albums / playlist 等）：整块增删卡片 */
+.cfg-objarr { margin: 6px 0 10px; }
+.cfg-objarr-list { display: flex; flex-direction: column; gap: 12px; }
+.cfg-obj-item {
+  border: 1px solid var(--border); border-radius: 12px; background: #fff;
+  padding: 10px 12px; box-shadow: 0 1px 2px rgba(20,25,35,.04);
+}
+.cfg-obj-item:nth-child(odd) { background: #fafbfc; }
+.cfg-obj-item-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cfg-obj-item-title { font-weight: 700; color: var(--primary-d); font-size: 13px; }
+.cfg-obj-item-head .cfg-objarr-del { margin-left: auto; }
+.cfg-objarr-add {
+  margin: 8px 0 2px; width: 100%; border: 1px dashed var(--primary);
+  background: #fff4ea; color: var(--primary-d); border-radius: 9px; padding: 9px;
+  cursor: pointer; font-size: 13.5px; font-weight: 600;
+}
+.cfg-objarr-add:hover { background: #ffe6d2; }
+
 .cfg-field-label {
   flex: 0 0 34%; min-width: 130px; max-width: 300px;
   display: flex; flex-direction: column; gap: 3px; padding-top: 7px;
@@ -909,7 +927,49 @@ textarea { resize: vertical; }
 /* ===================== 移动端适配 ===================== */
 @media (max-width: 720px) {
   .config-view { flex-direction: column; }
-  .cfg-nav { width: auto; flex: none; max-height: 38vh; border-right: none; border-bottom: 1px solid var(--border); }
-  .cfg-nav-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; }
-  .cfg-nav-item { width: auto; margin-bottom: 0; }
+  /* 配置分类导航：改为顶部横向胶囊导航，可滑动，避免占用竖向空间 */
+  .cfg-nav {
+    width: auto; flex: none; max-height: none; border-right: none;
+    border-bottom: 1px solid var(--border); background: var(--panel);
+    padding: 0;
+  }
+  .cfg-nav-head {
+    padding: 10px 12px 8px; border-bottom: none;
+  }
+  .cfg-nav-list {
+    display: flex; flex-direction: row; flex-wrap: nowrap; gap: 8px;
+    padding: 0 12px 10px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .cfg-nav-list::-webkit-scrollbar { display: none; }
+  .cfg-nav-item {
+    width: auto; flex: none; margin-bottom: 0; white-space: nowrap;
+    padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px;
+    background: #fff; font-size: 13px;
+  }
+  .cfg-nav-item.active {
+    background: linear-gradient(135deg, #fff1e3, #ffe6d2); color: var(--primary-d);
+    border-color: #ffd9b8;
+  }
+  /* 站点外观 / 配置的 Tab 同样改为顶部横向滑动胶囊 */
+  .ap-tabs {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding: 10px 12px 0; gap: 6px;
+  }
+  .ap-tabs::-webkit-scrollbar { display: none; }
+  .ap-tab { flex: none; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: #fff; }
+  .ap-tab.active { border-color: #ffd9b8; background: #fff4ea; }
+  .ap-body { overflow: hidden; }
+  .appearance-view, .config-view { min-height: 0; }
 }
+
+@media (max-width: 560px) {
+  /* 极窄屏：分类胶囊与对象数组卡片进一步收紧，字段已改为上下排列 */
+  .cfg-nav-item { padding: 6px 11px; font-size: 12.5px; }
+  .ap-tab { padding: 7px 12px; font-size: 12.5px; }
+  .cfg-obj-item { padding: 9px 10px; border-radius: 10px; }
+  .cfg-objarr-add { padding: 8px; }
+  .cfg-content { overflow-y: auto; }
+  .ap-pane { padding: 10px; }
+}
+

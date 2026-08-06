@@ -133,7 +133,63 @@
         ],
       },
       "siteConfig.post.rehypeCallouts.theme": ["github", "obsidian", "vitepress", "docusaurus"],
+      "siteConfig.navbar.menuAlign": ["left", "center"],
     },
+  };
+
+  // 仅以下「标量字符串数组」支持列表式增删（整段重序列化）。
+  // 其余标量数组仅可逐项编辑，不再显示「添加/删除一项」按钮（避免误以为所有数组都能增删）。
+  const SCALAR_ARRAY_ADDABLE = new Set([
+    "siteConfig.keywords",
+    "backgroundWallpaper.src.desktop",
+    "backgroundWallpaper.src.mobile",
+    "backgroundWallpaper.common.homeText.subtitle",
+    "spineModelConfig.interactive.clickMessages",
+    "coverImageConfig.randomCoverImage.apis",
+  ]);
+
+  // 仅以下「对象数组」支持整块增删（每个对象是重复结构，应作为一个整体添加/删除，而非只加一个字段）。
+  // key 为从根 const 名起的完整路径；value 为该对象字段的渲染 schema（按顺序渲染卡片）。
+  // type: string | number | boolean | string[]（逗号分隔，序列化回字符串数组）。
+  const OBJ_ARRAY_SCHEMAS = {
+    "profileConfig.links": [
+      { key: "name", type: "string" },
+      { key: "icon", type: "string" },
+      { key: "url", type: "string" },
+      { key: "showName", type: "boolean" },
+    ],
+    "sponsorConfig.sponsors": [
+      { key: "name", type: "string" },
+      { key: "avatar", type: "string" },
+      { key: "amount", type: "string" },
+      { key: "date", type: "string" },
+    ],
+    "friendsConfig": [
+      { key: "title", type: "string" },
+      { key: "imgurl", type: "string" },
+      { key: "desc", type: "string" },
+      { key: "siteurl", type: "string" },
+      { key: "tags", type: "string[]" },
+      { key: "weight", type: "number" },
+      { key: "enabled", type: "boolean" },
+    ],
+    "galleryConfig.albums": [
+      { key: "id", type: "string" },
+      { key: "name", type: "string" },
+      { key: "description", type: "string" },
+      { key: "location", type: "string" },
+      { key: "date", type: "string" },
+      { key: "tags", type: "string[]" },
+      { key: "password", type: "string" },
+      { key: "passwordHint", type: "string" },
+    ],
+    "musicPlayerConfig.local.playlist": [
+      { key: "name", type: "string" },
+      { key: "artist", type: "string" },
+      { key: "url", type: "string" },
+      { key: "cover", type: "string" },
+      { key: "lrc", type: "string" },
+    ],
   };
   // 渲染通用配置时临时持有源码（用于标量数组整段重序列化时还原缩进）
   let cfgRawSrc = "";
@@ -681,6 +737,13 @@
     return [".md"];
   }
 
+  // 仅用于判断「切换后缀是否改变了编辑器模式」：内容类 md/mdx 同属 Markdown 模式，
+  // 配置类 html（可视化）/ts（源代码）模式不同。切换同模式后缀时不重建编辑器，避免草稿丢失。
+  function editorModeKey(type, ext) {
+    if (type === "config") return ext === ".html" ? "html" : "raw";
+    return "md";
+  }
+
   function newFile() {
     state.htmlMode = false;
     state.plainRaw = false;
@@ -714,15 +777,20 @@
   // 依据「类型 + 选中的后缀」决定编辑器模式并渲染（新建文件可随时切换后缀重渲染）
   function enterNewFile() {
     const opts = extOptions(state.type);
-    if (!opts.includes($("extSelect").value)) $("extSelect").value = opts[0];
-    const ext = $("extSelect").value;
+    const sel = $("extSelect");
+    if (!opts.includes(sel.value)) sel.value = opts[0];
+    const ext = sel.value;
     const t = state.type;
     state.htmlMode = false; state.plainRaw = false; state.configStruct = false; state.forceMarkdown = false;
     if (t === "config") {
       if (ext === ".html") state.htmlMode = true;
       else state.plainRaw = true; // .ts 新文件暂无内容，暂走源代码编辑
     }
-    showEditor(state._newBody, state._newFm, state._newBase);
+    // 保留用户已输入的文件名（避免切换后缀时被重置为默认 base）
+    const base = ($("fileName").value || "").trim() || state._newBase;
+    state._newBase = base;
+    state._curExt = ext;
+    showEditor(state._newBody, state._newFm, base);
   }
 
   function nowLocalInput() {
@@ -1048,8 +1116,134 @@
     markDirtyOf(btn);
   }
 
+  // 对象数组：整块增删（每个对象是重复结构，作为整体添加/删除）
+  function renderObjectArray(node, keyLabel, depth, path, cfgName) {
+    const schema = OBJ_ARRAY_SCHEMAS[path];
+    if (!schema) return cfgNodeElObjectFallback(node, keyLabel, depth, path, cfgName);
+    const block = document.createElement("div");
+    block.className = "cfg-objarr";
+    block.dataset.arrStart = node.start;
+    block.dataset.arrEnd = node.end;
+    block.dataset.schema = path;
+    let itemIndent = "\n\t\t", closeIndent = "\n\t";
+    if (cfgRawSrc) {
+      if (node.children.length) {
+        itemIndent = cfgRawSrc.slice(node.start + 1, node.children[0].value.start);
+        closeIndent = cfgRawSrc.slice(node.children[node.children.length - 1].value.end, node.end - 1);
+      } else {
+        closeIndent = cfgRawSrc.slice(node.start + 1, node.end - 1) || "\n\t\t";
+        itemIndent = closeIndent;
+      }
+    }
+    block.dataset.itemIndent = JSON.stringify(itemIndent);
+    block.dataset.closeIndent = JSON.stringify(closeIndent);
+    const list = document.createElement("div");
+    list.className = "cfg-objarr-list";
+    node.children.forEach((ch, idx) => list.appendChild(renderObjectArrayItem(ch.value, idx, schema)));
+    block.appendChild(list);
+    const foot = document.createElement("div");
+    foot.className = "cfg-arr-foot";
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "btn ghost sm cfg-objarr-add";
+    addBtn.textContent = "➕ 添加一项";
+    foot.appendChild(addBtn);
+    block.appendChild(foot);
+    return block;
+  }
+
+  function objFieldDefault(type) {
+    if (type === "boolean") return false;
+    if (type === "number") return 0;
+    return "";
+  }
+
+  function renderObjectArrayItem(objNode, idx, schema) {
+    const card = document.createElement("div");
+    card.className = "cfg-obj-item";
+    const head = document.createElement("div");
+    head.className = "cfg-obj-item-head";
+    head.innerHTML = '<span class="cfg-obj-item-title">第 ' + (idx + 1) + " 项</span>";
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "fi-act danger cfg-objarr-del";
+    del.title = "删除此项";
+    del.textContent = "🗑";
+    head.appendChild(del);
+    card.appendChild(head);
+    const children = (objNode && objNode.children) || [];
+    schema.forEach((f) => {
+      const child = children.find((c) => c.key === f.key);
+      let raw = objFieldDefault(f.type);
+      if (child && child.value) {
+        if (child.value.type === "array") {
+          raw = (child.value.children || []).map((c) =>
+            c.value && c.value.value != null ? String(c.value.value).replace(/^["']|["']$/g, "") : "");
+        } else {
+          raw = child.value.value != null ? child.value.value : objFieldDefault(f.type);
+        }
+      }
+      const row = document.createElement("div");
+      row.className = "cfg-field";
+      const lab = document.createElement("label");
+      lab.className = "cfg-field-label";
+      lab.innerHTML = '<span class="cfg-key">' + esc(f.key) + "</span>";
+      row.appendChild(lab);
+      let inp;
+      if (f.type === "boolean") {
+        inp = document.createElement("input");
+        inp.type = "checkbox";
+        inp.className = "cfg-check cfg-obj-field";
+        inp.checked = !!raw;
+      } else if (f.type === "number") {
+        inp = document.createElement("input");
+        inp.type = "number";
+        inp.className = "cfg-input cfg-obj-field";
+        inp.value = String(raw);
+      } else if (f.type === "string[]") {
+        inp = document.createElement("input");
+        inp.type = "text";
+        inp.className = "cfg-input cfg-obj-field cfg-obj-tags";
+        inp.value = Array.isArray(raw) ? raw.join(", ") : "";
+        inp.placeholder = "逗号分隔多个值";
+      } else {
+        inp = document.createElement("input");
+        inp.type = "text";
+        inp.className = "cfg-input cfg-obj-field";
+        inp.value = raw != null ? String(raw) : "";
+      }
+      inp.dataset.fkey = f.key;
+      inp.dataset.ftype = f.type;
+      row.appendChild(inp);
+      card.appendChild(row);
+    });
+    return card;
+  }
+
+  function addObjectArrayItem(btn) {
+    const blk = btn.closest(".cfg-objarr");
+    if (!blk) return;
+    const schema = OBJ_ARRAY_SCHEMAS[blk.dataset.schema];
+    if (!schema) return;
+    const list = blk.querySelector(".cfg-objarr-list");
+    const idx = list.children.length;
+    list.appendChild(renderObjectArrayItem({ type: "object", children: [] }, idx, schema));
+    markDirtyOf(btn);
+  }
+
+  function cfgNodeElObjectFallback(node, keyLabel, depth, path, cfgName) {
+    // 未知对象数组：退化为普通嵌套渲染（不应触发，schema 未配置时）
+    const block = document.createElement("div");
+    block.className = depth === 0 ? "cfg-title-block" : "cfg-sub-block";
+    return block;
+  }
+
   function cfgNodeEl(node, keyLabel, depth, path, cfgName) {
     if (node.type === "object" || node.type === "array") {
+      // 对象数组（如 links / sponsors / friendsConfig / albums / playlist）：整块增删
+      if (node.type === "array" && OBJ_ARRAY_SCHEMAS[path]) {
+        return renderObjectArray(node, keyLabel, depth, path, cfgName);
+      }
       // 一级栏目：大标题；嵌套：子标题。均不再套盒子，靠缩进体现层级
       const block = document.createElement("div");
       block.className = depth === 0 ? "cfg-title-block" : "cfg-sub-block";
@@ -1062,9 +1256,10 @@
       head.innerHTML = inner;
       block.appendChild(head);
 
-      // 纯标量数组（如 keywords）：渲染为可增删的列表
+      // 纯标量数组（如 keywords）：渲染为可增删的列表；仅当该数组在「允许增删」名单内才显示添加/删除按钮
       const allScalar = node.children.length === 0 || node.children.every((ch) =>
         ["string", "number", "boolean", "null"].indexOf(ch.value.type) >= 0);
+      const addable = node.type === "array" && allScalar && SCALAR_ARRAY_ADDABLE.has(path);
 
       node.children.forEach((ch) => {
         const childKey = node.type === "array"
@@ -1072,7 +1267,7 @@
           : ch.key;
         const childPath = path ? path + "." + childKey : childKey;
         const childRow = cfgNodeEl(ch.value, childKey, depth + 1, childPath, cfgName);
-        if (allScalar) {
+        if (addable) {
           const inp = childRow.querySelector(".cfg-input, .cfg-check");
           if (inp) inp.classList.add("cfg-arr-val");
           const del = document.createElement("button");
@@ -1085,7 +1280,7 @@
         block.appendChild(childRow);
       });
 
-      if (allScalar) {
+      if (addable) {
         block.dataset.array = "1";
         block.dataset.arrStart = node.start;
         block.dataset.arrEnd = node.end;
@@ -1249,6 +1444,42 @@
     return '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(name) + "</span>";
   }
 
+  // 收集对象数组（整块重序列化）：读取每个对象卡片的字段，重建 [ ... ] 文本并按原始偏移写回
+  function collectObjectArrayEdits(hostEl) {
+    const root = hostEl || $("configEditor");
+    const edits = [];
+    root.querySelectorAll(".cfg-objarr").forEach((blk) => {
+      const schema = OBJ_ARRAY_SCHEMAS[blk.dataset.schema];
+      if (!schema) return;
+      const itemIndent = JSON.parse(blk.dataset.itemIndent || '"\\n\\t\\t"');
+      const closeIndent = JSON.parse(blk.dataset.closeIndent || '"\\n\\t"');
+      const list = blk.querySelector(".cfg-objarr-list");
+      if (!list) return;
+      const items = Array.prototype.slice.call(list.children).filter((c) => c.classList.contains("cfg-obj-item"));
+      const objTexts = items.map((card) => {
+        const fields = schema.map((f) => {
+          const inp = card.querySelector('.cfg-obj-field[data-fkey="' + f.key + '"]');
+          let v;
+          if (f.type === "boolean") v = inp.checked ? "true" : "false";
+          else if (f.type === "number") {
+            const n = (inp.value || "").trim();
+            v = n === "" ? "0" : String(Number(n));
+          } else if (f.type === "string[]") {
+            const arr = (inp.value || "").split(",").map((s) => s.trim()).filter((s) => s !== "");
+            v = "[" + arr.map((x) => FireflyConfig.encodeValue("string", x, '"')).join(", ") + "]";
+          } else {
+            v = FireflyConfig.encodeValue("string", inp.value, '"');
+          }
+          return itemIndent + "  " + f.key + ": " + v;
+        }).join(",\n");
+        return itemIndent + "{\n" + fields + "\n" + itemIndent + "}";
+      }).join(",");
+      const text = "[" + objTexts + closeIndent + "]";
+      edits.push({ start: Number(blk.dataset.arrStart), end: Number(blk.dataset.arrEnd), text });
+    });
+    return edits;
+  }
+
   function collectConfigEdits(hostEl) {
     const root = hostEl || $("configEditor");
     const edits = [];
@@ -1256,10 +1487,12 @@
     root.querySelectorAll('[data-array="1"]').forEach((blk) => {
       edits.push(collectArrayEdit(blk));
     });
+    // 对象数组（links / sponsors / friendsConfig / albums / playlist 等）：整块重序列化
+    collectObjectArrayEdits(root).forEach((e) => edits.push(e));
     // 注意：布尔复选框的类名是 .cfg-check（非 .cfg-input），必须一起收集，
     // 否则 enable 等布尔值永远不会出现在 edits 中，导致无法切换 true/false、提交到 GitHub 无变化。
-    // 标量数组项（.cfg-arr-val）已在上面的整段重序列化中处理，此处排除，避免重复编辑。
-    const inputs = root.querySelectorAll(".cfg-input:not(.cfg-arr-val), .cfg-check:not(.cfg-arr-val)");
+    // 标量数组项（.cfg-arr-val）与对象数组字段（.cfg-obj-field）已分别处理，此处排除，避免重复编辑。
+    const inputs = root.querySelectorAll(".cfg-input:not(.cfg-arr-val):not(.cfg-obj-field), .cfg-check:not(.cfg-arr-val):not(.cfg-obj-field)");
     inputs.forEach((inp) => {
       if (inp.disabled) return;
       const start = Number(inp.dataset.start);
@@ -2268,7 +2501,7 @@
     });
   }
 
-  async function saveApConfig(name, root) {
+  async function saveApConfig(name, root, silent) {
     const st = apState[name];
     const host = apHostFor(name, root);
     const statusEl = apStatusFor(name, root);
@@ -2299,8 +2532,12 @@
       if (status === 200 || status === 201) {
         st.sha = data.sha || st.sha;
         st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
-        okPopup("✅ 已保存，GitHub 将自动重新部署");
-        if (statusEl) statusEl.textContent = "";
+        if (silent) {
+          if (statusEl) { statusEl.textContent = "已自动保存"; statusEl.className = "ap-pane-status"; }
+        } else {
+          okPopup("✅ 已保存，GitHub 将自动重新部署");
+          if (statusEl) statusEl.textContent = "";
+        }
       } else {
         if (statusEl) { statusEl.textContent = (data && (data.error || data.message)) || "保存失败"; statusEl.className = "ap-pane-status err"; }
       }
@@ -2344,7 +2581,7 @@
     readmeItem.type = "button";
     readmeItem.className = "cfg-nav-item active";
     readmeItem.dataset.cfg = "__readme__";
-    readmeItem.innerHTML = '<span class="cni-ico">📘</span><span class="cni-tx">操作说明</span>';
+    readmeItem.innerHTML = '<span class="cni-tx">操作说明</span>';
     navList.appendChild(readmeItem);
 
     let items = [];
@@ -2391,7 +2628,7 @@
         const htmlFile = group.find((g) => g.name.endsWith(".html"));
         if (htmlFile) tab.dataset.html = htmlFile.name;
       }
-      tab.innerHTML = '<span class="cni-ico">⚙️</span><span class="cni-tx">' + esc(label) + '</span>';
+      tab.innerHTML = '<span class="cni-tx">' + esc(label) + "</span>";
       navList.appendChild(tab);
       const pane = document.createElement("div");
       pane.className = "ap-pane ap-config-pane";
@@ -2542,7 +2779,7 @@
     else renderGenericConfig(host, st.roots, name, st.raw);
   }
 
-  async function saveCfgConfig(name) {
+  async function saveCfgConfig(name, silent) {
     const st = apState[name];
     const root = cfgPanesRoot();
     const host = apHostFor(name, root);
@@ -2590,8 +2827,12 @@
         st.htmlSha = d.sha || st.htmlSha;
       }
       st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
-      okPopup("✅ 已保存，GitHub 将自动重新部署");
-      if (statusEl) statusEl.textContent = "";
+      if (silent) {
+        if (statusEl) { statusEl.textContent = "已自动保存"; statusEl.className = "ap-pane-status"; }
+      } else {
+        okPopup("✅ 已保存，GitHub 将自动重新部署");
+        if (statusEl) statusEl.textContent = "";
+      }
     } catch (e) {
       if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
     }
@@ -2781,11 +3022,29 @@
 
     on("searchInput", "oninput", renderList);
     on("refreshBtn", "onclick", loadList);
+    on("topRefreshBtn", "onclick", loadList);
     on("newBtn", "onclick", newFile);
     on("newCatBtn", "onclick", newCategory);
     on("quickUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
-    // 新建文件时切换后缀：重设编辑器模式（保留草稿内容）
-    on("extSelect", "onchange", () => { if (state.current && state.current.isNew) enterNewFile(); });
+    // 新建文件时切换后缀：md/mdx 同属 Markdown 模式，仅更新文件名预览，不重建编辑器（避免草稿丢失）；
+    // 配置类 html↔ts 模式不同，才完整重建编辑器
+    on("extSelect", "onchange", () => {
+      if (!(state.current && state.current.isNew)) return;
+      const sel = $("extSelect");
+      const opts = extOptions(state.type);
+      if (!opts.includes(sel.value)) { sel.value = opts[0]; return; }
+      const base = ($("fileName").value || "").trim() || state._newBase;
+      state.current.name = base + sel.value;
+      const before = editorModeKey(state.type, state._curExt || opts[0]);
+      const after = editorModeKey(state.type, sel.value);
+      state._curExt = sel.value;
+      if (before === after) {
+        // 模式未变：仅刷新文件名预览，草稿内容保持不变
+        $("fileName").value = base;
+      } else {
+        enterNewFile();
+      }
+    });
     on("saveBtn", "onclick", saveFile);
     on("deleteBtn", "onclick", deleteFile);
     on("backBtn", "onclick", backToEmpty);
@@ -2892,6 +3151,23 @@
     });
     // 配置编辑「脏标记」：任何输入/选择/书签增删都标记为未保存，
     // 使远程优先读取逻辑在存在本地编辑时不会覆盖用户修改。
+    // 实时保存（防抖自动提交到 GitHub）：编辑后停顿即自动保存当前面板，
+    // 避免切换分类 / 刷新页面导致未手动保存的修改丢失（即「无法实时保存」的根因之一）。
+    const autosaveTimers = {};
+    function scheduleAutosave(paneName) {
+      clearTimeout(autosaveTimers[paneName]);
+      autosaveTimers[paneName] = setTimeout(async () => {
+        const st = apState[paneName];
+        if (!st || !st.dirty) return;
+        const pane = document.querySelector('.ap-pane[data-pane="' + paneName + '"]');
+        if (!pane || pane.hidden) return; // 仅当该面板当前可见时才自动保存
+        try {
+          if (pane.closest("#apBody")) await saveApConfig(paneName, null, true);
+          else if (pane.closest("#cfgPanes")) await saveCfgConfig(paneName, true);
+        } catch (e) { /* 自动保存失败不影响手动保存 */ }
+      }, 1500);
+    }
+
     function markCfgDirty(e) {
       const host = e.target.closest && e.target.closest(".ap-cfg-host");
       if (!host) return;
@@ -2901,6 +3177,7 @@
       // 输入框/选择框直接标记；点击仅当作用在按钮上（书签的结构性增删改）
       if (e.type === "click" && !(e.target.closest && e.target.closest("button"))) return;
       apState[pane.dataset.pane].dirty = true;
+      scheduleAutosave(pane.dataset.pane);
     }
     document.addEventListener("input", markCfgDirty);
     document.addEventListener("change", markCfgDirty);
@@ -2914,6 +3191,15 @@
       if (delBtn) {
         const row = delBtn.closest(".cfg-field");
         if (row) { row.remove(); markDirtyOf(delBtn); }
+        return;
+      }
+      // 对象数组（links / sponsors / friendsConfig / albums / playlist 等）：整块添加 / 删除
+      const objAdd = e.target.closest && e.target.closest(".cfg-objarr-add");
+      if (objAdd) { addObjectArrayItem(objAdd); return; }
+      const objDel = e.target.closest && e.target.closest(".cfg-objarr-del");
+      if (objDel) {
+        const item = objDel.closest(".cfg-obj-item");
+        if (item) { item.remove(); markDirtyOf(objDel); }
         return;
       }
     });
