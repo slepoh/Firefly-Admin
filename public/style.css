@@ -1047,8 +1047,8 @@ textarea { resize: vertical; }
 .info-pane pre code { background: transparent; border: none; color: inherit; padding: 0; }
 .info-pane a { color: var(--primary-d); }
 .info-empty { color: var(--muted); }
-/* 关于页：卡片式布局 */
-.info-about { max-width: 860px; margin: 0 auto; padding: 24px 22px 44px; }
+/* 关于页：卡片式布局，宽屏自适应页面宽度（不再收窄为 860px 居中窄条） */
+.info-about { width: 100%; margin: 0 auto; padding: 24px 22px 44px; }
 .about-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; }
 .about-h { margin: 0 0 10px; font-size: 16px; }
 .about-card p { margin: 8px 0; line-height: 1.8; }
