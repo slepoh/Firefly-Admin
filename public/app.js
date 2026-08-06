@@ -508,7 +508,9 @@
     const _files = state.files
       .filter((f) => f.name.toLowerCase().includes(kw))
       // 配置板块隐藏 index.ts（仅为统一导出，无可视化参数）
-      .filter((f) => !(state.type === "config" && f.name === "index.ts"));
+      .filter((f) => !(state.type === "config" && f.name === "index.ts"))
+      // 文章板块隐藏子目录（images / guide 等），这些统一由「图库」集中管理
+      .filter((f) => !(state.type === "posts" && f.type === "dir"));
     // 图片与文档分开：图片走宫格预览，文档走可编辑列表
     const _docs = _files.filter((f) => !IMG_RE.test(f.name));
     const _imgs = _files.filter((f) => IMG_RE.test(f.name));
@@ -634,6 +636,115 @@
       });
       box.appendChild(grid);
     }
+    updateBatchCount();
+  }
+
+  // 刷新当前列表：文章/动态/单页走 loadList，图库走 loadGallery
+  function refreshCurrent() {
+    if (state.type === "gallery") loadGallery();
+    else loadList();
+  }
+
+  // 图库：集中展示 src/content/posts 下所有子目录（images / guide 等）的资源
+  async function loadGallery() {
+    const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
+    try {
+      const { data } = await api("/api/list?type=posts");
+      const top = data.items || [];
+      const dirs = top.filter((f) => f.type === "dir");
+      const groups = [];
+      // 根目录下的非文章文件（如零散图片）归入「根目录」分组，避免被隐藏
+      const rootFiles = top.filter((f) => f.type !== "dir" && !/\.(md|mdx)$/i.test(f.name));
+      if (rootFiles.length) groups.push({ name: "根目录", items: rootFiles, root: true });
+      for (const d of dirs) {
+        try {
+          const r = await api("/api/list?type=posts&path=" + encodeURIComponent(d.name));
+          groups.push({ name: d.name, items: r.data.items || [], root: false });
+        } catch (e) {
+          groups.push({ name: d.name, items: [], root: false, error: true });
+        }
+      }
+      renderGallery(groups, IMG_RE);
+    } catch (e) {
+      toast(e.message || "加载图库失败", "err");
+    }
+  }
+
+  function renderGallery(groups, IMG_RE) {
+    const box = $("fileList");
+    box.innerHTML = "";
+    if (!groups.length) {
+      box.innerHTML = '<div class="gallery-empty">图库为空（src/content/posts 下暂无子目录或资源）</div>';
+      updateBatchCount();
+      return;
+    }
+    const kw = ($("searchInput").value || "").toLowerCase();
+    groups.forEach((g) => {
+      const items = (g.items || []).filter((f) => f.name.toLowerCase().includes(kw));
+      const title = document.createElement("div");
+      title.className = "gallery-group-title";
+      title.innerHTML =
+        "<span>📁</span><span>" + esc(g.name) + "</span>" +
+        '<span class="gg-count">' + (g.error ? "加载失败" : items.length + " 项") + "</span>";
+      box.appendChild(title);
+      if (g.error) {
+        const err = document.createElement("div");
+        err.className = "gallery-group-empty";
+        err.textContent = "该目录读取失败，请重试。";
+        box.appendChild(err);
+        return;
+      }
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "gallery-group-empty";
+        empty.textContent = "（空）";
+        box.appendChild(empty);
+        return;
+      }
+      const imgs = items.filter((f) => IMG_RE.test(f.name));
+      const docs = items.filter((f) => !IMG_RE.test(f.name));
+      if (imgs.length) {
+        const grid = document.createElement("div");
+        grid.className = "img-grid";
+        imgs.forEach((f) => {
+          const card = document.createElement("div");
+          card.className = "img-card";
+          const thumb = document.createElement("img");
+          thumb.className = "img-thumb";
+          thumb.loading = "lazy";
+          thumb.src = rawUrl(f.path);
+          thumb.alt = f.name;
+          thumb.onerror = () => { thumb.alt = "🖼️"; thumb.classList.add("img-thumb--err"); };
+          const cap = document.createElement("div");
+          cap.className = "img-cap";
+          cap.textContent = f.name;
+          const meta = document.createElement("div");
+          meta.className = "img-meta";
+          meta.textContent = (fmtSize(f.size) ? fmtSize(f.size) + " · " : "") + f.name;
+          card.appendChild(thumb);
+          card.appendChild(cap);
+          card.appendChild(meta);
+          card.onclick = () => openImagePreview(f.path, f.name);
+          grid.appendChild(card);
+        });
+        box.appendChild(grid);
+      }
+      if (docs.length) {
+        const list = document.createElement("div");
+        list.className = "gallery-file-list";
+        docs.forEach((f) => {
+          const row = document.createElement("div");
+          row.className = "gallery-file-item";
+          const url = rawUrl(f.path);
+          row.innerHTML =
+            '<span class="gf-icon">📄</span>' +
+            '<span class="gf-name">' + esc(f.name) + "</span>" +
+            '<a href="' + esc(url) + '" target="_blank" rel="noopener">打开</a>';
+          list.appendChild(row);
+        });
+        box.appendChild(list);
+      }
+    });
     updateBatchCount();
   }
 
@@ -2288,12 +2399,20 @@
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
-    const titles = { posts: "文章", dynamic: "动态", spec: "单页", config: "配置" };
+    const titles = { posts: "文章", dynamic: "动态", spec: "单页", gallery: "图库", config: "配置" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类：禁止批量删除与全选（重命名/删除仅对文章/动态/单页有效）
     const isConfig = type === "config";
-    $("selectAllRow").hidden = isConfig;
-    $("batchDelBtn").hidden = isConfig;
+    const isGallery = type === "gallery";
+    // 图库为只读浏览视图：隐藏所有写操作与搜索框（刷新仍可用）
+    $("selectAllRow").hidden = isConfig || isGallery;
+    $("batchDelBtn").hidden = isConfig || isGallery;
+    $("newBtn").hidden = isGallery;
+    $("quickUploadBtn").hidden = isGallery;
+    $("newCatBtn").hidden = isGallery;
+    $("searchInput").hidden = isGallery;
+    $("refreshBtn").hidden = isGallery;
+    if (isGallery) $("searchInput").value = "";
 
     state.selected.clear();
 
@@ -2301,6 +2420,12 @@
       showView("config");
       // 左侧分类导航 + 右侧操作说明（README）/ 配置编辑（含站点资源：Logo / 头像）
       loadConfigNav();
+      return;
+    }
+    if (type === "gallery") {
+      showView("content");
+      backToEmpty();
+      loadGallery();
       return;
     }
     showView("content");
@@ -2896,8 +3021,8 @@
     };
 
     on("searchInput", "oninput", renderList);
-    on("refreshBtn", "onclick", loadList);
-    on("topRefreshBtn", "onclick", loadList);
+    on("refreshBtn", "onclick", refreshCurrent);
+    on("topRefreshBtn", "onclick", refreshCurrent);
     on("newBtn", "onclick", newFile);
     on("newCatBtn", "onclick", newCategory);
     on("quickUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
@@ -3064,9 +3189,6 @@
         return;
       }
     });
-
-    // 配置页面：上传资源（复用隐藏的 #fileInput）
-    on("cfgUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
 
     // 已上传列表：点击「插入」
     const ul = $("upList");
