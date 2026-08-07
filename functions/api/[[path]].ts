@@ -277,16 +277,26 @@ export async function onRequest(
       return json({ error: data && data.message ? data.message : "列举失败" }, status);
     }
     const items = Array.isArray(data) ? data : [];
+    // type=posts 时补充「创建/修改时间」：需逐文件走 Commits API（Contents API 不返回时间）。
+    // 失败视为无日期（不阻塞列表）。并发请求，控制在一批内完成。
+    const enriched = await Promise.all(
+      items.map(async (it: any) => {
+        const base = { name: it.name, path: it.path, type: it.type, size: it.size, sha: it.sha };
+        if (type === "posts" && it.type === "file") {
+          try {
+            const dates = await getFileDates(it.path, env);
+            return { ...base, ...dates };
+          } catch {
+            return base;
+          }
+        }
+        return base;
+      })
+    );
     return json({
       type,
       path: p,
-      items: items.map((it: any) => ({
-        name: it.name,
-        path: it.path,
-        type: it.type,
-        size: it.size,
-        sha: it.sha,
-      })),
+      items: enriched,
     });
   }
 
@@ -467,5 +477,4 @@ async function getFileDates(path: string, env: Env): Promise<{ created?: string;
   } catch {
     return {};
   }
-}
 }
