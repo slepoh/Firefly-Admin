@@ -196,7 +196,7 @@ body {
 }
 .nav-group-toggle:hover { background: #f0f2f5; }
 .nav-group-toggle .chev {
-  color: var(--muted); font-size: 11px; transition: transform .2s ease; flex: none;
+  color: var(--muted); font-size: 15px; transition: transform .2s ease; flex: none;
 }
 .nav-group.collapsible.collapsed .nav-group-toggle .chev { transform: rotate(-90deg); }
 .nav-group-title {
@@ -835,7 +835,7 @@ textarea { resize: vertical; }
   /* 移动端：顶栏图标只显示图形，隐藏文字标题 */
   .qr-label { display: none; }
   /* 退出分区：移动端独立显示于底部（margin-top:auto 推底），nav-foot 紧贴其下 */
-  .nav-group-logout { display: flex; padding: 12px 12px 0; border-top: 1px solid var(--border); }
+  .nav-group-logout { display: flex; padding: 5px 12px 0; border-top: 1px solid var(--border); }
   .nav-foot { margin-top: 0; }
   /* 关于页：移动端 WhatsApp / Telegram 二维码靠右显示 */
   .about-qrs { justify-content: flex-end; }

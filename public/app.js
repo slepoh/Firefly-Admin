@@ -3861,6 +3861,9 @@
         up.classList.remove("drag");
         if (ev.dataTransfer && ev.dataTransfer.files) handleFiles(ev.dataTransfer.files);
       });
+      // 点击「资源上传」标题：展开/折叠上传面板（修复此前点击无反应）
+      const upHead = up.querySelector(".panel-head");
+      if (upHead) upHead.addEventListener("click", () => up.classList.toggle("collapsed"));
     }
 
     // 站点外观：更换按钮 -> 触发对应 file input
