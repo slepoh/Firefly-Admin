@@ -702,9 +702,19 @@
   }
 
   // 刷新当前列表：文章/动态/单页走 loadList，图库走 loadGallery
-  function refreshCurrent() {
-    if (state.type === "gallery") loadGallery();
-    else loadList();
+  async function refreshCurrent() {
+    const btns = [document.getElementById("refreshBtn"), document.getElementById("topRefreshBtn")].filter(Boolean);
+    // 视觉反馈：图标旋转 + 列表区先回到「数据正在加载中…」，证明正在刷新
+    btns.forEach((b) => b.classList.add("refreshing"));
+    showListLoading();
+    try {
+      if (state.type === "gallery") await loadGallery();
+      else await loadList();
+    } finally {
+      // 给旋转一个最短可见时间，避免极快响应时动画一闪而过（用户体验更佳）
+      await new Promise((r) => setTimeout(r, 350));
+      btns.forEach((b) => b.classList.remove("refreshing"));
+    }
   }
 
   // 图库：集中展示 src/content/posts 下所有子目录（images / guide 等）的资源
@@ -2581,6 +2591,22 @@
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
+    // 选中非概览板块时，自动展开其所属分组，确保当前项可见（若用户在折叠态下点击收藏/卡片直达）
+    if (type !== "overview") {
+      const btn = document.querySelector('#navBar .nav-btn[data-type="' + CSS.escape(type) + '"]');
+      const grp = btn && btn.closest(".nav-group.collapsible");
+      if (grp && grp.classList.contains("collapsed")) {
+        grp.classList.remove("collapsed");
+        const tog = grp.querySelector(".nav-group-toggle");
+        if (tog) tog.setAttribute("aria-expanded", "true");
+        const name = grp.dataset.group || "";
+        try {
+          const cur = JSON.parse(localStorage.getItem("ffNavGroups") || "{}") || {};
+          cur[name] = false;
+          localStorage.setItem("ffNavGroups", JSON.stringify(cur));
+        } catch (e) { /* 忽略 */ }
+      }
+    }
     const titles = { overview: "数据概览", posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能", readme: "操作说明", about: "关于" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
@@ -2637,15 +2663,18 @@
   // ----------------------------------------------------------------------
   // 概览（后台首页）：统计博客数据（文章 / 动态数量等）+ 最新内容
   // ----------------------------------------------------------------------
-  async function loadOverview() {
+  async function loadOverview(isManual) {
     const loading = $("ovLoading");
     const stats = $("ovStats");
     const recent = $("ovRecent");
+    const ovBtn = $("ovRefreshBtn");
+    const spinning = isManual && ovBtn; // 仅手动刷新时旋转图标（首次加载已有 loading 文案）
+    if (spinning) ovBtn.classList.add("refreshing");
     loading.hidden = false;
     stats.hidden = true;
     recent.hidden = true;
     $("ovRepo").textContent = `${state.owner}/${state.repo}@${state.branch}`;
-    if ($("ovRefreshBtn")) $("ovRefreshBtn").onclick = () => loadOverview();
+    if (ovBtn) ovBtn.onclick = () => loadOverview(true);
 
     // 并行拉取各板块列表（任意失败不影响其余统计）
     const fetchList = async (type) => {
@@ -2713,6 +2742,7 @@
     stats.hidden = false;
     if ($("ovInfo")) $("ovInfo").hidden = false;
     recent.hidden = false;
+    if (ovBtn && spinning) ovBtn.classList.remove("refreshing");
   }
 
   // 渲染「最新内容」列表（点击直接打开对应文章 / 动态）
@@ -3677,6 +3707,37 @@
     return null;
   }
 
+  // 左侧板块分组：点击标题折叠/展开，状态写入 localStorage（默认全部折叠）
+  function initCollapsibleNav() {
+    const KEY = "ffNavGroups";
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
+    const groups = document.querySelectorAll("#navBar .nav-group.collapsible");
+    groups.forEach((g) => {
+      const name = g.dataset.group || "";
+      // 持久化优先；否则默认折叠
+      const collapsed = name in saved ? !!saved[name] : true;
+      g.classList.toggle("collapsed", collapsed);
+      const toggle = g.querySelector(".nav-group-toggle");
+      if (toggle) toggle.setAttribute("aria-expanded", String(!collapsed));
+    });
+    groups.forEach((g) => {
+      const toggle = g.querySelector(".nav-group-toggle");
+      if (!toggle) return;
+      toggle.addEventListener("click", () => {
+        const collapsed = !g.classList.contains("collapsed");
+        g.classList.toggle("collapsed", collapsed);
+        toggle.setAttribute("aria-expanded", String(!collapsed));
+        const name = g.dataset.group || "";
+        try {
+          const cur = JSON.parse(localStorage.getItem(KEY) || "{}") || {};
+          cur[name] = collapsed;
+          localStorage.setItem(KEY, JSON.stringify(cur));
+        } catch (e) { /* 忽略存储异常 */ }
+      });
+    });
+  }
+
   let bound = false;
   function bindEvents() {
     if (bound) return;
@@ -3698,6 +3759,8 @@
           selectSection(type);
         });
       });
+      // 左侧板块分组：可折叠/展开，状态持久化到 localStorage（默认折叠）
+      initCollapsibleNav();
     }
 
     // 顶部图标：帮助 → 操作说明，关于 → 关于（与左侧导航同入口，移动端先收起抽屉）

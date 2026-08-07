@@ -121,6 +121,10 @@ body {
 .layout.sidebar-collapsed .nav-group + .nav-group { margin-top: 0; padding-top: 0; border-top: 0; }
 .layout.sidebar-collapsed .nav-btn { justify-content: center; padding: 12px 0; }
 .layout.sidebar-collapsed .nav-btn .ni-tx { display: none; }
+/* 窄图标栏模式：分组标题隐藏，强制展开所有可折叠分组，确保图标入口始终可见 */
+.layout.sidebar-collapsed .nav-group.collapsible.collapsed .nav-group-body { display: flex; }
+.layout.sidebar-collapsed .nav-group-toggle { padding: 4px 0; justify-content: center; }
+.layout.sidebar-collapsed .nav-group-toggle .chev { display: none; }
 .layout.sidebar-collapsed .nav-foot { padding: 10px 0; border-top: 1px solid var(--border); }
 .layout.sidebar-collapsed .nav-link { justify-content: center; padding: 10px 0; }
 .layout.sidebar-collapsed .nav-link .ni-tx { display: none; }
@@ -176,11 +180,25 @@ body {
 /* 主导航分组板块：功能菜单 / 信息 分开展示，视觉上成为两个导航板块 */
 .nav-group { display: flex; flex-direction: column; }
 .nav-group + .nav-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+/* 可折叠分组：标题作为可点击切换按钮（含箭头），默认折叠态隐藏内容 */
+.nav-group.collapsible { margin-top: 0; padding-top: 0; border-top: none; }
+.nav-group.collapsible + .nav-group { margin-top: 6px; padding-top: 6px; }
+.nav-group-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 7px;
+  width: 100%; box-sizing: border-box;
+  border: none; background: transparent; cursor: pointer;
+  padding: 8px 12px 6px; border-radius: 8px;
+  user-select: none; outline: none;
+}
+.nav-group-toggle:hover { background: #f0f2f5; }
+.nav-group-toggle .chev {
+  color: var(--muted); font-size: 11px; transition: transform .2s ease; flex: none;
+}
+.nav-group.collapsible.collapsed .nav-group-toggle .chev { transform: rotate(-90deg); }
 .nav-group-title {
   display: flex; align-items: center; gap: 7px;
   font-size: 11.5px; font-weight: 800;
   color: #5d6673;
-  padding: 6px 14px 4px;
   letter-spacing: .8px;
   user-select: none;
 }
@@ -190,6 +208,9 @@ body {
   width: 3px; height: 11px; border-radius: 2px;
   background: linear-gradient(180deg, var(--primary), var(--primary-d));
 }
+/* 折叠态：隐藏分组内菜单项（用 .nav-group-body 包裹，方便过渡与脚本控制） */
+.nav-group.collapsible.collapsed .nav-group-body { display: none; }
+.nav-group-body { display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
 
 /* 退出分区：桌面端整体隐藏；移动端独立显示并靠底部（与功能菜单 / 信息分开） */
 .nav-group-logout { display: none; margin-top: auto; }
@@ -1364,6 +1385,10 @@ textarea { resize: vertical; }
 
 /* 内容板块加载提示 */
 .list-loading { padding: 40px 8px; text-align: center; color: var(--muted); font-size: 14px; }
+/* 刷新按钮：旋转动画，证明正在刷新列表 */
+.btn .ri { display: inline-block; will-change: transform; }
+.btn.refreshing .ri { animation: spin .8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 @media (max-width: 980px) {
   .ov-stats { grid-template-columns: repeat(3, 1fr); }
