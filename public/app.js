@@ -2122,6 +2122,14 @@
     updateBatchCount();
   }
 
+  // 内容板块（文章 / 动态 / 单页 / 图库）数据未返回前，先提示「数据正在加载中…」
+  function showListLoading() {
+    const box = $("fileList");
+    if (box) {
+      box.innerHTML = '<div class="list-loading">数据正在加载中…</div>';
+    }
+  }
+
   // ----------------------------------------------------------------------
   // 通用弹窗（替代原生 prompt / confirm，与主题一致）
   // ----------------------------------------------------------------------
@@ -2616,11 +2624,13 @@
     if (type === "gallery") {
       showView("content");
       backToEmpty();
+      showListLoading();
       loadGallery();
       return;
     }
     showView("content");
     backToEmpty();
+    showListLoading();
     loadList();
   }
 
@@ -2701,6 +2711,7 @@
 
     loading.hidden = true;
     stats.hidden = false;
+    if ($("ovInfo")) $("ovInfo").hidden = false;
     recent.hidden = false;
   }
 

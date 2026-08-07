@@ -70,7 +70,7 @@
       </div>
       <div class="nav-foot" id="navFoot">
         <a class="nav-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener" title="GitHub 开源地址">
-          <span class="ni-ico">🔗</span><span class="ni-tx">开源地址</span>
+          <span class="ni-ico">🔗</span><span class="ni-tx">(Firefly-Admin)项目地址</span>
         </a>
       </div>
     </aside>
@@ -126,6 +126,26 @@
         </div>
         <div class="ov-loading" id="ovLoading">正在统计博客数据…</div>
         <div class="ov-stats" id="ovStats" hidden></div>
+        <div class="ov-info" id="ovInfo" hidden>
+          <div class="ov-info-card" id="ovProjectCard">
+            <div class="ov-info-h">📦 项目信息</div>
+            <div class="ov-info-body">
+              <p class="ov-info-desc">Firefly-Admin 是 Firefly 博客的可视化管理后台：通过 GitHub API 远程管理文章、动态、单页与图库素材，在线编辑全部站点配置，保存即提交、由 Cloudflare 自动部署，无需服务器。</p>
+              <div class="ov-info-row"><span class="ov-info-k">项目地址</span><a class="ov-info-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener">github.com/slepoh/Firefly-Admin</a></div>
+              <div class="ov-info-row"><span class="ov-info-k">开源许可</span><span class="ov-info-v">开源 · 允许二次开发与商业使用（须保留版权署名与原始开源地址）</span></div>
+            </div>
+          </div>
+          <div class="ov-info-card" id="ovAuthorCard">
+            <div class="ov-info-h">👤 作者信息</div>
+            <div class="ov-info-body ov-author">
+              <div class="ov-author-qr"><img src="/uploads/wechat.jpg" alt="微信二维码" loading="lazy" /><span class="ov-author-cap">微信 · 扫码联系</span></div>
+              <div class="ov-author-meta">
+                <div class="ov-info-row"><span class="ov-info-k">联系邮箱</span><a class="ov-info-link" href="mailto:info@aioky.cn">info@aioky.cn</a></div>
+                <div class="ov-info-row"><span class="ov-info-k">微信号</span><span class="ov-info-v">admin_303</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="ov-recent" id="ovRecent" hidden>
           <div class="ov-col">
             <div class="ov-col-h">📝 最新文章</div>
@@ -359,7 +379,7 @@
   <!-- 提示条 -->
   <div class="toast" id="toast" hidden></div>
 
-  <!-- 保存成功弹窗（自动消失） -->
+  <!-- 保存成功弹窗 -->
   <div class="ok-popup" id="okPopup" hidden></div>
 
   <script src="/vendor/toastui/toastui-editor-all.min.js"></script>

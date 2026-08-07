@@ -1343,16 +1343,41 @@ textarea { resize: vertical; }
 .ov-item-date { font-size: 12px; color: var(--muted); flex: none; }
 .ov-empty { font-size: 13px; color: var(--muted); padding: 8px; }
 
+/* 项目信息 / 作者信息：两块卡片横向排列，内容管理概览底部 */
+.ov-info { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+.ov-info-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+.ov-info-h { font-size: 15px; font-weight: 700; color: #2b3038; margin-bottom: 10px; }
+.ov-info-body { font-size: 13.5px; color: #3c4654; }
+.ov-info-desc { margin: 0 0 12px; line-height: 1.7; color: #566; }
+.ov-info-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-top: 1px dashed var(--border); }
+.ov-info-row:first-of-type { border-top: none; }
+.ov-info-k { flex: none; width: 64px; color: var(--muted); font-size: 12.5px; }
+.ov-info-v { color: #3c4654; }
+.ov-info-link { color: var(--accent); text-decoration: none; word-break: break-all; }
+.ov-info-link:hover { text-decoration: underline; }
+/* 作者信息：左侧二维码、右侧邮箱/微信 */
+.ov-author { display: flex; gap: 16px; align-items: center; }
+.ov-author-qr { flex: none; width: 96px; text-align: center; }
+.ov-author-qr img { width: 96px; height: 96px; border: 1px solid var(--border); border-radius: 10px; object-fit: cover; }
+.ov-author-cap { display: block; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.ov-author-meta { flex: 1; min-width: 0; }
+
+/* 内容板块加载提示 */
+.list-loading { padding: 40px 8px; text-align: center; color: var(--muted); font-size: 14px; }
+
 @media (max-width: 980px) {
   .ov-stats { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 720px) {
   .ov-recent { grid-template-columns: 1fr; }
+  .ov-info { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .ov-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .ov-card { padding: 14px 8px; }
   .ov-card-val { font-size: 24px; }
   .ov-title { font-size: 18px; }
+  .ov-author-qr { width: 80px; }
+  .ov-author-qr img { width: 80px; height: 80px; }
 }
 
