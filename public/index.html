@@ -38,7 +38,7 @@
   <main class="layout" id="mainApp" hidden>
     <!-- 左侧栏：移动端抽屉一级导航 / PC 端二级菜单 -->
     <aside class="sidebar" id="sidebar">
-      <!-- 移动端抽屉内的一级导航（PC 隐藏） -->
+      <!-- 移动端抽屉内的一级导航 -->
       <nav class="nav-bar" id="navBar" aria-label="主导航">
         <!-- 概览：始终置顶、不随分组折叠（默认首页） -->
         <button class="nav-btn active" type="button" data-type="overview"><span class="ni-ico">📊</span><span class="ni-tx">概览</span></button>
@@ -83,7 +83,7 @@
       </nav>
       <!-- 退出：移动端独立分区（与功能菜单 / 信息板块分开，靠底部显示） -->
       <div class="nav-group nav-group-logout" id="navLogout">
-        <button class="nav-btn" type="button" id="logoutNavBtn"><span class="ni-ico">🚪</span><span class="ni-tx">退出登录</span></button>
+        <button class="nav-btn" type="button" id="logoutNavBtn"><span class="ni-ico">⛔️</span><span class="ni-tx">退出登录</span></button>
       </div>
       <div class="nav-foot" id="navFoot">
         <a class="nav-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener" title="GitHub 开源地址">
@@ -147,7 +147,7 @@
           <div class="ov-sub" id="ovRepo"></div>
           <button id="ovRefreshBtn" class="btn ghost sm" title="刷新统计"><span class="ri">⟳</span> 刷新</button>
         </div>
-        <div class="ov-loading" id="ovLoading">正在统计博客数据…</div>
+        <div class="ov-loading" id="ovLoading">正在统计博客数据，请稍等…</div>
         <div class="ov-stats" id="ovStats" hidden></div>
         
         <div class="ov-recent" id="ovRecent" hidden>
@@ -235,7 +235,7 @@
 
       <!-- 信息视图：操作说明（README） / 关于 -->
       <div class="info-view" id="infoView" hidden>
-        <div class="info-pane info-readme" id="infoReadme"><div class="info-empty">加载操作说明…</div></div>
+        <div class="info-pane info-readme" id="infoReadme"><div class="info-empty">加载操作说明中，请稍等…</div></div>
         <div class="info-pane info-about" id="infoAbout" hidden>
           <section class="about-card">
             <h3 class="about-h">📌 项目介绍</h3>
@@ -245,7 +245,7 @@
               <li><strong>我的动态</strong> — 时间线式动态发布，自动按时间命名</li>
               <li><strong>页面信息</strong> — 关于 / 友链 / 留言等单页管理</li>
               <li><strong>图库素材</strong> — 图片资源集中浏览、上传与管理</li>
-              <li><strong>基础 / 功能 / 页面 / 扩展配置</strong> — 站点全部配置在线可视化编辑</li>
+              <li><strong>基础 / 功能 / 页面 / 扩展配置</strong> — 站点全部配置在线可视化编辑。同时支持高级版配置，可通过查看源代码进行修改。</li>
             </ul>
             <div class="about-license">
               <strong>📜 开源许可 · 二次开发约定</strong>
@@ -261,9 +261,9 @@
             <h3 class="about-h">🏭 业务范围</h3>
             <p>专业的全网营销解决方案服务商，15 年互联网产品开发与运营经验，助力企业数字化转型与业务增长。</p>
             <ul>
-              <li><strong>外贸站开发</strong> — B2B / B2C 外贸网站开发、Shopify模板定制、阿里国际站，助力企业拓展全球市场</li>
+              <li><strong>外贸站开发</strong> — B2B / B2C 外贸独立站开发、Shopify模板定制、阿里国际站等，助力企业拓展全球市场</li>
               <li><strong>小程序开发</strong> — 微信 / 抖音 / 百度等全平台小程序，一次开发、多端部署</li>
-              <li><strong>短视频矩阵</strong> — 抖音 / 快手 / 视频号矩阵运营，内容策划与数据优化</li>
+              <li><strong>短视频矩阵</strong> — 抖音 / 快手 / 视频号等平台矩阵运营，内容策划与数据优化</li>
               <li><strong>网站优化</strong> — SEO 搜索引擎优化、性能提速、移动端适配</li>
               <li><strong>网络推广</strong> — 搜索引擎营销、社交媒体广告、内容营销策略</li>
               <li><strong>AI 人工智能</strong> — GEO优化、智能客服、数据分析、AI 图像 / 视频生成</li>
@@ -275,7 +275,7 @@
             <p class="about-line">📧 邮箱：<a href="mailto:info@aioky.cn">info#aioky.cn</a></p>
             <p class="about-line">💬 微信号：<strong>admin_303</strong></p>
 			<p class="about-line">💬 Youtube：<strong><a href="https://www.youtube.com/@slepoh" target="_blank">点击关注频道</a></strong></p>
-			<p class="about-line">💬 Telegram：<strong><a href="https://t.me/slepxh" target="_blank">点击关注频道</a></strong></p>
+			<p class="about-line">💬 Telegram：<strong><a href="https://t.me/slepxh" target="_blank">关注频道交流更多</a></strong></p>
 
             <div class="about-qr-group">
               <h4 class="about-subh">交流学习</h4>
@@ -362,7 +362,7 @@
             <button type="button" class="etab" id="tabDynBtn" data-tab="dyn" hidden>⚡ 动态信息</button>
           </div>
 
-          <!-- 文章结构化表单（Tab「文章信息」视图，展开占满编辑区） -->
+          <!-- 文章结构化表单（Tab「文章信息」视图） -->
           <div class="meta-panel collapsed" id="postPanel" hidden>
             <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span></button>
             <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
@@ -424,7 +424,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="advModalTitle">
       <div class="modal-title" id="advModalTitle">⚠️ 进入高级模式（源码编辑）</div>
       <div class="modal-body modal-msg">
-        开启高级模式后，将直接以 <b>源代码</b> 形式对该配置文件进行编辑。此模式会绕过可视化表单的字段校验，保存后将直接覆盖原文件内容。
+        开启高级模式后，将直接以 <b>源代码</b> 形式对该配置文件进行编辑。此模式会绕过可视化编辑器的字段校验，保存后将直接覆盖原文件内容。
         <br><br>
         如因操作原因（如语法错误、字段缺失等）导致站点配置异常或页面无法正常显示，需由您 <b>自行承担</b> 由此带来的风险。
         <br><br>
