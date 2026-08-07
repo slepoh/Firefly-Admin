@@ -3425,6 +3425,20 @@
       if (footerEditor) setTimeout(() => footerEditor.on("change", () => markDirtyOf(host)), 0);
       return;
     }
+    // 结构化解析失败但有源码：回退为源码编辑器（仍可查看 / 编辑 / 保存）
+    // 场景：函数式配置（如 export const x = defineConfig({...})）或含暂不支持语法的文件，
+    // 此前会显示「无可结构化编辑的参数」空白页；现在直接暴露源码，避免「打开无数据」。
+    if (!st.roots || !st.roots.length) {
+      host.innerHTML =
+        '<div class="cfg-raw-note">⚠️ 当前文件无法结构化解析（可能是函数式配置，或包含暂不支持的语法）。已切换为源码编辑器，可直接修改内容并保存。</div>' +
+        '<textarea class="cfg-raw" spellcheck="false"></textarea>';
+      const ta = host.querySelector("textarea.cfg-raw");
+      if (ta) {
+        ta.value = st.raw || "";
+        ta.addEventListener("input", () => markDirtyOf(host));
+      }
+      return;
+    }
     if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
     else renderGenericConfig(host, st.roots, name, st.raw);
   }
@@ -3435,6 +3449,27 @@
     const host = apHostFor(name, root);
     const statusEl = apStatusFor(name, root);
     if (!st || !host) return;
+    // 源码回退保存：结构化解析失败时，直接保存 textarea 中的原始内容
+    if (!st.roots || !st.roots.length) {
+      const ta = host.querySelector("textarea.cfg-raw");
+      const content = ta ? ta.value : (st.raw || "");
+      try {
+        const r = await putConfigFile("src/config/" + name + (st.ext || ".ts"), content, st.sha);
+        if (r.status === 200) {
+          st.raw = content;
+          st.sha = (r.data && r.data.sha) || st.sha;
+          st.dirty = false;
+          if (statusEl) statusEl.textContent = "已保存（源码模式）";
+          if (!silent) okPopup("已保存");
+        } else {
+          if (statusEl) statusEl.textContent = "保存失败：" + ((r.data && r.data.error) || r.status);
+          if (!silent) okPopup("保存失败");
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "保存失败：" + (e.message || "");
+      }
+      return;
+    }
     let tsContent = null, htmlContent = null, tsPath = null, htmlPath = null;
     let tsHost = null;
     let tsRetryable = false; // 通用 .ts / 合并页脚：内容基于 raw+DOM 偏移，可在 sha 冲突时重放重试

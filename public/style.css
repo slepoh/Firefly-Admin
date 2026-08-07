@@ -1233,6 +1233,12 @@ textarea { resize: vertical; }
 
 /* 配置 .html 原始编辑 */
 .cfg-raw { width: 100%; min-height: 340px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.5; }
+/* 配置结构化解析失败时的源码编辑器提示 */
+.cfg-raw-note {
+  background: #fff7ed; border: 1px solid #fdba74; color: #9a3412;
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+  font-size: 13px; line-height: 1.5;
+}
 
 /* ===================== 保存成功弹窗（居中、自动消失） ===================== */
 .ok-popup {
