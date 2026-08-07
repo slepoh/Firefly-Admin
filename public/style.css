@@ -47,11 +47,11 @@ body {
 #menuBtn { display: inline-flex; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
 .brand .logo {
-  width: 32px; height: 32px; display: grid; place-items: center;
+  width: 26px; height: 26px; display: grid; place-items: center;
   background: linear-gradient(135deg, var(--primary), #ff9a4d);
-  border-radius: 9px; font-size: 17px; box-shadow: 0 2px 8px rgba(249,115,22,.32);
+  border-radius: 8px; font-size: 15px; box-shadow: 0 2px 8px rgba(249,115,22,.32);
 }
-.brand .logo svg { width: 22px; height: 22px; display: block; }
+.brand .logo svg { width: 18px; height: 18px; display: block; }
 .brand .title { font-size: 15px; letter-spacing: .3px; }
 .brand .sub { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 1px; }
 .top-divider { width: 1px; height: 24px; background: var(--border); }
@@ -267,7 +267,7 @@ textarea { resize: vertical; }
 /* 文档列表表格化：表头（与 .file-item 同款 grid 列模板，滚动时吸顶） */
 .file-list-head {
   display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) 80px 188px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 96px 150px 80px 188px;
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
@@ -280,12 +280,14 @@ textarea { resize: vertical; }
   user-select: none;
 }
 .flh-name { grid-column: 3 / 4; }
-.flh-size { grid-column: 4 / 5; text-align: right; }
-.flh-actions { grid-column: 5 / 6; text-align: right; }
+.flh-created { grid-column: 4 / 5; text-align: left; }
+.flh-updated { grid-column: 5 / 6; text-align: left; }
+.flh-size { grid-column: 6 / 7; text-align: right; }
+.flh-actions { grid-column: 7 / 8; text-align: right; }
 /* 文件项：以表格行形式呈现（名称 / 大小 / 操作分列，斑马纹 + 行分隔线） */
 .file-item {
   display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) 80px 188px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 96px 150px 80px 188px;
   align-items: center;
   gap: 8px;
   padding: 9px 10px;
@@ -302,8 +304,10 @@ textarea { resize: vertical; }
 .file-item .fi-icon { width: 20px; text-align: center; flex: none; }
 .file-item .fi-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-item .fi-ext { flex: none; color: var(--muted); }
-.file-item .fi-size { grid-column: 4 / 5; color: var(--muted); font-size: 11px; text-align: right; }
-.file-item .fi-actions { grid-column: 5 / 6; display: flex; gap: 4px; justify-content: flex-end; }
+.file-item .fi-created { grid-column: 4 / 5; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.file-item .fi-updated { grid-column: 5 / 6; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.file-item .fi-size { grid-column: 6 / 7; color: var(--muted); font-size: 11px; text-align: right; }
+.file-item .fi-actions { grid-column: 7 / 8; display: flex; gap: 4px; justify-content: flex-end; }
 .file-item { user-select: none; }
 /* 文件项行内操作按钮：编辑常驻；重命名 / 删除仅可修改板块显示 */
 .fi-act {
@@ -839,9 +843,10 @@ textarea { resize: vertical; }
   .fi-act-label { display: none; }
   .fi-size { display: none; }
   .fi-origin { max-width: 84px; }
-  /* 移动端：隐藏大小列，表头与行同步为 4 列，保持列对齐 */
+  /* 移动端：隐藏大小与日期列，表头与行同步为 4 列，保持列对齐 */
   .file-list-head, .file-item { grid-template-columns: 24px 28px minmax(0, 1fr) auto; }
-  .flh-size { display: none; }
+  .flh-size, .flh-created, .flh-updated { display: none; }
+  .fi-created, .fi-updated { display: none; }
   .flh-name { grid-column: 3 / 4; }
   .flh-actions { grid-column: 4 / 5; }
   .file-item .fi-main { grid-column: 3 / 4; }

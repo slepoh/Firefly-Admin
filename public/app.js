@@ -550,14 +550,28 @@
       .filter((f) => !(state.type === "config" && f.name === "index.ts"))
       // 文章板块隐藏子目录（images / guide 等），这些统一由「图库」集中管理
       .filter((f) => !(state.type === "posts" && f.type === "dir"));
+    // 文章板块：按文件创建日期升序排列（无日期的排末尾），使「创建时间」列与顺序一致
+    if (state.type === "posts") {
+      _files.sort((a, b) => {
+        const ta = a.created ? new Date(a.created).getTime() : 0;
+        const tb = b.created ? new Date(b.created).getTime() : 0;
+        return ta - tb;
+      });
+    }
     // 图片与文档分开：图片走宫格预览，文档走可编辑列表
     const _docs = _files.filter((f) => !IMG_RE.test(f.name));
     const _imgs = _files.filter((f) => IMG_RE.test(f.name));
     // 文档列表表格化：有文档时插入表头（文件名称 / 大小 / 操作），列宽与 .file-item 的 grid 模板一致
+    // 文章板块额外展示「创建日期」「修改时间」两列（数据来自 GitHub Commits API）
     if (_docs.length) {
       const head = document.createElement("div");
       head.className = "file-list-head";
-      head.innerHTML = '<span class="flh-name">文件名称</span><span class="flh-size">大小</span><span class="flh-actions">操作</span>';
+      let headHtml = '<span class="flh-name">文件名称</span>';
+      if (state.type === "posts") {
+        headHtml += '<span class="flh-created">创建日期</span><span class="flh-updated">修改时间</span>';
+      }
+      headHtml += '<span class="flh-size">大小</span><span class="flh-actions">操作</span>';
+      head.innerHTML = headHtml;
       box.appendChild(head);
     }
     _docs.forEach((f) => {
@@ -603,6 +617,9 @@
         div.innerHTML =
           check +
           `<div class="fi-main"><span class="fi-icon">${icon}</span>${nameHtml}</div>` +
+          (state.type === "posts" && !isDir
+            ? `<span class="fi-created">${fmtDate(f.created)}</span><span class="fi-updated">${fmtDateTime(f.updated)}</span>`
+            : "") +
           (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`) +
           `<div class="fi-actions">${actions}</div>`;
         div.title = f.name; // 悬停显示完整文件名（含后缀）
@@ -875,6 +892,21 @@
     if (!n && n !== 0) return "";
     if (n < 1024) return n + "B";
     return (n / 1024).toFixed(1) + "KB";
+  }
+  // 将 ISO 时间渲染为「YYYY-MM-DD HH:mm」（按本地时区）
+  function fmtDateTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   }
   function esc(s) {
     return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

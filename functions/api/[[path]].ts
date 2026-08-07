@@ -425,3 +425,47 @@ export async function onRequest(
 
   return json({ error: "Not Found" }, 404);
 }
+
+// 取文件的「创建时间」与「最后修改时间」：
+// GitHub Contents API 不返回时间，需走 Commits API（按 path 过滤，最新在前）。
+// - updated = 首页第一条（最新提交）
+// - created = 末页第一条（最早提交），通过 Link: rel="last" 定位末页（per_page=1）
+// 任一失败均视为无日期（不阻塞列表）。仅对 type=posts 且非子目录调用。
+async function getFileDates(path: string, env: Env): Promise<{ created?: string; updated?: string }> {
+  try {
+    const headers: Record<string, string> = {
+      Authorization: "Bearer " + env.GITHUB_TOKEN,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Firefly-Admin",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    const q =
+      "?path=" + encodeURIComponent(path) + "&per_page=1&sha=" + encodeURIComponent(env.GH_BRANCH);
+    const firstRes = await fetch(
+      "https://api.github.com/repos/" + env.GH_OWNER + "/" + env.GH_REPO + "/commits" + q,
+      { headers }
+    );
+    if (!firstRes.ok) return {};
+    const firstJson = (await firstRes.json()) as any[];
+    if (!Array.isArray(firstJson) || !firstJson.length) return {};
+    const pick = (c: any) => c?.commit?.committer?.date || c?.commit?.author?.date || null;
+    const updated = pick(firstJson[0]);
+    let created = updated;
+    const link = firstRes.headers.get("Link");
+    const lastMatch = link && link.match(/<([^>]+)>;\s*rel="last"/);
+    if (lastMatch && lastMatch[1]) {
+      const lastRes = await fetch(lastMatch[1], { headers });
+      if (lastRes.ok) {
+        const lastJson = (await lastRes.json()) as any[];
+        if (Array.isArray(lastJson) && lastJson.length) {
+          const c = pick(lastJson[lastJson.length - 1]);
+          if (c) created = c;
+        }
+      }
+    }
+    return { created: created || undefined, updated: updated || undefined };
+  } catch {
+    return {};
+  }
+}
+}
