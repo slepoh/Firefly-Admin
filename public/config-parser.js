@@ -319,8 +319,47 @@
     return { type: "expr", value: src.slice(start, i), start: start, end: i };
   }
 
+  /* 在 `fn(...)` 调用内部找到「第一个顶层 { 或 [ 实参」的起始位置。
+   * 用于解析函数包装配置（如 defineConfig({...})）中的对象/数组字面量。
+   * 跟踪括号深度与字符串，避免把字符串/嵌套括号内的 { [ 误判为顶层实参。
+   * 找不到返回 -1（交由上层退回源码模式）。
+   */
+  function findFirstLiteralArg(src, parenPos) {
+    var i = parenPos;
+    if (src[i] !== "(") return -1;
+    i++; // 跳过 (
+    var depth = 1; // 当前位于最外层调用的括号内
+    while (i < src.length) {
+      var ch = src[i];
+      if (ch === '"' || ch === "'") {
+        var q = ch; i++;
+        while (i < src.length) {
+          if (src[i] === "\\") { i += 2; continue; }
+          if (src[i] === q) { i++; break; }
+          i++;
+        }
+        continue;
+      }
+      if (ch === "(") { depth++; i++; continue; }
+      if (ch === ")") {
+        depth--;
+        if (depth === 0) return -1; // 调用结束仍未找到字面量实参
+        i++; continue;
+      }
+      if ((ch === "{" || ch === "[") && depth === 1) {
+        return i; // 找到第一个顶层对象/数组实参
+      }
+      i++;
+    }
+    return -1;
+  }
+
   /* 顶层扫描：找出 export const NAME = ... 或 const NAME = ...
-   * 跳过函数定义 / 函数调用（整段不可编辑）；只解析值以 { [ " ' 数字 标识符 true/false/null 开头的定义。
+   * 支持「函数包装配置」：export const X = defineConfig({...}) 或带泛型
+   *   defineConfig<ProfileConfig>({...}) —— 此时解析其内部第一个顶层对象/数组
+   *   实参作为结构化根，保存时通过偏移量回写即可保留 defineConfig(...) 包装。
+   * 真正的函数定义 / 无字面量实参的调用（如 const x = someFn(a, b)）仍跳过，
+   * 退回源码模式，保持安全。
    */
   FireflyConfig.parseConfig = function (src) {
     var roots = [];
@@ -336,16 +375,43 @@
       var i = m.index + m[0].length;
       var j = skipWs(src, i);
       var c = src[j];
-      var isFunc = false;
+
+      // 判断是否为「函数包装配置」：const X = Fn(...) 或 const X = Fn<Type>(...)
+      var fnOpen = -1;
       if (c === "(") {
-        isFunc = true;
+        fnOpen = j;
       } else if (isIdentStart(c)) {
-        var ks = j;
-        while (j < src.length && isIdentPart(src[j])) j++;
+        while (j < src.length && isIdentPart(src[j])) j++; // 跳过函数名
         var k = skipWs(src, j);
-        if (src[k] === "(" || src[k] === "=" || src[k] === ">") isFunc = true;
+        if (src[k] === "<") {
+          // 泛型参数 <...>，跳过后继续找 (
+          var gd = 0, gi = k;
+          while (gi < src.length) {
+            if (src[gi] === "<") gd++;
+            else if (src[gi] === ">") { gd--; if (gd === 0) { gi++; break; } }
+            gi++;
+          }
+          j = gi;
+          k = skipWs(src, j);
+        }
+        if (src[k] === "(") fnOpen = k;
+        else if (src[k] === "=" || src[k] === ">") continue; // 引用 / 类型别名：跳过
       }
-      if (isFunc) continue; // 函数定义 / 调用：不解析，保持原样
+
+      if (fnOpen !== -1) {
+        var lit = findFirstLiteralArg(src, fnOpen);
+        if (lit === -1) continue; // 无字面量实参，整体保持原样（源码模式）
+        try {
+          var fnNode = parseValue(src, lit);
+          var fnComment = leadingCommentBefore(src, m.index);
+          roots.push({ name: name, node: fnNode, start: fnNode.start, end: fnNode.end, comment: fnComment });
+          // 关键：解析位置推进到值末尾，避免函数调用体内出现的 const 被误判为新配置根
+          re.lastIndex = fnNode.end;
+        } catch (e) {
+          // 解析失败：退回源码模式
+        }
+        continue;
+      }
 
       var canParse =
         c === "{" || c === "[" || c === '"' || c === "'" ||
