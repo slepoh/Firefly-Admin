@@ -40,28 +40,45 @@
     <aside class="sidebar" id="sidebar">
       <!-- 移动端抽屉内的一级导航（PC 隐藏） -->
       <nav class="nav-bar" id="navBar" aria-label="主导航">
-        <!-- 板块一：内容管理（文章 / 动态 / 页面 / 图库素材） -->
-        <div class="nav-group">
-		  <button class="nav-btn active" type="button" data-type="overview"><span class="ni-ico">📊</span><span class="ni-tx">概览</span></button>
-          <div class="nav-group-title">内容管理</div>
-          <button class="nav-btn" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
-          <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">我的动态</span></button>
-          <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">页面信息</span></button>
-          <button class="nav-btn" type="button" data-type="gallery"><span class="ni-ico">🖼️</span><span class="ni-tx">图库素材</span></button>
+        <!-- 概览：始终置顶、不随分组折叠（默认首页） -->
+        <button class="nav-btn active" type="button" data-type="overview"><span class="ni-ico">📊</span><span class="ni-tx">概览</span></button>
+
+        <!-- 板块一：内容管理（文章 / 动态 / 页面 / 图库素材）—— 可折叠，默认折叠 -->
+        <div class="nav-group collapsible collapsed" data-group="content">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">内容管理</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
+            <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">我的动态</span></button>
+            <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">页面信息</span></button>
+            <button class="nav-btn" type="button" data-type="gallery"><span class="ni-ico">🖼️</span><span class="ni-tx">图库素材</span></button>
+          </div>
         </div>
-        <!-- 板块二：站点配置（基础 / 功能 / 页面 / 扩展） -->
-        <div class="nav-group">
-          <div class="nav-group-title">站点配置</div>
-          <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">基础配置</span></button>
-          <button class="nav-btn" type="button" data-type="cfgfunc"><span class="ni-ico">🧩</span><span class="ni-tx">功能配置</span></button>
-          <button class="nav-btn" type="button" data-type="cfgpage"><span class="ni-ico">📑</span><span class="ni-tx">页面配置</span></button>
-          <button class="nav-btn" type="button" data-type="cfgext"><span class="ni-ico">🧪</span><span class="ni-tx">扩展功能</span></button>
+        <!-- 板块二：站点配置（基础 / 功能 / 页面 / 扩展）—— 可折叠，默认折叠 -->
+        <div class="nav-group collapsible collapsed" data-group="config">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">站点配置</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">基础配置</span></button>
+            <button class="nav-btn" type="button" data-type="cfgfunc"><span class="ni-ico">🧩</span><span class="ni-tx">功能配置</span></button>
+            <button class="nav-btn" type="button" data-type="cfgpage"><span class="ni-ico">📑</span><span class="ni-tx">页面配置</span></button>
+            <button class="nav-btn" type="button" data-type="cfgext"><span class="ni-ico">🧪</span><span class="ni-tx">扩展功能</span></button>
+          </div>
         </div>
-        <!-- 板块三：其他信息（操作说明 / 关于） -->
-        <div class="nav-group">
-          <div class="nav-group-title">其他信息</div>
-          <button class="nav-btn" type="button" data-type="readme"><span class="ni-ico">📖</span><span class="ni-tx">操作说明</span></button>
-          <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
+        <!-- 板块三：其他信息（操作说明 / 关于）—— 可折叠，默认折叠 -->
+        <div class="nav-group collapsible collapsed" data-group="info">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">其他信息</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="readme"><span class="ni-ico">📖</span><span class="ni-tx">操作说明</span></button>
+            <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
+          </div>
         </div>
       </nav>
       <!-- 退出：移动端独立分区（与功能菜单 / 信息板块分开，靠底部显示） -->
@@ -88,7 +105,7 @@
           <div class="ct-actions">
             <button id="batchDelBtn" class="btn danger sm">🗑 批量删除</button>
             <button id="newBtn" class="btn primary sm">＋ 新建</button>
-            <button id="topRefreshBtn" class="btn ghost sm" title="刷新当前列表">⟳ 刷新</button>
+            <button id="topRefreshBtn" class="btn ghost sm" title="刷新当前列表"><span class="ri">⟳</span> 刷新</button>
             <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
             <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
           </div>
@@ -96,7 +113,7 @@
         <div class="list-tools">
           <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
           <input type="text" id="searchInput" placeholder="搜索文件名…" />
-          <button id="refreshBtn" class="btn ghost sm" title="刷新列表">⟳</button>
+          <button id="refreshBtn" class="btn ghost sm" title="刷新列表"><span class="ri">⟳</span></button>
         </div>
         <div class="file-list" id="fileList"></div>
         <div class="crumb" id="crumb"></div>
@@ -122,11 +139,23 @@
         <div class="ov-head">
           <div class="ov-title">📊 数据概览</div>
           <div class="ov-sub" id="ovRepo"></div>
-          <button id="ovRefreshBtn" class="btn ghost sm" title="刷新统计">⟳ 刷新</button>
+          <button id="ovRefreshBtn" class="btn ghost sm" title="刷新统计"><span class="ri">⟳</span> 刷新</button>
         </div>
         <div class="ov-loading" id="ovLoading">正在统计博客数据…</div>
         <div class="ov-stats" id="ovStats" hidden></div>
-        <div class="ov-info" id="ovInfo" hidden>
+        
+        <div class="ov-recent" id="ovRecent" hidden>
+          <div class="ov-col">
+            <div class="ov-col-h">📝 最新文章</div>
+            <ul class="ov-list" id="ovPosts"></ul>
+          </div>
+          <div class="ov-col">
+            <div class="ov-col-h">⚡ 最新动态</div>
+            <ul class="ov-list" id="ovDynamic"></ul>
+          </div>
+        </div>
+		
+		<div class="ov-info" id="ovInfo" hidden>
           <div class="ov-info-card" id="ovProjectCard">
             <div class="ov-info-h">📦 项目信息</div>
             <div class="ov-info-body">
@@ -140,25 +169,17 @@
             <div class="ov-info-body ov-author">
               <div class="ov-author-qr"><img src="/uploads/wechat.jpg" alt="微信二维码" loading="lazy" /><span class="ov-author-cap">微信 · 扫码联系</span></div>
               <div class="ov-author-meta">
-                <div class="ov-info-row"><span class="ov-info-k">联系邮箱</span><a class="ov-info-link" href="mailto:info@aioky.cn">info@aioky.cn</a></div>
+			    <div class="ov-info-row"><span class="ov-info-k">官网</span><a class="ov-info-link" href="https://aioky.cn" target="_blank">aioky.cn</a></div>
+                <div class="ov-info-row"><span class="ov-info-k">邮箱</span><a class="ov-info-link" href="mailto:info@aioky.cn">info#aioky.cn</a></div>
                 <div class="ov-info-row"><span class="ov-info-k">微信号</span><span class="ov-info-v">admin_303</span></div>
+				<div class="ov-info-row"><span class="ov-info-k">博客</span><a class="ov-info-link" href="https://823331.xyz" target="_blank">823331.xyz</a></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="ov-recent" id="ovRecent" hidden>
-          <div class="ov-col">
-            <div class="ov-col-h">📝 最新文章</div>
-            <ul class="ov-list" id="ovPosts"></ul>
-          </div>
-          <div class="ov-col">
-            <div class="ov-col-h">⚡ 最新动态</div>
-            <ul class="ov-list" id="ovDynamic"></ul>
-          </div>
-        </div>
       </div>
 
-      <!-- 配置视图：配置文件子菜单（基础/功能/页面/扩展）在 config-view 内部左侧；移动端布局不变 -->
+      <!-- 配置视图：配置文件子菜单（基础/功能/页面/扩展） -->
       <div class="config-view" id="configView" hidden>
         <aside class="cfg-nav" id="cfgNav">
           <div class="cfg-nav-head">
@@ -225,14 +246,14 @@
               <p>本项目为开源项目，允许个人或企业基于其进行<strong>二次开发、修改与商业使用</strong>。请务必遵守以下约定：</p>
               <ul>
                 <li>任何使用、修改或分发本项目的行为，<strong>必须完整保留版权信息与原作者署名</strong>，不得删除、遮挡或篡改；</li>
-                <li>基于本项目开发的衍生作品，应在显著位置注明「基于 Firefly-Admin 二次开发」；</li>
+                <li>基于本项目开发的衍生作品，应在显著位置注明<a href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener">「基于 Firefly-Admin 二次开发」</a>；</li>
                 <li>请在衍生作品的说明文档中保留本项目开源地址（<a href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener">Slepoh/Firefly-Admin</a>），方便他人查阅原始来源。</li>
               </ul>
             </div>
           </section>
           <section class="about-card">
             <h3 class="about-h">🏭 业务范围</h3>
-            <p>专业的全网营销解决方案提供者，15 年互联网产品开发与运营经验，助力企业数字化转型与业务增长。</p>
+            <p>专业的全网营销解决方案服务商，15 年互联网产品开发与运营经验，助力企业数字化转型与业务增长。</p>
             <ul>
               <li><strong>外贸站开发</strong> — B2B / B2C 外贸网站开发、Shopify模板定制、阿里国际站，助力企业拓展全球市场</li>
               <li><strong>小程序开发</strong> — 微信 / 抖音 / 百度等全平台小程序，一次开发、多端部署</li>
@@ -247,21 +268,27 @@
             <h3 class="about-h">📮 联系信息</h3>
             <p class="about-line">📧 邮箱：<a href="mailto:info@aioky.cn">info#aioky.cn</a></p>
             <p class="about-line">💬 微信号：<strong>admin_303</strong></p>
+			<p class="about-line">💬 Youtube：<strong><a href="https://www.youtube.com/@slepoh" target="_blank">点击关注频道</a></strong></p>
+			<p class="about-line">💬 Telegram：<strong><a href="https://t.me/slepxh" target="_blank">点击关注频道</a></strong></p>
 
             <div class="about-qr-group">
               <h4 class="about-subh">交流学习</h4>
               <div class="about-qrs">
                 <figure class="about-qr">
                   <img src="/uploads/wechat.jpg" alt="微信二维码" />
-                  <figcaption>微信 · 兴趣学习</figcaption>
+                  <figcaption>微信 </figcaption>
+                </figure>
+				<figure class="about-qr">
+                  <img src="/uploads/QQ.jpg" alt="QQ二维码" />
+                  <figcaption>QQ</figcaption>
                 </figure>
                 <figure class="about-qr">
                   <img src="/uploads/qr-whatsapp.jpg" alt="WhatsApp 二维码" />
-                  <figcaption>WhatsApp · 联系作者</figcaption>
+                  <figcaption>WhatsApp</figcaption>
                 </figure>
                 <figure class="about-qr">
                   <img src="/uploads/qr-telegram.jpg" alt="Telegram 二维码" />
-                  <figcaption>Telegram · 加群交流</figcaption>
+                  <figcaption>Telegram</figcaption>
                 </figure>
               </div>
             </div>
@@ -276,6 +303,10 @@
                 <figure class="about-qr">
                   <img src="/uploads/sph.jpg" alt="视频号二维码" />
                   <figcaption>视频号</figcaption>
+                </figure>
+				<figure class="about-qr">
+                  <img src="/uploads/youtube.jpg" alt="Youtube 二维码" />
+                  <figcaption>Youtube</figcaption>
                 </figure>
                 <figure class="about-qr">
                   <img src="/uploads/tiktok.jpg" alt="TikTok 二维码" />
