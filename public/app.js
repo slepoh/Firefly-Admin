@@ -2099,7 +2099,7 @@
         body: JSON.stringify({
           path: state.current.path,
           sha: state.current.sha,
-          message: "Delete " + state.current.path + " via FireflyCMS",
+          message: "Delete " + state.current.path + " Chrome FFCMS",
         }),
       });
       if (status === 200 || status === 204) {
@@ -2700,11 +2700,11 @@
     const cfgFiles = configs.filter((it) => it.type === "file" && it.name !== "index.ts");
 
     const cards = [
-      { ico: "📝", label: "文章", value: postFiles.length, type: "posts", action: "posts" },
-      { ico: "⚡", label: "动态", value: dynFiles.length, type: "dynamic", action: "dynamic" },
-      { ico: "📄", label: "页面", value: specFiles.length, type: "spec", action: "spec" },
+      { ico: "📝", label: "文章内容", value: postFiles.length, type: "posts", action: "posts" },
+      { ico: "⚡", label: "我的动态", value: dynFiles.length, type: "dynamic", action: "dynamic" },
+      { ico: "📄", label: "页面信息", value: specFiles.length, type: "spec", action: "spec" },
       { ico: "🖼️", label: "图库分类", value: postDirs.length, type: "gallery", action: "gallery" },
-      { ico: "⚙️", label: "配置项", value: cfgFiles.length, type: "config", action: "config" },
+      { ico: "⚙️", label: "站点配置", value: cfgFiles.length, type: "config", action: "config" },
     ];
     stats.innerHTML = cards
       .map(
@@ -2895,10 +2895,10 @@
   // 配置保存已统一收敛到 saveCfgConfig（站点外观视图移除后，旧的 saveApConfig 不再使用）。
 
   // ----------------------------------------------------------------------
-  // 保存成功弹窗（居中、自动消失，替换原来的「已保存，GitHub 将自动重新部署」提示）
+  // 保存成功弹窗
   // ----------------------------------------------------------------------
   let okPopupTimer = null;
-  // hold=true 时为「等待模式」：持续显示不自动消失，等待后续调用替换（用于保存上传中的友好提示）
+  // hold=true 时为「等待模式」：持续显示不自动消失，等待后续调用替换
   function okPopup(msg, hold) {
     const el = $("okPopup");
     if (!el) return;
@@ -3138,7 +3138,7 @@
     d.appendChild(s); d.appendChild(inp); return d;
   }
   async function loadNavBarConfig(host) {
-    host.innerHTML = '<div class="cfg-empty">加载中…</div>';
+    host.innerHTML = '<div class="cfg-empty">加载中，请稍等…</div>';
     try {
       const { status, data } = await api("/api/file?path=" + encodeURIComponent("src/config/navBarConfig.ts"));
       if (status !== 200 || data.content == null) { host.innerHTML = '<div class="cfg-empty">未找到 src/config/navBarConfig.ts</div>'; return; }
@@ -3444,7 +3444,7 @@
     if (!st || !host) return;
     const pane = cfgPanesRoot().querySelector('.ap-pane[data-pane="' + name + '"]');
     const advBtn = pane ? pane.querySelector(".ap-adv") : null;
-    // 高级模式：直接渲染源码编辑器（同「用户资料」解析失败时的源码视图）
+    // 高级模式：直接渲染源码编辑器
     if (st.advanced) {
       renderAdvancedRaw(host, st, name);
       if (advBtn) advBtn.hidden = true;
