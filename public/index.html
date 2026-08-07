@@ -419,6 +419,24 @@
   <!-- 保存成功弹窗 -->
   <div class="ok-popup" id="okPopup" hidden></div>
 
+  <!-- 高级模式（源码编辑）风险确认弹窗 -->
+  <div class="modal-overlay" id="advModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="advModalTitle">
+      <div class="modal-title" id="advModalTitle">⚠️ 进入高级模式（源码编辑）</div>
+      <div class="modal-body modal-msg">
+        开启高级模式后，将直接以 <b>源代码</b> 形式对该配置文件进行编辑。此模式会绕过可视化表单的字段校验，保存后将直接覆盖原文件内容。
+        <br><br>
+        如因操作原因（如语法错误、字段缺失等）导致站点配置异常或页面无法正常显示，需由您 <b>自行承担</b> 由此带来的风险。
+        <br><br>
+        是否确认进入高级模式？
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="advCancel" type="button">不同意</button>
+        <button class="btn primary" id="advConfirm" type="button">同意并继续</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/vendor/toastui/toastui-editor-all.min.js"></script>
   <script src="/config-parser.js"></script>
   <script src="/app.js"></script>

@@ -1239,6 +1239,13 @@ textarea { resize: vertical; }
   border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
   font-size: 13px; line-height: 1.5;
 }
+/* 高级模式（源码编辑）提示与操作条 */
+.cfg-adv-note {
+  background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af;
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+  font-size: 13px; line-height: 1.5;
+}
+.cfg-adv-bar { margin-bottom: 12px; }
 
 /* ===================== 保存成功弹窗（居中、自动消失） ===================== */
 .ok-popup {

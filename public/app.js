@@ -36,26 +36,26 @@
       { key: "title", label: "标题", type: "text", required: true, full: true },
       { key: "published", label: "发布日期", type: "datetime", required: true },
       { key: "updated", label: "更新日期", type: "datetime" },
-      { key: "slug", label: "自定义路径 slug", type: "text" },
-      { key: "lang", label: "语言 lang", type: "text" },
-      { key: "author", label: "作者 author", type: "text" },
+      { key: "slug", label: "自定义路径 Slug", type: "text" },
+      { key: "lang", label: "语言 Lang", type: "text" },
+      { key: "author", label: "作者 Author", type: "text" },
     ]},
     { title: "摘要与封面", icon: "🖼️", fields: [
-      { key: "description", label: "描述 description", type: "textarea", full: true },
-      { key: "image", label: "封面图 image", type: "text", full: true },
+      { key: "description", label: "描述 Description", type: "textarea", full: true },
+      { key: "image", label: "封面图 Image", type: "text", full: true },
     ]},
     { title: "分类与标签", icon: "🏷️", fields: [
-      { key: "tags", label: "标签 tags（逗号分隔）", type: "text" },
-      { key: "category", label: "分类 category", type: "text" },
+      { key: "tags", label: "标签 Tags（逗号分隔）", type: "text" },
+      { key: "category", label: "分类 Category", type: "text" },
     ]},
     { title: "加密保护", icon: "🔒", encrypt: true, fields: [
-      { key: "password", label: "访问密码 password", type: "password" },
-      { key: "passwordHint", label: "密码提示 passwordHint", type: "text", full: true },
+      { key: "password", label: "访问密码 Password", type: "password" },
+      { key: "passwordHint", label: "密码提示 PasswordHint", type: "text", full: true },
     ]},
     { title: "发布选项", icon: "⚙️", fields: [
       { key: "draft", label: "草稿（不对读者可见）", type: "checkbox" },
-      { key: "pinned", label: "置顶 pinned", type: "checkbox" },
-      { key: "comment", label: "允许评论 comment", type: "checkbox" },
+      { key: "pinned", label: "置顶 Pinned", type: "checkbox" },
+      { key: "comment", label: "允许评论 Comment", type: "checkbox" },
     ]},
     { title: "高级", icon: "🧩", fields: [
       { key: "licenseName", label: "许可证名称", type: "text", full: true },
@@ -72,7 +72,7 @@
     "analyticsConfig.ts": "统计分析",
     "announcementConfig.ts": "公告通知",
     "backgroundWallpaper.ts": "背景壁纸",
-    "commentConfig.ts": "评论系统",
+    "commentConfig.ts": "评论配置",
     "coverImageConfig.ts": "封面图",
     "dynamicConfig.ts": "动态页面",
     "effectsConfig.ts": "动画特效",
@@ -90,19 +90,19 @@
     "sidebarConfig.ts": "侧边栏布局",
     "sponsorConfig.ts": "打赏配置",
     "mermaidConfig.ts": "Mermaid图表",
-    "displaySettingsConfig.ts": "显示设置面板",
+    "displaySettingsConfig.ts": "显示设置",
     "booknavConfig.ts": "书签导航",
     "FooterConfig.html": "页脚内容",
   };
   const SPEC_NAME_MAP = {
     "about.md": "关于我",
-    "friends.mdx": "友链",
+    "friends.mdx": "友情链接",
     "guestbook.md": "留言页",
   };
   // 站点外观 Tab 显示名（比配置列表名更短，去掉「配置」后缀）
   const AP_NAME_MAP = {
     "booknavConfig": "书签导航",
-    "displaySettingsConfig": "显示设置面板",
+    "displaySettingsConfig": "显示设置",
   };
 
   // 字段级枚举下拉覆盖表（key 为「文件名」→「从根 const 名起的完整路径」）。
@@ -2915,6 +2915,45 @@
   }
 
   // ----------------------------------------------------------------------
+  // 高级模式（源码编辑）风险确认弹窗
+  // ----------------------------------------------------------------------
+  let pendingAdvName = null;
+  function openAdvModal(name) {
+    pendingAdvName = name;
+    const m = $("advModal");
+    if (m) { m.hidden = false; m.classList.add("show"); }
+  }
+  function closeAdvModal() {
+    const m = $("advModal");
+    if (m) { m.classList.remove("show"); m.hidden = true; }
+    pendingAdvName = null;
+  }
+  function confirmAdvMode() {
+    const name = pendingAdvName;
+    closeAdvModal();
+    if (!name) return;
+    const st = apState[name];
+    if (!st) return;
+    st.advanced = true;
+    renderCfgConfig(name);
+  }
+  // 从高级模式返回可视化编辑：捕获源码编辑内容，重新解析后切回表单（navBarConfig 重新拉取）
+  async function backToVisual(name) {
+    const st = apState[name];
+    const host = apHostFor(name, cfgPanesRoot());
+    if (!st || !host) return;
+    const ta = host.querySelector("textarea.cfg-raw");
+    if (ta) st.raw = ta.value; // 保留源码视图中的修改
+    if (name === "navBarConfig") { st.advanced = false; await loadNavBarConfig(host); return; }
+    if (st.ext === ".ts") {
+      const parsed = FireflyConfig.parseConfig(st.raw);
+      st.roots = parsed.roots;
+    }
+    st.advanced = false;
+    renderCfgConfig(name);
+  }
+
+  // ----------------------------------------------------------------------
   // 配置页面：左侧分类导航 + 右侧操作说明（README）/ 配置编辑
   // 复用配置解析与渲染；用 #cfgPanes 作用域隔离，避免与站点外观同名 .ap-pane 冲突
   // ----------------------------------------------------------------------
@@ -2935,7 +2974,7 @@
     ]},
     { title: "功能配置", items: [
       { key: "fontConfig", label: "字体配置", file: "fontConfig.ts" },
-      { key: "commentConfig", label: "评论系统", file: "commentConfig.ts" },
+      { key: "commentConfig", label: "评论配置", file: "commentConfig.ts" },
       { key: "coverImageConfig", label: "封面图", file: "coverImageConfig.ts" },
       { key: "musicConfig", label: "音乐播放器", file: "musicConfig.ts" },
 	  { key: "analyticsConfig", label: "统计分析", file: "analyticsConfig.ts" },
@@ -2949,7 +2988,7 @@
       { key: "booknavConfig", label: "书签导航", file: "booknavConfig.ts" },
     ]},
     { title: "扩展功能", items: [
-      { key: "displaySettingsConfig", label: "显示设置面板", file: "displaySettingsConfig.ts" },
+      { key: "displaySettingsConfig", label: "显示设置", file: "displaySettingsConfig.ts" },
 	  { key: "dynamicConfig", label: "动态页面", file: "dynamicConfig.ts" },
       { key: "expressiveCodeConfig", label: "代码高亮", file: "expressiveCodeConfig.ts" },
 	  { key: "effectsConfig", label: "动画特效", file: "effectsConfig.ts" },
@@ -3218,6 +3257,7 @@
       pane.hidden = true;
       pane.innerHTML =
         '<div class="ap-pane-head"><span class="ap-pane-title">' + esc(label) + '</span>' +
+        '<button class="btn ghost sm ap-adv" type="button" data-adv="' + esc(name) + '" title="以源码形式直接编辑该配置文件">⚙ 高级模式</button>' +
         '<button class="btn primary sm ap-save" type="button" data-save="' + esc(f.name) + '">💾 保存</button></div>' +
         '<div class="ap-cfg-host config-editor"></div>' +
         '<div class="ap-pane-status" data-status="' + esc(f.name) + '"></div>' +
@@ -3402,6 +3442,14 @@
     const st = apState[name];
     const host = apHostFor(name, cfgPanesRoot());
     if (!st || !host) return;
+    const pane = cfgPanesRoot().querySelector('.ap-pane[data-pane="' + name + '"]');
+    const advBtn = pane ? pane.querySelector(".ap-adv") : null;
+    // 高级模式：直接渲染源码编辑器（同「用户资料」解析失败时的源码视图）
+    if (st.advanced) {
+      renderAdvancedRaw(host, st, name);
+      if (advBtn) advBtn.hidden = true;
+      return;
+    }
     // 合并页脚：上方结构化配置 + 下方富文本 HTML 内容
     if (st.merged) {
       host.innerHTML = "";
@@ -3437,10 +3485,26 @@
         ta.value = st.raw || "";
         ta.addEventListener("input", () => markDirtyOf(host));
       }
+      if (advBtn) advBtn.hidden = true; // 已处于源码视图，无需高级模式入口
       return;
     }
     if (name === "booknavConfig") renderBooknavEditor(host, st.booknavModel);
     else renderGenericConfig(host, st.roots, name, st.raw);
+    // 高级模式入口：仅当该配置存在可结构化编辑的参数时才显示
+    if (advBtn) advBtn.hidden = !(st.roots && st.roots.length);
+  }
+
+  // 高级模式下的源码编辑器：与解析失败时的源码视图一致，额外提供「返回可视化」入口
+  function renderAdvancedRaw(host, st, name) {
+    host.innerHTML =
+      '<div class="cfg-adv-note">⚙️ 您已进入 <b>高级模式（源码编辑）</b>。此模式直接编辑配置文件源码，保存后将覆盖原文件；因操作不当导致站点异常需自行承担风险。</div>' +
+      '<div class="cfg-adv-bar"><button class="btn ghost sm ap-back-visual" type="button" data-back="' + esc(name) + '">← 返回可视化编辑</button></div>' +
+      '<textarea class="cfg-raw" spellcheck="false"></textarea>';
+    const ta = host.querySelector("textarea.cfg-raw");
+    if (ta) {
+      ta.value = st.raw || "";
+      ta.addEventListener("input", () => markDirtyOf(host));
+    }
   }
 
   async function saveCfgConfig(name, silent) {
@@ -3449,6 +3513,27 @@
     const host = apHostFor(name, root);
     const statusEl = apStatusFor(name, root);
     if (!st || !host) return;
+    // 高级模式保存：直接保存源码编辑器中的内容（覆盖原文件）
+    if (st.advanced) {
+      const ta = host.querySelector("textarea.cfg-raw");
+      const content = ta ? ta.value : (st.raw || "");
+      try {
+        const r = await putConfigFile("src/config/" + name + (st.ext || ".ts"), content, st.sha);
+        if (r.status === 200 || r.status === 201) {
+          st.raw = content;
+          st.sha = (r.data && r.data.sha) || st.sha;
+          st.dirty = false;
+          if (statusEl) statusEl.textContent = "已保存（高级模式）";
+          if (!silent) okPopup("已保存");
+        } else {
+          if (statusEl) statusEl.textContent = "保存失败：" + ((r.data && r.data.error) || r.status);
+          if (!silent) okPopup("保存失败");
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "保存失败：" + (e.message || "");
+      }
+      return;
+    }
     // 源码回退保存：结构化解析失败时，直接保存 textarea 中的原始内容
     if (!st.roots || !st.roots.length) {
       const ta = host.querySelector("textarea.cfg-raw");
@@ -3939,6 +4024,10 @@
     // 配置页面：保存按钮（作用域隔离到 #cfgPanes）
     const cfgPanesEl = $("cfgPanes");
     if (cfgPanesEl) cfgPanesEl.addEventListener("click", (e) => {
+      const adv = e.target.closest(".ap-adv");
+      if (adv) { openAdvModal(adv.dataset.adv); return; }
+      const back = e.target.closest(".ap-back-visual");
+      if (back) { backToVisual(back.dataset.back); return; }
       const b = e.target.closest(".ap-save");
       if (b) {
         const fname = b.dataset.save || "";
@@ -3946,6 +4035,13 @@
         saveCfgConfig(name);
       }
     });
+    // 高级模式弹窗按钮
+    const advConfirmEl = $("advConfirm");
+    if (advConfirmEl) advConfirmEl.addEventListener("click", confirmAdvMode);
+    const advCancelEl = $("advCancel");
+    if (advCancelEl) advCancelEl.addEventListener("click", closeAdvModal);
+    const advModalEl = $("advModal");
+    if (advModalEl) advModalEl.addEventListener("click", (e) => { if (e.target === advModalEl) closeAdvModal(); });
     // 配置编辑「脏标记」：任何输入/选择/书签增删都标记为未保存，
     // 使远程优先读取逻辑在存在本地编辑时不会覆盖用户修改。
     // 实时保存（防抖自动提交到 GitHub）：编辑后停顿即自动保存当前面板，
