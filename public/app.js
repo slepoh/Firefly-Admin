@@ -70,9 +70,9 @@
   const CONFIG_NAME_MAP = {
     "siteConfig.ts": "站点基础",
     "analyticsConfig.ts": "统计分析",
-    "announcementConfig.ts": "公告信息",
+    "announcementConfig.ts": "公告通知",
     "backgroundWallpaper.ts": "背景壁纸",
-    "commentConfig.ts": "评论配置",
+    "commentConfig.ts": "评论系统",
     "coverImageConfig.ts": "封面图",
     "dynamicConfig.ts": "动态页面",
     "effectsConfig.ts": "动画特效",
@@ -81,7 +81,7 @@
     "footerConfig.ts": "页脚配置",
     "friendsConfig.ts": "友情链接",
     "galleryConfig.ts": "相册配置",
-    "licenseConfig.ts": "许可证配置",
+    "licenseConfig.ts": "许可证",
     "musicConfig.ts": "音乐播放器",
     "navBarConfig.ts": "导航栏",
     "pioConfig.ts": "看板娘",
@@ -514,7 +514,7 @@
     state.branch = s.branch || "master";
     $("repoInfo").textContent = `${s.owner}/${s.repo}@${s.branch}`;
     bindEvents();
-    await selectSection("posts");
+    await selectSection("overview");
   }
 
   // ----------------------------------------------------------------------
@@ -550,12 +550,12 @@
       .filter((f) => !(state.type === "config" && f.name === "index.ts"))
       // 文章板块隐藏子目录（images / guide 等），这些统一由「图库」集中管理
       .filter((f) => !(state.type === "posts" && f.type === "dir"));
-    // 文章板块：按文件创建日期升序排列（无日期的排末尾），使「创建时间」列与顺序一致
+    // 文章板块：按文件创建日期降序排列（最新创建排第一），无日期的排末尾
     if (state.type === "posts") {
       _files.sort((a, b) => {
         const ta = a.created ? new Date(a.created).getTime() : 0;
         const tb = b.created ? new Date(b.created).getTime() : 0;
-        return ta - tb;
+        return tb - ta;
       });
     }
     // 图片与文档分开：图片走宫格预览，文档走可编辑列表
@@ -2110,6 +2110,7 @@
     $("editorPane").hidden = name !== "editor";
     $("configView").hidden = name !== "config";
     $("infoView").hidden = name !== "info";
+    $("overviewView").hidden = name !== "overview";
   }
 
   function backToEmpty() {
@@ -2225,7 +2226,7 @@
     }
     if (!isDir) items.push({ label: "✏️ 编辑", action: () => openFile(item) });
     if (canModify()) {
-      if (!isDir) items.push({ label: "✏️ 重命名", action: () => renameItem(item) });
+      if (!isDir) items.push({ label: "🏷️ 重命名", action: () => renameItem(item) });
       items.push({ label: "🗑 删除", danger: true, action: () => removeItem(item) });
     }
     return items;
@@ -2572,22 +2573,30 @@
     document.querySelectorAll("#navBar .nav-btn").forEach((b) => {
       b.classList.toggle("active", b.dataset.type === type);
     });
-    const titles = { posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能", readme: "操作说明", about: "关于" };
+    const titles = { overview: "数据概览", posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能", readme: "操作说明", about: "关于" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
     const isConfig = state.type === "config";
     const isGallery = type === "gallery";
+    const isOverview = type === "overview";
     // 图库：启用 上传 / 新建分类 / 全选 / 批量删除（每项自带删除按钮）；隐藏 新建文件 与 搜索框
-    $("selectAllRow").hidden = isConfig;
-    $("batchDelBtn").hidden = isConfig;
-    $("newBtn").hidden = isConfig || isGallery;
-    $("quickUploadBtn").hidden = isConfig;
-    $("newCatBtn").hidden = isConfig;
-    $("searchInput").hidden = isConfig || isGallery;
-    $("refreshBtn").hidden = isConfig || isGallery;
-    if (isGallery) $("searchInput").value = "";
+    $("selectAllRow").hidden = isConfig || isOverview;
+    $("batchDelBtn").hidden = isConfig || isOverview;
+    $("newBtn").hidden = isConfig || isGallery || isOverview;
+    $("quickUploadBtn").hidden = isConfig || isOverview;
+    $("newCatBtn").hidden = isConfig || isOverview;
+    $("searchInput").hidden = isConfig || isGallery || isOverview;
+    $("refreshBtn").hidden = isConfig || isGallery || isOverview;
+    if (isGallery || isOverview) $("searchInput").value = "";
 
     state.selected.clear();
+
+    // 概览：后台首页，统计博客数据（文章 / 动态数量等）
+    if (isOverview) {
+      showView("overview");
+      loadOverview();
+      return;
+    }
 
     if (isConfig) {
       showView("config");
@@ -2614,6 +2623,131 @@
     backToEmpty();
     loadList();
   }
+
+  // ----------------------------------------------------------------------
+  // 概览（后台首页）：统计博客数据（文章 / 动态数量等）+ 最新内容
+  // ----------------------------------------------------------------------
+  async function loadOverview() {
+    const loading = $("ovLoading");
+    const stats = $("ovStats");
+    const recent = $("ovRecent");
+    loading.hidden = false;
+    stats.hidden = true;
+    recent.hidden = true;
+    $("ovRepo").textContent = `${state.owner}/${state.repo}@${state.branch}`;
+    if ($("ovRefreshBtn")) $("ovRefreshBtn").onclick = () => loadOverview();
+
+    // 并行拉取各板块列表（任意失败不影响其余统计）
+    const fetchList = async (type) => {
+      try {
+        const { data } = await api("/api/list?type=" + type);
+        return Array.isArray(data.items) ? data.items : [];
+      } catch (e) {
+        return [];
+      }
+    };
+    const [posts, dynamics, specs, configs] = await Promise.all([
+      fetchList("posts"),
+      fetchList("dynamic"),
+      fetchList("spec"),
+      fetchList("config"),
+    ]);
+
+    const postFiles = posts.filter((it) => it.type === "file");
+    const postDirs = posts.filter((it) => it.type === "dir"); // 图库分类（images / guide 等）
+    const dynFiles = dynamics.filter((it) => it.type === "file");
+    const specFiles = specs.filter((it) => it.type === "file");
+    const cfgFiles = configs.filter((it) => it.type === "file" && it.name !== "index.ts");
+
+    const cards = [
+      { ico: "📝", label: "文章", value: postFiles.length, type: "posts", action: "posts" },
+      { ico: "⚡", label: "动态", value: dynFiles.length, type: "dynamic", action: "dynamic" },
+      { ico: "📄", label: "页面", value: specFiles.length, type: "spec", action: "spec" },
+      { ico: "🖼️", label: "图库分类", value: postDirs.length, type: "gallery", action: "gallery" },
+      { ico: "⚙️", label: "配置项", value: cfgFiles.length, type: "config", action: "config" },
+    ];
+    stats.innerHTML = cards
+      .map(
+        (c) =>
+          `<button class="ov-card" type="button" data-go="${c.action}">` +
+          `<span class="ov-card-ico">${c.ico}</span>` +
+          `<span class="ov-card-val">${c.value}</span>` +
+          `<span class="ov-card-label">${c.label}</span>` +
+          `</button>`
+      )
+      .join("");
+    // 点击统计卡片跳转到对应板块
+    stats.querySelectorAll(".ov-card").forEach((card) => {
+      card.addEventListener("click", () => selectSection(card.dataset.go));
+    });
+
+    // 最新文章（按创建日期降序，取前 6）
+    const recentPosts = postFiles
+      .filter((it) => /\.(md|mdx)$/i.test(it.name))
+      .sort((a, b) => {
+        const ta = a.created ? new Date(a.created).getTime() : 0;
+        const tb = b.created ? new Date(b.created).getTime() : 0;
+        return tb - ta;
+      })
+      .slice(0, 6);
+    renderRecentList($("ovPosts"), recentPosts, "posts", "暂无文章");
+
+    // 最新动态（按文件名降序兜底，取前 6；动态文件通常按时间命名）
+    const recentDyn = dynFiles
+      .slice()
+      .sort((a, b) => (b.name || "").localeCompare(a.name || ""))
+      .slice(0, 6);
+    renderRecentList($("ovDynamic"), recentDyn, "dynamic", "暂无动态");
+
+    loading.hidden = true;
+    stats.hidden = false;
+    recent.hidden = false;
+  }
+
+  // 渲染「最新内容」列表（点击直接打开对应文章 / 动态）
+  function renderRecentList(ul, items, type, emptyText) {
+    if (!ul) return;
+    if (!items.length) {
+      ul.innerHTML = '<li class="ov-empty">' + emptyText + "</li>";
+      return;
+    }
+    ul.innerHTML = items
+      .map((it) => {
+        const isDir = it.type === "dir";
+        const date = it.created ? fmtDate(it.created) : "";
+        return (
+          '<li class="ov-item" data-path="' +
+          esc(it.path) +
+          '" data-name="' +
+          esc(it.name) +
+          '" data-dir="' +
+          (isDir ? "1" : "0") +
+          '">' +
+          '<span class="ov-item-name">' +
+          esc(it.name) +
+          "</span>" +
+          (date ? '<span class="ov-item-date">' + date + "</span>" : "") +
+          "</li>"
+        );
+      })
+      .join("");
+    ul.querySelectorAll(".ov-item").forEach((li) => {
+      li.addEventListener("click", () => {
+        const path = li.dataset.path;
+        const name = li.dataset.name;
+        const isDir = li.dataset.dir === "1";
+        if (isDir) {
+          selectSection(type);
+          // 进入对应板块并定位子目录
+          state.subdir = path.replace(/^src\/content\/(posts|dynamic|spec)\//, "");
+          loadList();
+          return;
+        }
+        openFile({ name, path, type: "file" });
+      });
+    });
+  }
+
 
   // ----------------------------------------------------------------------
   // 站点外观：Logo / 头像替换 + 常用配置快捷入口
@@ -2749,36 +2883,36 @@
     { title: "基础配置", items: [
       { key: "logo", label: "站点Logo", resource: true },
       { key: "avatar", label: "作者头像", resource: true },
-      { key: "siteConfig", label: "站点基础配置", file: "siteConfig.ts" },
-      { key: "navBarConfig", label: "导航栏配置", file: "navBarConfig.ts", custom: "navbar" },
+      { key: "siteConfig", label: "站点基础", file: "siteConfig.ts" },
+      { key: "navBarConfig", label: "导航栏", file: "navBarConfig.ts", custom: "navbar" },
       { key: "footerConfig", label: "页脚配置", file: "footerConfig.ts", merged: true },
-      { key: "backgroundWallpaper", label: "背景壁纸配置", file: "backgroundWallpaper.ts" },
-      { key: "sidebarConfig", label: "侧边栏布局配置", file: "sidebarConfig.ts" },
-      { key: "announcementConfig", label: "公告配置", file: "announcementConfig.ts" },
-      { key: "profileConfig", label: "用户资料配置", file: "profileConfig.ts" },
+      { key: "backgroundWallpaper", label: "背景壁纸", file: "backgroundWallpaper.ts" },
+      { key: "sidebarConfig", label: "侧边栏布局", file: "sidebarConfig.ts" },
+      { key: "announcementConfig", label: "公告通知", file: "announcementConfig.ts" },
+      { key: "profileConfig", label: "用户资料", file: "profileConfig.ts" },
     ]},
     { title: "功能配置", items: [
       { key: "fontConfig", label: "字体配置", file: "fontConfig.ts" },
-      { key: "commentConfig", label: "评论系统配置", file: "commentConfig.ts" },
-      { key: "coverImageConfig", label: "封面图配置", file: "coverImageConfig.ts" },
-      { key: "musicConfig", label: "音乐播放器配置", file: "musicConfig.ts" },
-      { key: "plantumlConfig", label: "PlantUML 图表配置", file: "plantumlConfig.ts" },
-      { key: "mermaidConfig", label: "Mermaid图表配置", file: "mermaidConfig.ts" },
-      { key: "analyticsConfig", label: "统计分析配置", file: "analyticsConfig.ts" },
+      { key: "commentConfig", label: "评论系统", file: "commentConfig.ts" },
+      { key: "coverImageConfig", label: "封面图", file: "coverImageConfig.ts" },
+      { key: "musicConfig", label: "音乐播放器", file: "musicConfig.ts" },
+      { key: "plantumlConfig", label: "PlantUML 图表", file: "plantumlConfig.ts" },
+      { key: "mermaidConfig", label: "Mermaid图表", file: "mermaidConfig.ts" },
+      { key: "analyticsConfig", label: "统计分析", file: "analyticsConfig.ts" },
     ]},
     { title: "页面配置", items: [
-      { key: "friendsConfig", label: "友链配置", file: "friendsConfig.ts" },
+      { key: "friendsConfig", label: "友情链接", file: "friendsConfig.ts" },
       { key: "galleryConfig", label: "相册配置", file: "galleryConfig.ts" },
       { key: "sponsorConfig", label: "打赏配置", file: "sponsorConfig.ts" },
-      { key: "booknavConfig", label: "书签导航配置", file: "booknavConfig.ts" },
+      { key: "booknavConfig", label: "书签导航", file: "booknavConfig.ts" },
     ]},
     { title: "扩展功能", items: [
-      { key: "effectsConfig", label: "动画特效配置", file: "effectsConfig.ts" },
-      { key: "licenseConfig", label: "许可证配置", file: "licenseConfig.ts" },
-      { key: "pioConfig", label: "看板娘配置", file: "pioConfig.ts" },
-      { key: "dynamicConfig", label: "动态页面配置", file: "dynamicConfig.ts" },
-      { key: "expressiveCodeConfig", label: "代码高亮配置", file: "expressiveCodeConfig.ts" },
-      { key: "displaySettingsConfig", label: "显示设置面板配置", file: "displaySettingsConfig.ts" },
+      { key: "effectsConfig", label: "动画特效", file: "effectsConfig.ts" },
+      { key: "licenseConfig", label: "许可证", file: "licenseConfig.ts" },
+      { key: "pioConfig", label: "看板娘", file: "pioConfig.ts" },
+      { key: "dynamicConfig", label: "动态页面", file: "dynamicConfig.ts" },
+      { key: "expressiveCodeConfig", label: "代码高亮", file: "expressiveCodeConfig.ts" },
+      { key: "displaySettingsConfig", label: "显示设置面板", file: "displaySettingsConfig.ts" },
     ]},
   ];
 
@@ -3404,7 +3538,7 @@
         el.innerHTML = renderMarkdownSimple(md);
         return;
       }
-      el.innerHTML = '<div class="info-empty">暂无操作说明（未找到 op-guide.md）。</div>';
+      el.innerHTML = '<div class="info-empty">暂无操作说明（未找到文档内容）。</div>';
     } catch (e) {
       el.innerHTML = '<div class="info-empty">操作说明加载失败。</div>';
     }

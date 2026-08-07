@@ -43,7 +43,8 @@
         <!-- 板块一：内容管理（文章 / 动态 / 页面 / 图库素材） -->
         <div class="nav-group">
           <div class="nav-group-title">内容管理</div>
-          <button class="nav-btn active" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
+          <button class="nav-btn active" type="button" data-type="overview"><span class="ni-ico">📊</span><span class="ni-tx">概览</span></button>
+          <button class="nav-btn" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
           <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">我的动态</span></button>
           <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">页面信息</span></button>
           <button class="nav-btn" type="button" data-type="gallery"><span class="ni-ico">🖼️</span><span class="ni-tx">图库素材</span></button>
@@ -112,6 +113,27 @@
             </div>
             <div class="up-hint">自动上传到 <code>public/uploads</code></div>
             <div class="up-list" id="upList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 概览视图：后台首页，统计博客数据（文章 / 动态数量等） -->
+      <div class="overview-view" id="overviewView" hidden>
+        <div class="ov-head">
+          <div class="ov-title">📊 数据概览</div>
+          <div class="ov-sub" id="ovRepo"></div>
+          <button id="ovRefreshBtn" class="btn ghost sm" title="刷新统计">⟳ 刷新</button>
+        </div>
+        <div class="ov-loading" id="ovLoading">正在统计博客数据…</div>
+        <div class="ov-stats" id="ovStats" hidden></div>
+        <div class="ov-recent" id="ovRecent" hidden>
+          <div class="ov-col">
+            <div class="ov-col-h">📝 最新文章</div>
+            <ul class="ov-list" id="ovPosts"></ul>
+          </div>
+          <div class="ov-col">
+            <div class="ov-col-h">⚡ 最新动态</div>
+            <ul class="ov-list" id="ovDynamic"></ul>
           </div>
         </div>
       </div>
@@ -257,7 +279,7 @@
           <div class="edit-topbar">
             <button id="backBtn" class="btn ghost">← 返回</button>
             <span class="ab-spacer"></span>
-            <button id="deleteBtn" class="btn danger" hidden>🗑️ 删除</button>
+            <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
             <button id="saveBtn" class="btn primary">💾 保存</button>
           </div>
 
