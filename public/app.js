@@ -717,7 +717,7 @@
     }
   }
 
-  // 图库：独立板块，集中展示 src/content/gallery 下各子目录（如 images / guide 等）的资源
+  // 图库：集中展示 src/content/posts 下各子目录（如 123456、abcdefg 等图库分类）的资源
   async function loadGallery() {
     const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
     try {
@@ -748,7 +748,7 @@
     box.innerHTML = "";
     state.selectableCount = 0;
     if (!groups.length) {
-      box.innerHTML = '<div class="gallery-empty">图库为空（src/content/gallery 下暂无子目录或资源）</div>';
+      box.innerHTML = '<div class="gallery-empty">图库为空（src/content/posts 下暂无子目录或资源）</div>';
       updateBatchCount();
       return;
     }
@@ -767,7 +767,7 @@
         delBtn.className = "gallery-group-del";
         delBtn.title = "删除整个分类目录";
         delBtn.textContent = "🗑 删除分类";
-        delBtn.onclick = () => removeItem({ name: g.name, path: "src/content/gallery/" + g.name, type: "dir" });
+        delBtn.onclick = () => removeItem({ name: g.name, path: "src/content/posts/" + g.name, type: "dir" });
         title.appendChild(delBtn);
       }
       box.appendChild(title);
@@ -2408,7 +2408,7 @@
     const safe = name.trim().replace(/[^\w.\-\u4e00-\u9fa5]+/g, "-").replace(/^-+|-+$/g, "");
     if (!safe) { toast("目录名称无效", "err"); return; }
     const base = state.type === "config" ? "src/config"
-      : state.type === "gallery" ? "src/content/gallery"
+      : state.type === "gallery" ? "src/content/posts"
       : "src/content/" + state.type;
     const p = base + (state.subdir ? "/" + state.subdir : "") + "/" + safe;
     try {
@@ -2504,7 +2504,8 @@
   function uploadTargetDir() {
     const sel = $("uploadDirSel");
     const sub = sel && sel.value ? sel.value : "";
-    const base = CONTENT_ROOT + "/" + state.type;
+    // 图库资料实际位于 src/content/posts 下的子文件夹（如 123456、abcdefg），故 gallery 落点用 posts 而非独立目录
+    const base = state.type === "gallery" ? CONTENT_ROOT + "/posts" : CONTENT_ROOT + "/" + state.type;
     return sub ? base + "/" + sub : base;
   }
 
