@@ -266,7 +266,7 @@ export async function onRequest(
     if (type === "config") {
       basePath = "src/config";
     } else if (type === "gallery") {
-      // 图库资料存放在 src/content/posts 下的子文件夹（如 123456、abcdefg），并非独立目录
+      // 图库资料存放在 src/content/posts 下的子文件夹，非独立目录
       basePath = "src/content/posts";
     } else if (["dynamic", "posts", "spec"].includes(type)) {
       basePath = "src/content/" + type;
