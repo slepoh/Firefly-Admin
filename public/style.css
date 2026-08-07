@@ -565,6 +565,10 @@ textarea { resize: vertical; }
 .meta-panel.drag { border-color: var(--primary); background: #fff4e9; }
 .meta-panel.drag .upload-drop { border-color: var(--primary); background: #fff1e6; }
 /* 资源上传：清晰的拖拽区 */
+.upload-target { display: flex; align-items: center; gap: 10px; padding: 10px 2px 6px; }
+.ut-label { font-size: 13px; font-weight: 600; color: #51585f; white-space: nowrap; }
+.ut-select { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 9px; font-size: 13px; background: #fff; color: #2b2f33; }
+.ut-select:focus { outline: none; border-color: var(--primary); }
 .upload-drop {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   border: 2px dashed #ffd0a8; border-radius: 10px; padding: 14px 12px; text-align: center;

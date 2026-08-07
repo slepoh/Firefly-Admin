@@ -118,17 +118,23 @@
         <div class="file-list" id="fileList"></div>
         <div class="crumb" id="crumb"></div>
 
-        <!-- 资源上传：清晰的拖拽区，默认折叠，点击标题展开 -->
-        <div class="meta-panel collapsed" id="uploadPanel">
-          <button type="button" class="panel-head">📤 资源上传 <span class="chev">▾</span></button>
+        <!-- 资源上传：每个内容板块独立的上传区域，上传到当前板块，可选择子文件夹 -->
+        <div class="meta-panel" id="uploadPanel">
+          <button type="button" class="panel-head">📤 <span id="uploadTitle">资源上传</span> <span class="chev">▾</span></button>
           <div class="panel-body">
+            <div class="upload-target">
+              <label class="ut-label" for="uploadDirSel">上传到文件夹</label>
+              <select id="uploadDirSel" class="ut-select">
+                <option value="">根目录（当前板块）</option>
+              </select>
+            </div>
             <div class="upload-drop" id="uploadDrop">
               <div class="ud-icon">⬆</div>
               <div class="ud-text">拖拽文件到此处，或</div>
               <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
               <input type="file" id="fileInput" multiple hidden />
             </div>
-            <div class="up-hint">自动上传到 <code>public/uploads</code></div>
+            <div class="up-hint">自动上传到 <code id="uploadTarget">当前板块根目录</code></div>
             <div class="up-list" id="upList"></div>
           </div>
         </div>

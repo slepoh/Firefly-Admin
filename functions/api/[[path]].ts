@@ -265,10 +265,10 @@ export async function onRequest(
     let basePath: string;
     if (type === "config") {
       basePath = "src/config";
-    } else if (["dynamic", "posts", "spec"].includes(type)) {
+    } else if (["dynamic", "posts", "spec", "gallery"].includes(type)) {
       basePath = "src/content/" + type;
     } else {
-      return json({ error: "type 必须是 dynamic/posts/spec/config" }, 400);
+      return json({ error: "type 必须是 dynamic/posts/spec/gallery/config" }, 400);
     }
     let p = basePath;
     if (sub) p += "/" + sub;

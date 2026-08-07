@@ -717,13 +717,13 @@
     }
   }
 
-  // 图库：集中展示 src/content/posts 下所有子目录（images / guide 等）的资源
+  // 图库：独立板块，集中展示 src/content/gallery 下各子目录（如 images / guide 等）的资源
   async function loadGallery() {
     const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
     try {
       state.files = []; // 重置：图库项也纳入 state.files，供批量删除按 path 查找
-      const { data } = await api("/api/list?type=posts");
-      const top = data.items || [];
+      const { data } = await api("/api/list?type=gallery");
+      const top = (data && data.items) || [];
       const dirs = top.filter((f) => f.type === "dir");
       const groups = [];
       // 根目录下的非文章文件（如零散图片）归入「根目录」分组，避免被隐藏
@@ -731,7 +731,7 @@
       if (rootFiles.length) groups.push({ name: "根目录", items: rootFiles, root: true });
       for (const d of dirs) {
         try {
-          const r = await api("/api/list?type=posts&path=" + encodeURIComponent(d.name));
+          const r = await api("/api/list?type=gallery&path=" + encodeURIComponent(d.name));
           groups.push({ name: d.name, items: r.data.items || [], root: false });
         } catch (e) {
           groups.push({ name: d.name, items: [], root: false, error: true });
@@ -748,7 +748,7 @@
     box.innerHTML = "";
     state.selectableCount = 0;
     if (!groups.length) {
-      box.innerHTML = '<div class="gallery-empty">图库为空（src/content/posts 下暂无子目录或资源）</div>';
+      box.innerHTML = '<div class="gallery-empty">图库为空（src/content/gallery 下暂无子目录或资源）</div>';
       updateBatchCount();
       return;
     }
@@ -767,7 +767,7 @@
         delBtn.className = "gallery-group-del";
         delBtn.title = "删除整个分类目录";
         delBtn.textContent = "🗑 删除分类";
-        delBtn.onclick = () => removeItem({ name: g.name, path: "src/content/posts/" + g.name, type: "dir" });
+        delBtn.onclick = () => removeItem({ name: g.name, path: "src/content/gallery/" + g.name, type: "dir" });
         title.appendChild(delBtn);
       }
       box.appendChild(title);
@@ -2408,7 +2408,7 @@
     const safe = name.trim().replace(/[^\w.\-\u4e00-\u9fa5]+/g, "-").replace(/^-+|-+$/g, "");
     if (!safe) { toast("目录名称无效", "err"); return; }
     const base = state.type === "config" ? "src/config"
-      : state.type === "gallery" ? "src/content/posts"
+      : state.type === "gallery" ? "src/content/gallery"
       : "src/content/" + state.type;
     const p = base + (state.subdir ? "/" + state.subdir : "") + "/" + safe;
     try {
@@ -2419,6 +2419,7 @@
       if (status === 200 && data && data.ok) {
         toast("已创建分类：" + safe);
         await loadList();
+        await refreshUploadDirOptions();
       } else {
         toast((data && data.error) || "创建失败", "err");
       }
@@ -2498,57 +2499,54 @@
     }
   }
 
-  async function handleFiles(files) {
-    if (!files || !files.length) return;
-    // 图库模式：上传时先选择目标分类目录
-    if (state.type === "gallery") {
-      const dir = await chooseGalleryUploadDir();
-      if (dir === null) return; // 取消
-      for (const f of files) await uploadFileToDir(f, dir);
-      await loadGallery();
-      return;
-    }
-    // 文章/动态/单页：上传到当前打开的分类目录（不再固定 public/uploads）
-    const dir = currentDirPath();
-    for (const f of files) await uploadFileToDir(f, dir);
-    await refreshCurrent();
+  // 上传落点：读取底部「资源上传」面板的文件夹下拉，拼接为完整仓库相对路径。
+  // 每个内容板块（文章/动态/单页/图库）互不影响，上传到各自板块下所选子目录，根目录即板块根。
+  function uploadTargetDir() {
+    const sel = $("uploadDirSel");
+    const sub = sel && sel.value ? sel.value : "";
+    const base = CONTENT_ROOT + "/" + state.type;
+    return sub ? base + "/" + sub : base;
   }
 
-  // 图库上传：选择目标分类目录（现有分类 + 根目录），返回完整仓库相对路径或 null（取消）
-  function chooseGalleryUploadDir() {
-    return new Promise((resolve) => {
-      let dirs = [];
-      api("/api/list?type=posts").then((r) => {
-        dirs = ((r && r.data && r.data.items) || []).filter((f) => f.type === "dir").map((f) => f.name);
-        show();
-      }).catch(() => { dirs = []; show(); });
-      function show() {
-        const optsHtml =
-          '<option value="">根目录（src/content/posts）</option>' +
-          dirs.map((d) => '<option value="' + esc(d) + '">📁 ' + esc(d) + "</option>").join("");
-        const overlay = document.createElement("div");
-        overlay.className = "modal-overlay";
-        overlay.innerHTML =
-          '<div class="modal-card" role="dialog" aria-modal="true">' +
-            '<div class="modal-title">上传到哪个分类？</div>' +
-            '<div class="modal-body"><select class="modal-select" id="gDirSel">' + optsHtml + '</select></div>' +
-            '<div class="modal-hint">选择目标文件夹后，文件将上传到该目录。</div>' +
-            '<div class="modal-actions">' +
-              '<button class="btn ghost modal-cancel" type="button">取消</button>' +
-              '<button class="btn primary modal-ok" type="button">确定</button>' +
-            '</div>' +
-          '</div>';
-        document.body.appendChild(overlay);
-        const sel = overlay.querySelector("#gDirSel");
-        const okBtn = overlay.querySelector(".modal-ok");
-        const cancelBtn = overlay.querySelector(".modal-cancel");
-        function close(val) { overlay.remove(); resolve(val); }
-        okBtn.addEventListener("click", () => close("src/content/posts" + (sel.value ? "/" + sel.value : "")));
-        cancelBtn.addEventListener("click", () => close(null));
-        overlay.addEventListener("click", (e) => { if (e.target === overlay) close(null); });
-        sel.focus();
-      }
-    });
+  // 内容板块对应的中文名（用于上传面板标题）
+  const UPLOAD_SECTION_NAMES = { posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材" };
+
+  // 进入/切换内容板块时刷新文件夹下拉，并同步标题与目标路径提示
+  async function refreshUploadDirOptions() {
+    const sel = $("uploadDirSel");
+    const titleEl = $("uploadTitle");
+    const hintEl = $("uploadTarget");
+    const t = state.type;
+    if (titleEl) titleEl.textContent = (UPLOAD_SECTION_NAMES[t] || "资源") + " · 资源上传";
+    if (!sel) return;
+    const isContent = ["posts", "dynamic", "spec", "gallery"].includes(t);
+    if (!isContent) {
+      sel.innerHTML = '<option value="">根目录（当前板块）</option>';
+      if (hintEl) hintEl.textContent = "当前板块根目录";
+      return;
+    }
+    sel.innerHTML = '<option value="">根目录（当前板块）</option>';
+    sel.value = "";
+    if (hintEl) hintEl.textContent = uploadTargetDir();
+    try {
+      const { data } = await api("/api/list?type=" + t);
+      const dirs = ((data && data.items) || []).filter((f) => f.type === "dir").map((f) => f.name);
+      let html = '<option value="">根目录（当前板块）</option>';
+      html += dirs.map((d) => '<option value="' + esc(d) + '">📁 ' + esc(d) + "</option>").join("");
+      sel.innerHTML = html;
+      sel.value = "";
+      if (hintEl) hintEl.textContent = uploadTargetDir();
+    } catch (e) { /* 目录暂不存在或读取失败：保留根目录选项即可 */ }
+  }
+
+  async function handleFiles(files) {
+    if (!files || !files.length) return;
+    // 统一路径：读取面板所选文件夹，上传到当前板块（文章/动态/单页/图库）下对应目录
+    const dir = uploadTargetDir();
+    for (const f of files) await uploadFileToDir(f, dir);
+    if (state.type === "gallery") await loadGallery();
+    else await refreshCurrent();
+    await refreshUploadDirOptions();
   }
 
   function insertAsset(url, isImage) {
@@ -2652,12 +2650,14 @@
       backToEmpty();
       showListLoading();
       loadGallery();
+      refreshUploadDirOptions();
       return;
     }
     showView("content");
     backToEmpty();
     showListLoading();
     loadList();
+    refreshUploadDirOptions();
   }
 
   // ----------------------------------------------------------------------
@@ -2926,20 +2926,20 @@
       { key: "avatar", label: "作者头像", resource: true },
       { key: "siteConfig", label: "站点基础", file: "siteConfig.ts" },
       { key: "navBarConfig", label: "导航栏", file: "navBarConfig.ts", custom: "navbar" },
-      { key: "footerConfig", label: "页脚配置", file: "footerConfig.ts", merged: true },
+	  { key: "announcementConfig", label: "公告通知", file: "announcementConfig.ts" },
+      { key: "profileConfig", label: "用户资料", file: "profileConfig.ts" },
       { key: "backgroundWallpaper", label: "背景壁纸", file: "backgroundWallpaper.ts" },
       { key: "sidebarConfig", label: "侧边栏布局", file: "sidebarConfig.ts" },
-      { key: "announcementConfig", label: "公告通知", file: "announcementConfig.ts" },
-      { key: "profileConfig", label: "用户资料", file: "profileConfig.ts" },
+	  { key: "footerConfig", label: "页脚配置", file: "footerConfig.ts", merged: true },
     ]},
     { title: "功能配置", items: [
       { key: "fontConfig", label: "字体配置", file: "fontConfig.ts" },
       { key: "commentConfig", label: "评论系统", file: "commentConfig.ts" },
       { key: "coverImageConfig", label: "封面图", file: "coverImageConfig.ts" },
       { key: "musicConfig", label: "音乐播放器", file: "musicConfig.ts" },
+	  { key: "analyticsConfig", label: "统计分析", file: "analyticsConfig.ts" },
       { key: "plantumlConfig", label: "PlantUML 图表", file: "plantumlConfig.ts" },
       { key: "mermaidConfig", label: "Mermaid图表", file: "mermaidConfig.ts" },
-      { key: "analyticsConfig", label: "统计分析", file: "analyticsConfig.ts" },
     ]},
     { title: "页面配置", items: [
       { key: "friendsConfig", label: "友情链接", file: "friendsConfig.ts" },
@@ -2948,12 +2948,12 @@
       { key: "booknavConfig", label: "书签导航", file: "booknavConfig.ts" },
     ]},
     { title: "扩展功能", items: [
-      { key: "effectsConfig", label: "动画特效", file: "effectsConfig.ts" },
-      { key: "licenseConfig", label: "许可证", file: "licenseConfig.ts" },
-      { key: "pioConfig", label: "看板娘", file: "pioConfig.ts" },
-      { key: "dynamicConfig", label: "动态页面", file: "dynamicConfig.ts" },
-      { key: "expressiveCodeConfig", label: "代码高亮", file: "expressiveCodeConfig.ts" },
       { key: "displaySettingsConfig", label: "显示设置面板", file: "displaySettingsConfig.ts" },
+	  { key: "dynamicConfig", label: "动态页面", file: "dynamicConfig.ts" },
+      { key: "expressiveCodeConfig", label: "代码高亮", file: "expressiveCodeConfig.ts" },
+	  { key: "effectsConfig", label: "动画特效", file: "effectsConfig.ts" },
+      { key: "pioConfig", label: "看板娘", file: "pioConfig.ts" },
+	  { key: "licenseConfig", label: "许可证", file: "licenseConfig.ts" },
     ]},
   ];
 
@@ -3787,7 +3787,13 @@
     on("topRefreshBtn", "onclick", refreshCurrent);
     on("newBtn", "onclick", newFile);
     on("newCatBtn", "onclick", newCategory);
-    on("quickUploadBtn", "onclick", () => { const fi = $("fileInput"); if (fi) fi.click(); });
+    on("quickUploadBtn", "onclick", () => {
+      // 先展开底部「资源上传」面板，确保用户能看到并选择目标文件夹
+      const up = $("uploadPanel");
+      if (up) up.classList.remove("collapsed");
+      const fi = $("fileInput");
+      if (fi) fi.click();
+    });
     // 新建文件时切换后缀：md/mdx 同属 Markdown 模式，仅更新文件名预览，不重建编辑器（避免草稿丢失）；
     // 配置类 html↔ts 模式不同，才完整重建编辑器
     on("extSelect", "onchange", () => {
@@ -3864,6 +3870,12 @@
       // 点击「资源上传」标题：展开/折叠上传面板（修复此前点击无反应）
       const upHead = up.querySelector(".panel-head");
       if (upHead) upHead.addEventListener("click", () => up.classList.toggle("collapsed"));
+      // 选择目标文件夹时，实时更新「自动上传到 …」提示
+      const uds = up.querySelector("#uploadDirSel");
+      if (uds) uds.addEventListener("change", () => {
+        const t = $("uploadTarget");
+        if (t) t.textContent = uploadTargetDir();
+      });
     }
 
     // 站点外观：更换按钮 -> 触发对应 file input
