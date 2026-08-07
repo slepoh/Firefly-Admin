@@ -51,6 +51,7 @@ body {
   background: linear-gradient(135deg, var(--primary), #ff9a4d);
   border-radius: 9px; font-size: 17px; box-shadow: 0 2px 8px rgba(249,115,22,.32);
 }
+.brand .logo svg { width: 22px; height: 22px; display: block; }
 .brand .title { font-size: 15px; letter-spacing: .3px; }
 .brand .sub { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 1px; }
 .top-divider { width: 1px; height: 24px; background: var(--border); }
@@ -940,6 +941,7 @@ textarea { resize: vertical; }
   width: 56px; height: 56px; font-size: 30px; border-radius: 16px;
   background: #fff1e6; margin-bottom: 12px;
 }
+.login-logo svg { width: 40px; height: 40px; display: block; }
 .login-brand h1 { margin: 0; font-size: 20px; font-weight: 700; color: var(--text); }
 .login-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
 
