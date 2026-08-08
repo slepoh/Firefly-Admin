@@ -38,13 +38,13 @@
   // span 控制跨列：1（默认，不写）=1/4 宽；2=半行；3=3/4；full=整行。
   // PC 端 .pf-fields 为 4 列网格，短字段自然一行多列，移动端自动回落单列。
   const POST_GROUPS = [
-    { title: "基础信息", icon: "📌", fields: [
+    { title: "基础信息", icon: "📌", cols: 5, fields: [
       { key: "title", label: "标题", type: "text", required: true, full: true },
       { key: "published", label: "发布日期", type: "datetime", required: true },
       { key: "updated", label: "更新日期", type: "datetime" },
+      { key: "lang", label: "语言 Lang", type: "text" },
       { key: "slug", label: "自定义路径 Slug", type: "text" },
       { key: "author", label: "作者 Author", type: "text" },
-      { key: "lang", label: "语言 Lang", type: "text" },
     ]},
     { title: "摘要与封面", icon: "🖼️", fields: [
       { key: "description", label: "描述 Description", type: "textarea", full: true },
@@ -63,10 +63,10 @@
       { key: "pinned", label: "置顶 Pinned", type: "checkbox" },
       { key: "comment", label: "允许评论 Comment", type: "checkbox" },
     ]},
-    { title: "高级", icon: "🧩", fields: [
-      { key: "licenseName", label: "许可证名称", type: "text", span: 2 },
-      { key: "licenseUrl", label: "许可证链接", type: "text", span: 2 },
-      { key: "sourceLink", label: "来源链接", type: "text", span: 2 },
+    { title: "高级", icon: "🧩", cols: 3, fields: [
+      { key: "licenseName", label: "许可证名称", type: "text" },
+      { key: "licenseUrl", label: "许可证链接", type: "text" },
+      { key: "sourceLink", label: "来源链接", type: "text" },
     ]},
   ];
   // 扁平化便于遍历（保持分组顺序）
@@ -608,7 +608,7 @@
   function renderList() {
     const box = $("fileList");
     box.innerHTML = "";
-    box.classList.toggle("has-dates", state.type === "posts");
+    box.classList.toggle("has-dates", state.type === "posts" || state.type === "dynamic" || state.type === "spec");
     const kw = ($("searchInput").value || "").toLowerCase();
     const modifiable = canModify();
     state.selectableCount = 0;
@@ -641,12 +641,12 @@
       head.className = "file-list-head";
       const isArticle = (state.type === "posts" || state.type === "dynamic" || state.type === "spec");
       const flhName = state.type === "dynamic" ? "动态内容" : (isArticle ? "文章标题" : "文件名称");
+      // 统一 5 列表头（水平显示）：文章标题/动态内容、发布日期、时间、文件名、操作
       let headHtml = '<span class="flh-name">' + flhName + '</span>';
+      headHtml += '<span class="flh-pubdate">发布日期</span>';
+      headHtml += '<span class="flh-time">时间</span>';
       headHtml += '<span class="flh-fname">文件名</span>';
-      if (state.type === "posts") {
-        headHtml += '<span class="flh-created">创建日期</span><span class="flh-updated">修改时间</span>';
-      }
-      headHtml += '<span class="flh-size">大小</span><span class="flh-actions">操作</span>';
+      headHtml += '<span class="flh-actions">操作</span>';
       head.innerHTML = headHtml;
       box.appendChild(head);
     }
@@ -717,10 +717,10 @@
           check +
           `<div class="fi-main${_isDyn ? " fi-main--dyn" : ""}">${mainInner}</div>` +
           fnameCell +
-          (state.type === "posts" && !isDir
-            ? `<span class="fi-created">${fmtDate(f.created)}</span><span class="fi-updated">${fmtDateTime(f.updated)}</span>`
-            : "") +
-          (isDir ? "" : `<span class="fi-size">${fmtSize(f.size)}</span>`) +
+          // 统一显示「发布日期」(YYYY-MM-DD) 与「时间」(HH:mm)，数据来自 GitHub Commits API（动态 / 单页同样可用）
+          (isDir
+            ? `<span class="fi-pubdate"></span><span class="fi-time"></span>`
+            : `<span class="fi-pubdate">${fmtDate(f.created)}</span><span class="fi-time">${fmtTime(f.updated)}</span>`) +
           `<div class="fi-actions">${actions}</div>`;
         div.title = f.name; // 悬停显示完整文件名（含后缀）
 
@@ -1073,6 +1073,13 @@
     const p = (n) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   }
+  function fmtTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
   function esc(s) {
     return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   }
@@ -1301,7 +1308,7 @@
       group.appendChild(head);
 
       const fieldsWrap = document.createElement("div");
-      fieldsWrap.className = "pf-fields";
+      fieldsWrap.className = "pf-fields" + (g.cols ? " cols-" + g.cols : "");
       group.appendChild(fieldsWrap);
 
       // 加密保护组：顶部的「启用访问密码」开关
