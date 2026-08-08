@@ -524,6 +524,7 @@
     state.owner = s.owner || "";
     state.repo = s.repo || "";
     state.branch = s.branch || "master";
+    window.__repoInfo = { owner: state.owner, repo: state.repo, branch: state.branch };
     $("repoInfo").textContent = `${s.owner}/${s.repo}@${s.branch}`;
     bindEvents();
     await selectSection("overview");
@@ -1576,6 +1577,21 @@
       if (node.type === "array" && OBJ_ARRAY_SCHEMAS[path]) {
         return renderObjectArray(node, keyLabel, depth, path, cfgName);
       }
+      // 嵌套扁平化：仅作用于字体配置（fontsList 的 options → variants → [0] → src 这类
+      // 「单一子节点容器链」），跳过无意义的中间标题，直接下钻渲染最内层可编辑值，
+      // 并把层级名拼到显示标签（如 options.variants[0].src）。保留真实源码 path 以保证保存偏移正确。
+      // 限定 fontConfig 作用域，避免影响已稳定的其他配置布局。不扁平化对象数组 schema 与组件数组。
+      const onlyChild = (node.children && node.children.length === 1) ? node.children[0] : null;
+      const childIsContainer = onlyChild && (onlyChild.value.type === "object" || onlyChild.value.type === "array");
+      const isCompArrRoot = node.type === "array" && /sidebarLayoutConfig\.(leftComponents|rightComponents|mobileBottomComponents)$/.test(path);
+      if (cfgName === "fontConfig" && childIsContainer && !isCompArrRoot && !opts.comp) {
+        const childKey = node.type === "array"
+          ? (onlyChild.value.comment || (keyLabel + "[" + node.children.indexOf(onlyChild) + "]"))
+          : onlyChild.key;
+        const flatLabel = keyLabel ? (keyLabel + "." + childKey) : childKey;
+        const childPath = path ? path + "." + childKey : childKey;
+        return cfgNodeEl(onlyChild.value, flatLabel, depth, childPath, cfgName, opts);
+      }
       // 侧边栏组件数组（leftComponents / rightComponents / mobileBottomComponents）：
       // 元素为「组件对象」，渲染为卡片（组件类型标题 + 启用状态）。沿用通用递归（偏移编辑），
       // 保证 specificConfig 等嵌套结构在保存时不被丢弃。
@@ -1632,7 +1648,12 @@
           : ch.key;
         const childPath = path ? path + "." + childKey : childKey;
         const childRow = cfgNodeEl(ch.value, childKey, depth + 1, childPath, cfgName, { comp: isCompArr });
-        if (childKey === "specificConfig") childRow.classList.add("collapsed");
+        // specificConfig：仅有内容（非空对象）时默认展开，确保广告组件等专属配置「看得见、可编辑」；
+        // 空对象 {} 才折叠（避免空块占位）。原逻辑对所有 specificConfig 强制折叠，导致广告内容不可见。
+        if (childKey === "specificConfig") {
+          const isEmpty = ch.value.type === "object" && (!ch.value.children || ch.value.children.length === 0);
+          if (isEmpty) childRow.classList.add("collapsed");
+        }
         if (bigArr && childRow.classList.contains("cfg-sub-block")) childRow.classList.add("collapsed");
         if (addable) {
           const inp = childRow.querySelector(".cfg-input, .cfg-check");
@@ -2501,6 +2522,7 @@
     $("configView").hidden = name !== "config";
     $("infoView").hidden = name !== "info";
     $("overviewView").hidden = name !== "overview";
+    $("backupView").hidden = name !== "backup";
   }
 
   function backToEmpty() {
@@ -2986,7 +3008,7 @@
         } catch (e) { /* 忽略 */ }
       }
     }
-    const titles = { overview: "数据概览", posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能", readme: "操作说明", about: "关于" };
+    const titles = { overview: "数据概览", posts: "文章内容", dynamic: "我的动态", spec: "页面信息", gallery: "图库素材", config: "基础配置", cfgfunc: "功能配置", cfgpage: "页面配置", cfgext: "扩展功能", readme: "操作说明", about: "关于", backup: "数据备份" };
     $("ctTitle").textContent = titles[type] || type;
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
     const isConfig = state.type === "config";
@@ -3025,6 +3047,12 @@
       $("infoAbout").hidden = isReadme;
       showView("info");
       if (isReadme) loadInfoReadme();
+      return;
+    }
+    // 数据安全：数据备份与恢复
+    if (type === "backup") {
+      showView("backup");
+      loadBackupView();
       return;
     }
     if (type === "gallery") {
@@ -4056,6 +4084,50 @@
       }
       return;
     }
+    // 导航栏保存（必须早于 rawFallback 判断）：导航栏用 navModel 序列化，st.roots 恒为 undefined，
+    // 若落在 rawFallback 分支会直接写回旧 st.raw、显示「已保存（源码模式）」且丢失编辑。
+    // 因此单独处理，并自带 SHA 冲突（409）重放：冲突时拉取最新文件、用内存模型重序列化后重试，
+    // 既保住用户未保存的修改，又避免「is at X but expected Y」式保存失败。
+    if (name === "navBarConfig") {
+      const buildNav = () => {
+        if (st.rawFallback) {
+          const ta = host.querySelector("textarea.cfg-raw");
+          return ta ? ta.value : st.raw;
+        }
+        return serializeNavBarCustom(st.navModel || [], st.raw);
+      };
+      try {
+        if (!silent) okPopup("⏳ 上传至 GitHub 中，请等待…", true);
+        let content = buildNav();
+        let r = await putConfigFile("src/config/navBarConfig.ts", content, st.sha);
+        if (r.status === 409 || (r.data && r.data.githubStatus === 409)) {
+          const g = await api("/api/file?path=" + encodeURIComponent("src/config/navBarConfig.ts"));
+          if (g.status === 200 && g.data.content != null) {
+            st.raw = g.data.content;
+            st.sha = g.data.sha;
+            if (!st.rawFallback) {
+              try { st.navModel = parseNavBarCustom(st.raw) || []; } catch (e) { st.navModel = st.navModel || []; }
+            }
+            content = buildNav();
+            r = await putConfigFile("src/config/navBarConfig.ts", content, st.sha);
+          }
+        }
+        if (r.status === 200 || r.status === 201) {
+          st.raw = content;
+          st.sha = (r.data && r.data.sha) || st.sha;
+          st.dirty = false;
+          if (statusEl) statusEl.textContent = "";
+          if (!silent) okPopup("✅ 已保存，GitHub 自动部署中");
+        } else {
+          if (statusEl) { statusEl.textContent = "保存失败：" + ((r.data && (r.data.error || r.data.message)) || r.status); statusEl.className = "ap-pane-status err"; }
+          if (!silent) okPopup("❌ 保存失败", false);
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "保存失败：" + (e.message || "");
+        if (!silent) okPopup("❌ 保存失败", false);
+      }
+      return;
+    }
     // 源码回退保存：结构化解析失败时，直接保存 textarea 中的原始内容
     if (!st.roots || !st.roots.length) {
       const ta = host.querySelector("textarea.cfg-raw");
@@ -4092,15 +4164,6 @@
       } else if (st.ext === ".html") {
         htmlContent = footerEditor ? footerEditor.getHTML() : ((host.querySelector("textarea") || {}).value || st.raw);
         htmlPath = "src/config/" + name + ".html";
-      } else if (name === "navBarConfig") {
-        if (st.rawFallback) {
-          const ta = host.querySelector("textarea.cfg-raw");
-          tsContent = ta ? ta.value : st.raw;
-        } else {
-          tsContent = serializeNavBarCustom(st.navModel || [], st.raw);
-        }
-        st.raw = tsContent;
-        tsPath = "src/config/navBarConfig.ts";
       } else if (name === "booknavConfig") {
         const rootN = st.roots.find((r) => r.name === "booknavConfig");
         if (!rootN) throw new Error("未找到 booknavConfig");
@@ -4171,6 +4234,147 @@
       if (statusEl) { statusEl.textContent = e.message || "保存失败"; statusEl.className = "ap-pane-status err"; }
       if (!silent) okPopup("❌ " + (e.message || "保存失败"), false);
     }
+  }
+
+  // ===== 数据备份与恢复 =====
+  // 打包博客仓库 src/config/ 下全部配置文件为 JSON（含 path/sha/content），可下载留存；
+  // 也可将备份 JSON 逐文件写回 GitHub 实现恢复（保留原 sha 以便冲突检测）。
+  const backupState = { data: null, restoreFile: null };
+
+  async function loadBackupView() {
+    const list = $("bkList");
+    const status = $("bkStatus");
+    if (status) status.textContent = "";
+    if (list) list.innerHTML = '<div class="bk-empty">点击「生成备份」打包当前线上配置；生成后可下载 JSON，或选择备份文件恢复到 GitHub。</div>';
+    bindBackupEvents();
+  }
+
+  let _bkEventsBound = false;
+  function bindBackupEvents() {
+    if (_bkEventsBound) return;
+    _bkEventsBound = true;
+    on("bkCreateBtn", "onclick", () => createBackup());
+    on("bkDownloadBtn", "onclick", () => downloadBackup());
+    on("bkRestoreInput", "onchange", (e) => onRestoreFileChosen(e));
+    on("bkRestoreBtn", "onclick", () => restoreBackup());
+  }
+
+  function bkSet(msg, kind) {
+    const el = $("bkStatus");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "backup-status" + (kind ? " " + kind : "");
+  }
+
+  async function createBackup() {
+    const withContent = $("bkWithContent") && $("bkWithContent").checked;
+    bkSet("正在读取配置列表…", "");
+    try {
+      // 1) 配置目录（src/config）
+      const { status, data } = await api("/api/list?type=config");
+      if (status !== 200 || !data.items) throw new Error((data && data.error) || "读取配置列表失败");
+      let files = (data.items || []).filter((f) => f.type === "file" && (f.name.endsWith(".ts") || f.name.endsWith(".html")));
+      // 2) 可选：内容目录（posts / dynamic / spec 根层文件，浅层不递归子目录）
+      if (withContent) {
+        for (const t of ["posts", "dynamic", "spec"]) {
+          try {
+            const r = await api("/api/list?type=" + t);
+            if (r.status === 200 && r.data.items) {
+              (r.data.items || []).filter((f) => f.type === "file").forEach((f) => files.push(f));
+            }
+          } catch (e) { /* 单目录失败不阻塞整体 */ }
+        }
+      }
+      bkSet("已发现 " + files.length + " 个文件，开始读取内容…", "");
+      // 3) 逐文件读取内容（串行，避免触发 GitHub 限流；配置量不大）
+      const entries = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        try {
+          const r = await api("/api/file?path=" + encodeURIComponent(f.path));
+          if (r.status === 200 && r.data.content != null) {
+            entries.push({ path: f.path, sha: f.sha, size: f.size, content: r.data.content });
+          }
+        } catch (e) { /* 单文件失败跳过 */ }
+        if ((i + 1) % 5 === 0) bkSet("已读取 " + (i + 1) + " / " + files.length + " 个文件…", "");
+      }
+      const payload = {
+        tool: "Firefly-Admin Backup",
+        version: 1,
+        repo: (window.__repoInfo && window.__repoInfo.repo) || "",
+        owner: (window.__repoInfo && window.__repoInfo.owner) || "",
+        branch: (window.__repoInfo && window.__repoInfo.branch) || "",
+        createdAt: new Date().toISOString(),
+        count: entries.length,
+        files: entries,
+      };
+      backupState.data = payload;
+      // 渲染清单
+      const list = $("bkList");
+      if (list) {
+        list.innerHTML = entries.map((e) => '<div class="bk-item"><span class="bk-path">' + esc(e.path) + '</span><span class="bk-meta">' + (e.size || 0) + ' B</span></div>').join("");
+      }
+      const dl = $("bkDownloadBtn");
+      if (dl) dl.disabled = false;
+      bkSet("✅ 备份生成完成：共 " + entries.length + " 个文件。可下载 JSON 留存，或选择备份文件恢复。", "ok");
+    } catch (e) {
+      bkSet("❌ 生成备份失败：" + (e.message || ""), "err");
+    }
+  }
+
+  function downloadBackup() {
+    if (!backupState.data) { bkSet("请先生成备份", "warn"); return; }
+    const blob = new Blob([JSON.stringify(backupState.data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    a.href = url;
+    a.download = "firefly-config-backup-" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    bkSet("⬇️ 备份已下载：" + a.download, "ok");
+  }
+
+  function onRestoreFileChosen(e) {
+    const file = e.target && e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const obj = JSON.parse(reader.result);
+        if (!obj.files || !Array.isArray(obj.files)) throw new Error("备份文件格式不正确（缺少 files 数组）");
+        backupState.restoreFile = obj;
+        const rb = $("bkRestoreBtn");
+        if (rb) rb.disabled = false;
+        bkSet("✅ 已选择备份：" + file.name + "（含 " + obj.files.length + " 个文件）。点击「执行恢复」将写回 GitHub。", "ok");
+      } catch (err) {
+        backupState.restoreFile = null;
+        const rb = $("bkRestoreBtn");
+        if (rb) rb.disabled = true;
+        bkSet("❌ 备份文件解析失败：" + (err.message || ""), "err");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function restoreBackup() {
+    const obj = backupState.restoreFile;
+    if (!obj || !obj.files || !obj.files.length) { bkSet("请先选择有效的备份文件", "warn"); return; }
+    if (!confirm("确定要将备份中的 " + obj.files.length + " 个文件恢复（写回 GitHub）吗？\n此操作会覆盖现有线上文件，建议先下载当前备份留存。")) return;
+    bkSet("开始恢复，已处理 0 / " + obj.files.length + " 个文件…", "");
+    let okCount = 0, failCount = 0;
+    for (let i = 0; i < obj.files.length; i++) {
+      const f = obj.files[i];
+      try {
+        const r = await putConfigFile(f.path, f.content, f.sha);
+        if (r.status === 200 || r.status === 201) okCount++;
+        else { failCount++; bkSet("⚠️ 文件恢复失败：" + esc(f.path) + " — " + ((r.data && (r.data.error || r.data.message)) || r.status), "warn"); }
+      } catch (e) { failCount++; }
+      if ((i + 1) % 3 === 0) bkSet("恢复中，已处理 " + (i + 1) + " / " + obj.files.length + " 个文件（成功 " + okCount + "，失败 " + failCount + "）…", "");
+    }
+    bkSet("♻️ 恢复完成：成功 " + okCount + " 个，失败 " + failCount + " 个。GitHub 将自动重新部署。", failCount ? "warn" : "ok");
   }
 
   // 极简 Markdown 渲染（用于配置区操作说明）

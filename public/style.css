@@ -967,26 +967,28 @@ textarea { resize: vertical; }
 .ap-tab.active { color: var(--primary-d); background: #fff4ea; }
 .ap-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .ap-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; overscroll-behavior: contain; }
-.ap-config-pane { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.ap-config-pane { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; }
 .ap-pane-head { display: flex; align-items: center; gap: 10px; flex: none; }
 .ap-pane-title { font-size: 14px; font-weight: 700; color: #2b3038; }
 .ap-pane-head .ap-save { display: none; }
 /* 保存条：PC 与移动端一致，悬浮固定在配置面板底部，始终可达。
+   面板整体 (.ap-config-pane) 为滚动容器，保存条作为末子元素 sticky 吸底——
+   配置内容滚动时保存条始终悬浮可见（此前 .ap-cfg-host 单独滚动导致 PC 端 sticky 失效）。
    与表头保存按钮共用同一 data-save，点击委托到 #cfgPanes 的同一处理函数。 */
 .ap-save-bar {
-  display: flex; position: sticky; bottom: 0; z-index: 7;
-  margin-top: 10px;
+  display: flex; position: sticky; bottom: 0; z-index: 7; flex: none;
+  margin-top: auto;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   background: linear-gradient(to top, var(--panel) 78%, rgba(255,255,255,0));
   border-top: 1px solid var(--border);
   box-shadow: 0 -4px 16px rgba(20,25,35,.08);
 }
-.ap-pane-status { margin-top: 6px; padding: 7px 8px 1px; background: var(--card); border-top: 1px dashed var(--border); font-size: 12.5px; min-height: 16px; color: var(--muted); }
+.ap-pane-status { flex: none; margin-top: 6px; padding: 7px 8px 1px; background: var(--card); border-top: 1px dashed var(--border); font-size: 12.5px; min-height: 16px; color: var(--muted); }
 .ap-pane-status:empty { display: none; }
 .ap-pane-status.warn { color: #b7791f; font-weight: 600; }
 .ap-pane-status.ok { color: var(--ok); }
 .ap-pane-status.err { color: var(--danger); }
-.ap-cfg-host { flex: 1; min-height: 0; overflow-y: auto; }
+.ap-cfg-host { flex: 1 1 auto; min-height: 0; overflow: visible; }
 
 /* ===================== booknav 列表化编辑 ===================== */
 .bn-group { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
@@ -1543,4 +1545,28 @@ textarea { resize: vertical; }
   .ov-author-qr { width: 80px; }
   .ov-author-qr img { width: 80px; height: 80px; }
 }
+
+/* ===================== 数据备份视图 ===================== */
+.backup-view { padding: 18px; max-width: 920px; margin: 0 auto; }
+.backup-head { margin-bottom: 14px; }
+.backup-h { font-size: 18px; font-weight: 800; color: var(--primary-d); margin: 0 0 6px; }
+.backup-sub { font-size: 13px; color: var(--muted); line-height: 1.7; margin: 0; }
+.backup-sub code { background: var(--code-bg, #f3f4f6); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.backup-actions .btn { padding: 9px 16px; font-size: 14px; }
+.backup-actions label.btn { display: inline-flex; align-items: center; cursor: pointer; }
+.backup-status { min-height: 18px; font-size: 13px; margin: 6px 0 10px; line-height: 1.6; }
+.backup-status.ok { color: var(--ok); }
+.backup-status.err { color: var(--danger); }
+.backup-status.warn { color: #b7791f; font-weight: 600; }
+.backup-list { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
+.backup-list .bk-empty { padding: 14px 16px; color: var(--muted); font-size: 13px; }
+.backup-list .bk-item { display: flex; justify-content: space-between; gap: 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.backup-list .bk-item:last-child { border-bottom: none; }
+.backup-list .bk-path { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #2b3038; word-break: break-all; }
+.backup-list .bk-meta { color: var(--muted); flex: none; }
+.backup-note { font-size: 12px; color: var(--muted); line-height: 1.7; background: #f7f8fa; border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px; }
+.backup-note b { color: #2b3038; }
+.backup-opts { margin-top: 12px; }
+.backup-opts .bk-opt { font-size: 13px; color: #2b3038; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 

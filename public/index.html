@@ -80,6 +80,16 @@
             <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
           </div>
         </div>
+        <!-- 板块四：数据安全（配置备份 / 恢复） -->
+        <div class="nav-group collapsible collapsed" data-group="backup">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">数据安全</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="backup"><span class="ni-ico">💾</span><span class="ni-tx">数据备份</span></button>
+          </div>
+        </div>
       </nav>
       <!-- 退出：移动端独立分区（与功能菜单 / 信息板块分开，靠底部显示） -->
       <div class="nav-group nav-group-logout" id="navLogout">
@@ -324,6 +334,31 @@
               </div>
             </div>
           </section>
+        </div>
+      </div>
+
+      <!-- 数据备份视图 -->
+      <div class="backup-view" id="backupView" hidden>
+        <div class="backup-head">
+          <h3 class="backup-h">💾 数据备份与恢复</h3>
+          <p class="backup-sub">一键打包博客仓库 <code>src/config/</code> 下全部配置文件（及可选内容文件）为 JSON，可下载留存；也可将备份写回 GitHub 实现恢复。备份文件为纯 JSON，含每文件的 path / sha / content，便于人工核对与版本回溯。</p>
+        </div>
+        <div class="backup-actions">
+          <button class="btn primary" type="button" id="bkCreateBtn">📦 生成备份</button>
+          <button class="btn ghost" type="button" id="bkDownloadBtn" disabled>⬇️ 下载备份 JSON</button>
+          <label class="btn ghost" id="bkRestoreLabel" title="选择此前下载的备份 JSON 以恢复到 GitHub">
+            📤 选择备份恢复
+            <input type="file" id="bkRestoreInput" accept="application/json,.json" hidden />
+          </label>
+          <button class="btn ghost" type="button" id="bkRestoreBtn" disabled>♻️ 执行恢复</button>
+        </div>
+        <div class="backup-status" id="bkStatus"></div>
+        <div class="backup-list" id="bkList"></div>
+        <div class="backup-note">
+          <strong>说明：</strong>「生成备份」仅读取并打包，<b>不会改动任何线上文件</b>；「执行恢复」将逐文件用备份中的 content 提交到 GitHub（保留原 sha 以便冲突检测），覆盖现有配置——请先下载备份确认内容无误。内容文件（文章 / 动态 / 页面 / 图库）体积较大，默认不纳入备份，如需连同内容一起备份可在「选项」中勾选。
+        </div>
+        <div class="backup-opts" id="bkOpts">
+          <label class="bk-opt"><input type="checkbox" id="bkWithContent" /> 同时备份内容文件（src/content 等，文件较多时较慢）</label>
         </div>
       </div>
 
