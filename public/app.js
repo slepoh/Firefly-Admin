@@ -105,6 +105,9 @@
     "friends.mdx": "友情链接",
     "guestbook.md": "留言页",
   };
+  // 内置页面（关于我 / 友情链接 / 留言板）：默认无删除与批量删除按钮，不允许删除
+  const BUILTIN_PAGE_NAMES = new Set(["about.md", "friends.mdx", "guestbook.md"]);
+  const isBuiltinPage = (f) => !!(f && BUILTIN_PAGE_NAMES.has(f.name));
   // 站点外观 Tab 显示名（比配置列表名更短，去掉「配置」后缀）
   const AP_NAME_MAP = {
     "booknavConfig": "书签导航",
@@ -681,16 +684,17 @@
           if (!isArticleMd(f)) nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
         }
 
-        // 左侧可勾选（仅可修改板块的内容，配置类不可批量操作）
-        const check = modifiable
+        // 左侧可勾选（仅可修改且非内置页面，内置页面 about/friends/guestbook 不允许删除，故也不参与批量删除）
+        const rowModifiable = modifiable && !isBuiltinPage(f);
+        const check = rowModifiable
           ? `<input type="checkbox" class="fi-check" data-path="${esc(f.path)}"${state.selected.has(f.path) ? " checked" : ""} />`
           : "";
-        if (modifiable) state.selectableCount++;
+        if (rowModifiable) state.selectableCount++;
 
-        // 行内操作按钮：编辑常驻；重命名 / 删除仅可修改板块
+        // 行内操作按钮：编辑常驻；重命名 / 删除仅可修改且非内置页面
         // 文字包入 .fi-act-label，移动端隐藏文字仅留图标，避免遮挡文件名
         let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️<span class="fi-act-label">编辑</span></button>`;
-        if (modifiable) {
+        if (rowModifiable) {
           // 仅「文章内容」保留「重命名」（实际改 frontmatter title，文件名不变）；动态与单页不提供该按钮
           if (!isDir && state.type === "posts") {
             actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">🏷️<span class="fi-act-label">重命名</span></button>`;
@@ -1219,7 +1223,8 @@
     // 仅在用户主动点击「上传」按钮（quickUploadBtn）时才展开，避免一直占用编辑区空间
     $("emptyState").hidden = true;
     $("editForm").hidden = false;
-    $("deleteBtn").hidden = state.current.isNew;
+    // 新建文件或内置页面（about/friends/guestbook）不显示删除按钮
+    $("deleteBtn").hidden = state.current.isNew || isBuiltinPage(state.current);
     // 文件名输入框只填基础名（后缀由右侧 extSelect 下拉承载，避免重复显示）
     const baseDot = (name || "").lastIndexOf(".");
     $("fileName").value = baseDot > 0 ? name.slice(0, baseDot) : name;
@@ -2779,6 +2784,7 @@
 
   async function deleteFile() {
     if (!state.current || state.current.isNew) { backToEmpty(); return; }
+    if (isBuiltinPage(state.current)) { toast("内置页面「" + state.current.name + "」不可删除", "err"); return; }
     const ok = await openModal({
       title: "删除确认",
       html: "<div class=\"modal-msg\">确定删除 <b>" + esc(state.current.name) + "</b> ？<br>此操作会提交到 GitHub，不可撤销。</div>",
@@ -3104,6 +3110,7 @@
   }
 
   async function removeItem(item) {
+    if (isBuiltinPage(item)) { toast("内置页面「" + item.name + "」不可删除", "err"); return; }
     const tip = item.type === "dir" ? "（包含其下所有内容）" : "";
     const ok = await openModal({
       title: "删除确认",
@@ -3122,16 +3129,23 @@
   // 批量删除：删除已勾选的内容（重命名/删除仅对文章/动态/单页有效，配置不在可选范围内）
   async function batchDelete() {
     const paths = [...state.selected];
-    if (!paths.length) { toast("请先勾选要删除的内容", "err"); return; }
+    // 过滤掉内置页面（about/friends/guestbook），即便意外被勾选也不允许删除
+    const filtered = paths.filter((p) => {
+      const it = state.files.find((f) => f.path === p);
+      return it && !isBuiltinPage(it);
+    });
+    const skipped = paths.length - filtered.length;
+    if (!filtered.length) { toast(skipped ? "已自动忽略内置页面，无可删除内容" : "请先勾选要删除的内容", "err"); return; }
+    if (skipped) toast("已自动忽略 " + skipped + " 个内置页面（不可删除）", "warn");
     const ok = await openModal({
       title: "批量删除确认",
-      html: "<div class=\"modal-msg\">确定删除选中的 <b>" + paths.length + "</b> 项内容？<br>此操作会提交到 GitHub，不可撤销。</div>",
+      html: "<div class=\"modal-msg\">确定删除选中的 <b>" + filtered.length + "</b> 项内容？<br>此操作会提交到 GitHub，不可撤销。</div>",
       confirmText: "删除",
       danger: true,
     });
     if (!ok) return;
     let done = 0;
-    for (const p of paths) {
+    for (const p of filtered) {
       const item = state.files.find((f) => f.path === p);
       if (item && (await doRemove(item))) done++;
     }
