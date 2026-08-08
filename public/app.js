@@ -4324,6 +4324,10 @@
     const host = apHostFor(name, root);
     const statusEl = apStatusFor(name, root);
     if (!st || !host) return;
+    // A：手动保存开始即清除该面板的自动保存定时器并复位脏标记，
+    // 避免「点保存 → click 被 markCfgDirty 捕获重启 1.5s 定时器 → 自动保存再提交一次」造成两次构建。
+    try { clearTimeout(autosaveTimers[name]); } catch (e) {}
+    st.dirty = false;
     // 高级模式保存：直接保存源码编辑器中的内容（覆盖原文件）
     if (st.advanced) {
       const ta = host.querySelector("textarea.cfg-raw");
