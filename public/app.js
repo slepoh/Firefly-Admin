@@ -730,6 +730,7 @@
   }
 
   // 图库：集中展示 src/content/posts 下各子目录（如 123456、abcdefg 等图库分类）的资源
+  let _galGroups = []; // 图库分类（含图片），供分类筛选下拉客户端过滤，避免每次切换都重新拉取 GitHub
   async function loadGallery() {
     const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
     try {
@@ -749,7 +750,9 @@
           groups.push({ name: d.name, items: [], root: false, error: true });
         }
       }
+      _galGroups = groups;
       renderGallery(groups, IMG_RE);
+      refreshGalleryCatFilter();
     } catch (e) {
       toast(e.message || "加载图库失败", "err");
     }
@@ -869,6 +872,29 @@
       }
     });
     updateBatchCount();
+  }
+
+  // 图库分类筛选：下拉选了某分类只显示该分类图片（纯客户端过滤，不重新拉取 GitHub）
+  function refreshGalleryCatFilter() {
+    const sel = $("galleryCatSel");
+    if (!sel) return;
+    if (state.type !== "gallery") { sel.hidden = true; return; }
+    sel.hidden = false;
+    const cur = sel.value;
+    const names = _galGroups.map((g) => g.name);
+    const opts = ['<option value="">全部分类</option>'].concat(
+      names.map((n) => '<option value="' + esc(n) + '">' + esc(n) + "</option>")
+    );
+    sel.innerHTML = opts.join("");
+    if (cur && names.indexOf(cur) >= 0) sel.value = cur;
+    sel.onchange = applyGalleryCatFilter;
+  }
+  function applyGalleryCatFilter() {
+    const sel = $("galleryCatSel");
+    if (!sel) return;
+    const v = sel.value;
+    const groups = v ? _galGroups.filter((g) => g.name === v) : _galGroups;
+    renderGallery(groups, /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i);
   }
 
   function typePrefix() {
@@ -1408,6 +1434,11 @@
     const list = document.createElement("div");
     list.className = "cfg-objarr-list";
     node.children.forEach((ch, idx) => list.appendChild(renderObjectArrayItem(ch.value, idx, schema)));
+    if (node.children.length > 8) {
+      list.querySelectorAll(".cfg-obj-item").forEach((it, i) => {
+        if (i >= 8) { it.classList.add("collapsed"); const tg = it.querySelector(".cfg-obj-toggle"); if (tg) tg.textContent = "▸"; }
+      });
+    }
     block.appendChild(list);
     const foot = document.createElement("div");
     foot.className = "cfg-arr-foot";
@@ -1429,17 +1460,38 @@
   function renderObjectArrayItem(objNode, idx, schema) {
     const card = document.createElement("div");
     card.className = "cfg-obj-item";
+    const children = (objNode && objNode.children) || [];
+    // 有意义的标题：优先 name / type / title / cssVariable / label / id
+    const titlePriority = ["name", "type", "title", "cssVariable", "label", "id"];
+    let titleVal = "第 " + (idx + 1) + " 项";
+    for (const k of titlePriority) {
+      const c = children.find((x) => x.key === k);
+      if (c && c.value && c.value.value != null && String(c.value.value).trim() !== "") {
+        titleVal = String(c.value.value).replace(/^["']|["']$/g, "");
+        break;
+      }
+    }
     const head = document.createElement("div");
     head.className = "cfg-obj-item-head";
-    head.innerHTML = '<span class="cfg-obj-item-title">第 ' + (idx + 1) + " 项</span>";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "cfg-obj-toggle";
+    toggle.textContent = "▾";
+    toggle.title = "折叠/展开";
+    const title = document.createElement("span");
+    title.className = "cfg-obj-item-title";
+    title.textContent = titleVal;
     const del = document.createElement("button");
     del.type = "button";
     del.className = "fi-act danger cfg-objarr-del";
     del.title = "删除此项";
     del.textContent = "🗑";
+    head.appendChild(toggle);
+    head.appendChild(title);
     head.appendChild(del);
     card.appendChild(head);
-    const children = (objNode && objNode.children) || [];
+    const body = document.createElement("div");
+    body.className = "cfg-obj-item-body";
     schema.forEach((f) => {
       const child = children.find((c) => c.key === f.key);
       let raw = objFieldDefault(f.type);
@@ -1489,7 +1541,13 @@
       inp.dataset.fkey = f.key;
       inp.dataset.ftype = f.type;
       row.appendChild(inp);
-      card.appendChild(row);
+      body.appendChild(row);
+    });
+    card.appendChild(body);
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      card.classList.toggle("collapsed");
+      toggle.textContent = card.classList.contains("collapsed") ? "▸" : "▾";
     });
     return card;
   }
@@ -1518,29 +1576,44 @@
       if (node.type === "array" && OBJ_ARRAY_SCHEMAS[path]) {
         return renderObjectArray(node, keyLabel, depth, path, cfgName);
       }
-      // 一级栏目：大标题；嵌套：子标题。均不再套盒子，靠缩进体现层级
+      // 一级栏目：大标题；嵌套：子标题。靠缩进 + 折叠体现层级
       const block = document.createElement("div");
       block.className = depth === 0 ? "cfg-title-block" : "cfg-sub-block";
+      const collapsible = depth >= 1;
       const head = document.createElement("div");
       head.className = depth === 0 ? "cfg-title" : "cfg-subtitle";
       const gname = node.comment || keyLabel;
-      let inner = lockIcon() + '<span class="cfg-g-title">' + esc(gname) + "</span>";
+      let inner = "";
+      if (collapsible) inner += '<button type="button" class="cfg-collapse" title="折叠/展开">▾</button>';
+      inner += lockIcon() + '<span class="cfg-g-title">' + esc(gname) + "</span>";
       if (node.comment) inner += lockChip(keyLabel);
       if (node.type === "array") inner += '<span class="cfg-tag">数组</span>';
       head.innerHTML = inner;
-      block.appendChild(head);
+      if (collapsible) {
+        const tg = head.querySelector(".cfg-collapse");
+        tg.addEventListener("click", (e) => {
+          e.stopPropagation();
+          block.classList.toggle("collapsed");
+          tg.textContent = block.classList.contains("collapsed") ? "▸" : "▾";
+        });
+      }
+
+      const body = document.createElement("div");
+      body.className = "cfg-block-body";
 
       // 纯标量数组（如 keywords）：渲染为可增删的列表；仅当该数组在「允许增删」名单内才显示添加/删除按钮
       const allScalar = node.children.length === 0 || node.children.every((ch) =>
         ["string", "number", "boolean", "null"].indexOf(ch.value.type) >= 0);
       const addable = node.type === "array" && allScalar && SCALAR_ARRAY_ADDABLE.has(path);
 
+      const bigArr = node.type === "array" && node.children.length > 6;
       node.children.forEach((ch) => {
         const childKey = node.type === "array"
           ? (ch.value.comment || (keyLabel + "[" + node.children.indexOf(ch) + "]"))
           : ch.key;
         const childPath = path ? path + "." + childKey : childKey;
         const childRow = cfgNodeEl(ch.value, childKey, depth + 1, childPath, cfgName);
+        if (bigArr && childRow.classList.contains("cfg-sub-block")) childRow.classList.add("collapsed");
         if (addable) {
           const inp = childRow.querySelector(".cfg-input, .cfg-check");
           if (inp) inp.classList.add("cfg-arr-val");
@@ -1551,8 +1624,10 @@
           del.textContent = "🗑";
           childRow.appendChild(del);
         }
-        block.appendChild(childRow);
+        body.appendChild(childRow);
       });
+      block.appendChild(head);
+      block.appendChild(body);
 
       if (addable) {
         block.dataset.array = "1";
@@ -1845,6 +1920,7 @@
           '<button type="button" class="ip-close" title="关闭">✕</button></div>' +
         '<div class="ip-toolbar">' +
           '<select class="ip-collection" title="图标集合">' +
+            '<option value="">全部集合（混合）</option>' +
             ICON_SAFE_COLLECTIONS.map((c) => '<option value="' + c.prefix + '">' + c.name + "（" + c.prefix + "）</option>").join("") +
           "</select>" +
           '<input class="ip-search" type="text" placeholder="搜索图标，如 link / github / 主页 …">' +
@@ -1879,6 +1955,10 @@
       clearTimeout(t);
       t = setTimeout(() => doIconSearch(modal), 300);
     });
+    modal.querySelector(".ip-collection").addEventListener("change", () => {
+      renderIconCommon(modal);
+      if (modal.querySelector(".ip-search").value.trim()) doIconSearch(modal);
+    });
     renderIconCommon(modal);
     return modal;
   }
@@ -1886,7 +1966,9 @@
   function renderIconCommon(modal) {
     const grid = modal.querySelector(".ip-common-grid");
     grid.innerHTML = "";
-    ICON_COMMON.forEach((full) => {
+    const sel = modal.querySelector(".ip-collection") ? modal.querySelector(".ip-collection").value : "";
+    const list = sel ? ICON_COMMON.filter((f) => f.indexOf(sel + ":") === 0) : ICON_COMMON;
+    list.forEach((full) => {
       const sp = full.indexOf(":");
       const p = full.slice(0, sp), n = full.slice(sp + 1);
       const cell = document.createElement("button");
@@ -1905,7 +1987,9 @@
     const grid = modal.querySelector(".ip-result-grid");
     if (!q) { grid.innerHTML = ""; info.textContent = ""; return; }
     info.textContent = "搜索中…";
-    const url = "https://api.iconify.design/search?query=" + encodeURIComponent(q) + "&prefixes=" + ICON_SAFE_PREFIXES + "&limit=80";
+    const sel = modal.querySelector(".ip-collection") ? modal.querySelector(".ip-collection").value : "";
+    const prefixes = sel || ICON_SAFE_PREFIXES;
+    const url = "https://api.iconify.design/search?query=" + encodeURIComponent(q) + "&prefixes=" + prefixes + "&limit=80";
     fetch(url).then((r) => r.json()).then((data) => {
       const icons = (data && data.icons) || [];
       grid.innerHTML = "";
@@ -1941,9 +2025,11 @@
     modal._onPick = onPick;
     modal._selected = (initial && initial.indexOf(":") > 0) ? initial : "";
     modal.querySelector(".ip-current-val").textContent = modal._selected || "—";
+    const col = modal.querySelector(".ip-collection"); if (col) col.value = "";
     modal.querySelector(".ip-search").value = "";
     modal.querySelector(".ip-result-grid").innerHTML = "";
     modal.querySelector(".ip-search-info").textContent = "";
+    renderIconCommon(modal);
     renderPickerSelection(modal);
     modal.hidden = false;
   }
@@ -2885,6 +2971,7 @@
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
     const isConfig = state.type === "config";
     const isGallery = type === "gallery";
+    const _gcs = $("galleryCatSel"); if (_gcs && !isGallery) _gcs.hidden = true;
     const isOverview = type === "overview";
     // 图库：启用 上传 / 新建分类 / 全选 / 批量删除（每项自带删除按钮）；隐藏 新建文件 与 搜索框
     $("selectAllRow").hidden = isConfig || isOverview;
@@ -3936,10 +4023,10 @@
           st.raw = content;
           st.sha = (r.data && r.data.sha) || st.sha;
           st.dirty = false;
-          if (statusEl) statusEl.textContent = "已保存（高级模式）";
+          if (statusEl) { statusEl.textContent = "已保存（高级模式）"; statusEl.className = "ap-pane-status ok"; }
           if (!silent) okPopup("已保存");
         } else {
-          if (statusEl) statusEl.textContent = "保存失败：" + ((r.data && r.data.error) || r.status);
+          if (statusEl) { statusEl.textContent = "保存失败：" + ((r.data && r.data.error) || r.status); statusEl.className = "ap-pane-status err"; }
           if (!silent) okPopup("保存失败");
         }
       } catch (e) {
@@ -3957,10 +4044,10 @@
           st.raw = content;
           st.sha = (r.data && r.data.sha) || st.sha;
           st.dirty = false;
-          if (statusEl) statusEl.textContent = "已保存（源码模式）";
+          if (statusEl) { statusEl.textContent = "已保存（源码模式）"; statusEl.className = "ap-pane-status ok"; }
           if (!silent) okPopup("已保存");
         } else {
-          if (statusEl) statusEl.textContent = "保存失败：" + ((r.data && r.data.error) || r.status);
+          if (statusEl) { statusEl.textContent = "保存失败：" + ((r.data && r.data.error) || r.status); statusEl.className = "ap-pane-status err"; }
           if (!silent) okPopup("保存失败");
         }
       } catch (e) {
@@ -4049,7 +4136,11 @@
       }
       st.dirty = false; // 已提交到 GitHub，恢复为「干净」状态（下次打开将重新读取远程）
       if (silent) {
-        if (statusEl) { statusEl.textContent = "已自动保存"; statusEl.className = "ap-pane-status"; }
+        if (statusEl) {
+          statusEl.textContent = "已自动保存"; statusEl.className = "ap-pane-status";
+          clearTimeout(statusEl._autoT);
+          statusEl._autoT = setTimeout(() => { if (statusEl.textContent === "已自动保存") statusEl.textContent = ""; }, 2600);
+        }
       } else {
         okPopup("✅ 已保存，GitHub 自动部署中");
         if (statusEl) statusEl.textContent = "";
@@ -4482,8 +4573,6 @@
       // 输入框/选择框直接标记；点击仅当作用在按钮上（书签的结构性增删改）
       if (e.type === "click" && !(e.target.closest && e.target.closest("button"))) return;
       apState[pane.dataset.pane].dirty = true;
-      const _st = pane.querySelector(".ap-pane-status");
-      if (_st) { _st.textContent = "● 已编辑（源码格式）·未保存"; _st.className = "ap-pane-status warn"; }
       scheduleAutosave(pane.dataset.pane);
     }
     document.addEventListener("input", markCfgDirty);
