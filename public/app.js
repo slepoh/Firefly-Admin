@@ -4,6 +4,10 @@
 
   const CONTENT_ROOT = "src/content";
   const $ = (id) => document.getElementById(id);
+  // 模块级事件绑定 helper：供 bindEvents / bindBackupEvents / bindRestoreEvents 等共用，
+  // 之前 on 仅定义在 bindEvents 内部，导致 bindBackupEvents 调用 on 抛 ReferenceError、
+  // 「生成备份」等按钮事件从未绑定——表现为点击无反应。提升为模块级彻底修复。
+  const on = (id, prop, fn) => { const el = $(id); if (el) el[prop] = fn; };
 
   const state = {
     token: localStorage.getItem("ff_token") || "",
@@ -4676,11 +4680,6 @@
   function bindEvents() {
     if (bound) return;
     bound = true;
-    const on = (id, prop, fn) => {
-      const el = $(id);
-      if (el) el[prop] = fn;
-    };
-
     // 左侧导航栏：点击切换板块（文章 / 动态 / 单页 / 配置 / 站点外观）
     const navBar = $("navBar");
     if (navBar) {
