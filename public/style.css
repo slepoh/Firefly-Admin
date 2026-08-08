@@ -403,6 +403,10 @@ textarea { resize: vertical; }
 .file-item .fi-updated { grid-column: 6 / 7; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .file-item .fi-size { grid-column: 5 / 6; color: var(--muted); font-size: 11px; text-align: right; }
 .file-item .fi-actions { grid-column: 6 / 7; display: flex; gap: 4px; justify-content: flex-end; }
+/* 文章板块（has-dates，8 列）：数据行的「大小」与「操作」需显式对齐到 7/8、8/9 列，
+   否则会沿用默认的 5/6、6/7 与「创建日期」「修改时间」列位冲突 → 自动换行显示 */
+.file-list.has-dates .file-item .fi-size { grid-column: 7 / 8; }
+.file-list.has-dates .file-item .fi-actions { grid-column: 8 / 9; }
 .file-item { user-select: none; }
 /* 动态列表：主列第一格显示「动态内容」，标题与发表时间降级为下方副信息（纵向堆叠） */
 .file-item .fi-main.fi-main--dyn { flex-direction: column; align-items: flex-start; gap: 3px; }
