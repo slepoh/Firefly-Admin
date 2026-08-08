@@ -1080,9 +1080,8 @@
   // ----------------------------------------------------------------------
   function showEditor(body, fm, name) {
     showView("editor");
-    // 资源上传面板：确保默认展开（不被折叠），方便直接拖拽 / 选择文件上传
-    const _up = $("uploadPanel");
-    if (_up) _up.classList.remove("collapsed");
+    // 资源上传面板：默认折叠（由 index.html 的 collapsed 类控制），
+    // 仅在用户主动点击「上传」按钮（quickUploadBtn）时才展开，避免一直占用编辑区空间
     $("emptyState").hidden = true;
     $("editForm").hidden = false;
     $("deleteBtn").hidden = state.current.isNew;
@@ -1570,25 +1569,45 @@
     return block;
   }
 
-  function cfgNodeEl(node, keyLabel, depth, path, cfgName) {
+  function cfgNodeEl(node, keyLabel, depth, path, cfgName, opts) {
+    opts = opts || {};
     if (node.type === "object" || node.type === "array") {
       // 对象数组（如 links / sponsors / friendsConfig / albums / playlist）：整块增删
       if (node.type === "array" && OBJ_ARRAY_SCHEMAS[path]) {
         return renderObjectArray(node, keyLabel, depth, path, cfgName);
       }
+      // 侧边栏组件数组（leftComponents / rightComponents / mobileBottomComponents）：
+      // 元素为「组件对象」，渲染为卡片（组件类型标题 + 启用状态）。沿用通用递归（偏移编辑），
+      // 保证 specificConfig 等嵌套结构在保存时不被丢弃。
+      const isCompArr = node.type === "array" && /sidebarLayoutConfig\.(leftComponents|rightComponents|mobileBottomComponents)$/.test(path);
       // 一级栏目：大标题；嵌套：子标题。靠缩进 + 折叠体现层级
       const block = document.createElement("div");
-      block.className = depth === 0 ? "cfg-title-block" : "cfg-sub-block";
-      const collapsible = depth >= 1;
       const head = document.createElement("div");
-      head.className = depth === 0 ? "cfg-title" : "cfg-subtitle";
-      const gname = node.comment || keyLabel;
-      let inner = "";
-      if (collapsible) inner += '<button type="button" class="cfg-collapse" title="折叠/展开">▾</button>';
-      inner += lockIcon() + '<span class="cfg-g-title">' + esc(gname) + "</span>";
-      if (node.comment) inner += lockChip(keyLabel);
-      if (node.type === "array") inner += '<span class="cfg-tag">数组</span>';
-      head.innerHTML = inner;
+      let collapsible = depth >= 1;
+      if (opts.comp && depth === 1) {
+        // 侧边栏组件卡片：以组件 type 为标题，附启用 / 停用状态徽章
+        block.className = "cfg-component-card";
+        head.className = "cfg-component-head";
+        collapsible = true;
+        const tChild = (node.children || []).find((c) => c.key === "type");
+        const eChild = (node.children || []).find((c) => c.key === "enable");
+        const typeVal = tChild && tChild.value && tChild.value.value != null ? String(tChild.value.value) : (keyLabel || "组件");
+        const enabled = !(eChild && eChild.value && eChild.value.value === false);
+        let inner = '<button type="button" class="cfg-collapse" title="折叠/展开">▾</button>';
+        inner += '<span class="cfg-comp-type">' + esc(typeVal) + '</span>';
+        inner += '<span class="cfg-comp-badge ' + (enabled ? "on" : "off") + '">' + (enabled ? "● 已启用" : "○ 已停用") + '</span>';
+        head.innerHTML = inner;
+      } else {
+        block.className = depth === 0 ? "cfg-title-block" : "cfg-sub-block";
+        head.className = depth === 0 ? "cfg-title" : "cfg-subtitle";
+        const gname = node.comment || keyLabel;
+        let inner = "";
+        if (collapsible) inner += '<button type="button" class="cfg-collapse" title="折叠/展开">▾</button>';
+        inner += lockIcon() + '<span class="cfg-g-title">' + esc(gname) + "</span>";
+        if (node.comment) inner += lockChip(keyLabel);
+        if (node.type === "array") inner += '<span class="cfg-tag">数组</span>';
+        head.innerHTML = inner;
+      }
       if (collapsible) {
         const tg = head.querySelector(".cfg-collapse");
         tg.addEventListener("click", (e) => {
@@ -1612,7 +1631,8 @@
           ? (ch.value.comment || (keyLabel + "[" + node.children.indexOf(ch) + "]"))
           : ch.key;
         const childPath = path ? path + "." + childKey : childKey;
-        const childRow = cfgNodeEl(ch.value, childKey, depth + 1, childPath, cfgName);
+        const childRow = cfgNodeEl(ch.value, childKey, depth + 1, childPath, cfgName, { comp: isCompArr });
+        if (childKey === "specificConfig") childRow.classList.add("collapsed");
         if (bigArr && childRow.classList.contains("cfg-sub-block")) childRow.classList.add("collapsed");
         if (addable) {
           const inp = childRow.querySelector(".cfg-input, .cfg-check");
@@ -3694,7 +3714,7 @@
     const panes = $("cfgPanes");
     if (!scroll || !panes) return;
     scroll.innerHTML = "";
-    panes.innerHTML = "";
+    panes.innerHTML = '<div class="cfg-empty" id="cfgPanesLoading">加载中，请稍等...</div>';
     const headTitle = scroll.parentElement && scroll.parentElement.querySelector(".cfg-nav-title");
     if (headTitle) headTitle.textContent = groupFilter ? groupFilter : "配置分类";
 
@@ -3809,6 +3829,8 @@
       scroll.appendChild(grpEl);
     }
     // 进入配置页默认选中第一个导航项（原「操作说明」已移至主菜单）
+    const _ld = panes.querySelector("#cfgPanesLoading");
+    if (_ld) _ld.remove();
     const firstItem = scroll.querySelector(".cfg-nav-item");
     if (firstItem) selectCfgTab(firstItem.dataset.cfg);
   }
