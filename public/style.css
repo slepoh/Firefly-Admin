@@ -455,6 +455,11 @@ textarea { resize: vertical; }
 
 /* 文章信息：分组美化面板 */
 .post-fields { display: flex; flex-direction: column; gap: 14px; }
+.pf-hint {
+  margin: 0 0 12px; padding: 8px 12px; font-size: 12px; line-height: 1.5;
+  color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius);
+}
+.pf-hint b { color: #1d4ed8; }
 .pf-group {
   border: 1px solid var(--border); border-radius: var(--radius);
   background: #fff; overflow: hidden;

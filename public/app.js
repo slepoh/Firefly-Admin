@@ -244,25 +244,31 @@
 
   function parseFrontmatter(text) {
     const m = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
-    if (!m) return { data: {}, body: text };
+    if (!m) return { data: {}, body: text, quoted: {} };
     const fm = m[1];
     const body = m[2];
     const data = {};
+    const quoted = {};
     fm.split("\n").forEach((line) => {
       if (!line.trim() || line.trim().startsWith("#")) return;
       const idx = line.indexOf(":");
       if (idx === -1) return;
       const key = line.slice(0, idx).trim();
       const val = line.slice(idx + 1).trim();
+      // 记录原值是否被双/单引号包裹：序列化时若该字段原本是字符串，必须保持引号，
+      // 否则像 password: "123456" 这种会被 YAML 解析成数字导致 Astro schema 校验失败。
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        quoted[key] = true;
+      }
       data[key] = parseYamlScalar(val);
     });
-    return { data, body };
+    return { data, body, quoted };
   }
 
-  function yamlScalar(v) {
+  function yamlScalar(v, forceQuote) {
     if (Array.isArray(v)) {
       if (v.length === 0) return "[]";
-      return "[" + v.map(yamlScalar).join(", ") + "]";
+      return "[" + v.map((x) => yamlScalar(x)).join(", ") + "]";
     }
     if (typeof v === "boolean") return v ? "true" : "false";
     if (typeof v === "number") return String(v);
@@ -270,20 +276,24 @@
     if (s === "") return '""';
     // 日期 / 时间：保持不引号，符合 Firefly 约定（含毫秒与 Z / 时区偏移）
     if (/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(s)) return s;
-    // 含特殊字符则加双引号
-    if (/[:#\[\]{},&*?|<>=!%@`"' ]/.test(s) || /^ | $/.test(s) ||
-        ["true", "false", "null", "yes", "no", "~"].includes(s)) {
+    // 需要加引号的情形：① 该字段原本就是字符串（forceQuote）；② 纯数字串（如 password: 123456，
+    // 不加引号会被 YAML 解析成 number，破坏 Astro 的 string schema）；③ 含特殊字符 / 布尔或 null 字面量
+    const needQuote = !!forceQuote || /^-?\d+(\.\d+)?$/.test(s) ||
+      /[:#\[\]{},&*?|<>=!%@`"' ]/.test(s) || /^ | $/.test(s) ||
+      ["true", "false", "null", "yes", "no", "~"].includes(s);
+    if (needQuote) {
       return '"' + s.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
     }
     return s;
   }
 
-  function serializeFrontmatter(data, body) {
+  function serializeFrontmatter(data, body, quoted) {
     let out = "---\n";
     for (const [k, v] of Object.entries(data)) {
       if (v === "" || v === undefined || v === null) continue;
       if (Array.isArray(v) && v.length === 0) continue;
-      out += k + ": " + yamlScalar(v) + "\n";
+      // quoted[k] 表示该字段原值带引号（字符串），序列化时强制保持引号，避免类型丢失
+      out += k + ": " + yamlScalar(v, !!(quoted && quoted[k])) + "\n";
     }
     out += "---\n";
     if (body && !body.endsWith("\n")) body += "\n";
@@ -952,6 +962,7 @@
         const parsed = parseFrontmatter(data.content);
         fm = parsed.data;
         body = parsed.body;
+        state.postDataQuoted = parsed.quoted || {};
       }
       state.current = { path: f.path, sha: data.sha, name: f.name, isNew: false, type: state.type };
       showEditor(body, fm, f.name);
@@ -1126,6 +1137,12 @@
   function renderPostFields(fm) {
     const box = $("postFields");
     box.innerHTML = "";
+    // 顶部提示：字段名（如 title / password）由模板固定，管理系统不暴露为可编辑项，
+    // 仅值的引号在后台隐藏、提交时自动补回，避免 password: 123456 这类类型错误。
+    const hint = document.createElement("div");
+    hint.className = "pf-hint";
+    hint.innerHTML = '🔒 <b>字段名固定</b>，仅可修改值；字符串值的引号在后台隐藏，保存时自动补回。';
+    box.appendChild(hint);
     POST_GROUPS.forEach((g) => {
       const group = document.createElement("div");
       group.className = "pf-group";
@@ -1982,15 +1999,20 @@
         if (state.htmlMode) {
           setHtmlContent(raw);
         } else {
-          const { data, body } = parseFrontmatter(raw);
+          const parsedFm = parseFrontmatter(raw);
+          const data = parsedFm.data;
+          const body = parsedFm.body;
           if (state.type === "posts") {
             state.postData = data;
+            state.postDataQuoted = parsedFm.quoted || {};
             renderPostFields(data);
           } else if (state.type === "dynamic") {
+            state.postDataQuoted = parsedFm.quoted || {};
             $("dynPublished").value = dateToInput(data.published || "");
             $("dynLocation").value = data.location || "";
           } else {
             state.postData = data;
+            state.postDataQuoted = parsedFm.quoted || {};
           }
           setBodyMarkdown(body);
         }
@@ -2013,7 +2035,7 @@
     if (state.mode === "raw") return $("rawEditor").value;
     if (state.htmlMode) return getHtmlContent();
     if (state.type === "posts") {
-      return serializeFrontmatter(collectPostData(), getBodyMarkdown());
+      return serializeFrontmatter(collectPostData(), getBodyMarkdown(), state.postDataQuoted);
     }
     if (state.type === "dynamic") {
       const data = {};
@@ -2021,10 +2043,10 @@
       if (pub) data.published = pub;
       const loc = $("dynLocation").value.trim();
       if (loc) data.location = loc;
-      return serializeFrontmatter(data, getBodyMarkdown());
+      return serializeFrontmatter(data, getBodyMarkdown(), state.postDataQuoted);
     }
     // spec：保留原始 frontmatter + 富文本正文
-    return serializeFrontmatter(state.postData || {}, getBodyMarkdown());
+    return serializeFrontmatter(state.postData || {}, getBodyMarkdown(), state.postDataQuoted);
   }
 
   // ----------------------------------------------------------------------
