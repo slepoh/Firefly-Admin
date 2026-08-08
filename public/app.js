@@ -573,14 +573,16 @@
         f._title = t; // 缓存到文件对象，供搜索与再次渲染直接复用（避免异步闪烁）
         nameEl.textContent = t;
       }
-      // 动态列表：主列显示「发表时间」（published 优先，回退 date / 文件创建时间），标题降级为副标题
+      // 动态列表：第一列显示「动态内容」（正文首段纯文本），标题降级为副标题；发表时间另作副信息
       if (state.type === "dynamic") {
-        const pubEl = div.querySelector(".fi-pub");
+        const contentEl = div.querySelector(".fi-content");
+        const bodyText = (fm.body || "").replace(/^[\s\n]+/, "").trim();
+        const plain = bodyText.replace(/[#>*_`~\-\[\]()!]/g, "").replace(/\s+/g, " ").trim();
+        const content = plain.slice(0, 60) || (t ? "（无正文）" : "（空动态）");
+        if (contentEl) contentEl.textContent = content;
+        f._content = content;
         const pub = (fm.data && (fm.data.published || fm.data.date)) || f.created || f.updated;
-        if (pub) {
-          f._published = pub;
-          if (pubEl) pubEl.textContent = fmtDateTime(pub) || "—";
-        }
+        if (pub) f._published = pub;
       }
       // 文件名已在独立「文件名」列展示（fi-fname），此处仅把完整文件名写入行 title 便于悬停核对
       div.title = f.name + (t ? " · " + t : "");
@@ -634,7 +636,7 @@
       const head = document.createElement("div");
       head.className = "file-list-head";
       const isArticle = (state.type === "posts" || state.type === "dynamic" || state.type === "spec");
-      const flhName = state.type === "dynamic" ? "发表时间" : (isArticle ? "文章标题" : "文件名称");
+      const flhName = state.type === "dynamic" ? "动态内容" : (isArticle ? "文章标题" : "文件名称");
       let headHtml = '<span class="flh-name">' + flhName + '</span>';
       headHtml += '<span class="flh-fname">文件名</span>';
       if (state.type === "posts") {
@@ -682,10 +684,9 @@
         // 文字包入 .fi-act-label，移动端隐藏文字仅留图标，避免遮挡文件名
         let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️<span class="fi-act-label">编辑</span></button>`;
         if (modifiable) {
-          if (!isDir) {
-            const _isArt = isArticleMd(f);
-            const _rnLabel = _isArt ? "改标题" : "重命名";
-            actions += `<button class="fi-act" type="button" data-act="rename" title="${_rnLabel}">${_isArt ? "🔤" : "🏷️"}<span class="fi-act-label">${_rnLabel}</span></button>`;
+          // 仅「文章内容」保留「重命名」（实际改 frontmatter title，文件名不变）；动态与单页不提供该按钮
+          if (!isDir && state.type === "posts") {
+            actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">🏷️<span class="fi-act-label">重命名</span></button>`;
           }
           actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑<span class="fi-act-label">删除</span></button>`;
         }
@@ -699,10 +700,13 @@
           mainInner += `<span class="fi-name">${esc(f.name)}</span>`;
         } else {
           if (_isDyn) {
-            const pubText = f._published ? fmtDateTime(f._published) : "—";
-            mainInner += `<span class="fi-pub">${esc(pubText)}</span>`;
+            const contentText = f._content || "（加载中…）";
+            const pubText = f._published ? fmtDateTime(f._published) : "";
+            mainInner += `<span class="fi-content">${esc(contentText)}</span>`;
+            mainInner += `<span class="fi-sub"><span class="fi-stitle">${nameHtml}</span>${pubText ? `<span class="fi-pub">${esc(pubText)}</span>` : ""}</span>`;
+          } else {
+            mainInner += nameHtml;
           }
-          mainInner += nameHtml;
         }
         div.innerHTML =
           check +
@@ -3330,14 +3334,28 @@
         }
       } catch (e) { /* 读取失败则保留文件名兜底 */ }
     }));
-    renderRecentList($("ovPosts"), recentPosts, "posts", "暂无文章");
+    renderRecentList($("ovPosts"), recentPosts, "posts", "暂无文章", "title");
 
     // 最新动态（按文件名降序兜底，取前 6；动态文件通常按时间命名）
     const recentDyn = dynFiles
       .slice()
       .sort((a, b) => (b.name || "").localeCompare(a.name || ""))
       .slice(0, 6);
-    renderRecentList($("ovDynamic"), recentDyn, "dynamic", "暂无动态");
+    // 概览动态：从文件名改为「动态内容」（正文首段纯文本），过长由 CSS ellipsis 截断
+    await Promise.all(recentDyn.map(async (it) => {
+      try {
+        const r = await api("/api/file?path=" + encodeURIComponent(it.path));
+        if (r.status === 200 && r.data && r.data.content != null) {
+          const fm = parseFrontmatter(r.data.content);
+          const bodyText = (fm.body || "").replace(/^[\s\n]+/, "").trim();
+          const plain = bodyText.replace(/[#>*_`~\-\[\]()!]/g, "").replace(/\s+/g, " ").trim();
+          const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
+          it.content = plain.slice(0, 60) || (t ? "（无正文）" : "（空动态）");
+          if (t && !it.title) it.title = t;
+        }
+      } catch (e) { /* 读取失败则保留文件名兜底 */ }
+    }));
+    renderRecentList($("ovDynamic"), recentDyn, "dynamic", "暂无动态", "content");
 
     loading.hidden = true;
     stats.hidden = false;
@@ -3347,7 +3365,8 @@
   }
 
   // 渲染「最新内容」列表（点击直接打开对应文章 / 动态）
-  function renderRecentList(ul, items, type, emptyText) {
+  // nameKey: 概览项主名来源——"title"（文章/默认，回退文件名）或 "content"（动态，显示动态内容正文）
+  function renderRecentList(ul, items, type, emptyText, nameKey) {
     if (!ul) return;
     if (!items.length) {
       ul.innerHTML = '<li class="ov-empty">' + emptyText + "</li>";
@@ -3357,6 +3376,9 @@
       .map((it) => {
         const isDir = it.type === "dir";
         const date = it.created ? fmtDate(it.created) : "";
+        const mainName = nameKey === "content"
+          ? (it.content || it.title || it.name)
+          : (it.title || it.name);
         return (
           '<li class="ov-item" data-path="' +
           esc(it.path) +
@@ -3366,7 +3388,7 @@
           (isDir ? "1" : "0") +
           '">' +
           '<span class="ov-item-name">' +
-          esc(it.title || it.name) +
+          esc(mainName) +
           "</span>" +
           (date ? '<span class="ov-item-date">' + date + "</span>" : "") +
           "</li>"
