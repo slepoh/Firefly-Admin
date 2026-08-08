@@ -327,9 +327,10 @@ textarea { resize: vertical; }
 .file-list-head {
   display: grid;
   grid-template-columns: 24px 28px minmax(0, 1fr) 150px 80px 188px;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 6px 10px;
+  margin-top: 2px;
   font-size: 11px; font-weight: 700; letter-spacing: .4px;
   color: var(--muted);
   background: #f2f4f7;
@@ -338,12 +339,18 @@ textarea { resize: vertical; }
   position: sticky; top: 0; z-index: 2;
   user-select: none;
 }
+/* 表头每个单元格统一垂直居中（避免不同列文字基线不一致、视觉靠下） */
+.file-list-head > span {
+  display: flex;
+  align-items: center;
+  line-height: 1.2;
+}
 .flh-name { grid-column: 3 / 4; }
 .flh-fname { grid-column: 4 / 5; text-align: left; }
 .flh-created { grid-column: 5 / 6; text-align: left; }
 .flh-updated { grid-column: 6 / 7; text-align: left; }
-.flh-size { grid-column: 5 / 6; text-align: right; }
-.flh-actions { grid-column: 6 / 7; text-align: right; }
+.flh-size { grid-column: 5 / 6; justify-content: flex-end; }
+.flh-actions { grid-column: 6 / 7; justify-content: flex-end; }
 .file-list.has-dates .flh-created { grid-column: 5 / 6; }
 .file-list.has-dates .flh-updated { grid-column: 6 / 7; }
 .file-list.has-dates .flh-size { grid-column: 7 / 8; }
@@ -637,6 +644,32 @@ textarea { resize: vertical; }
 /* 左侧栏上传面板的拖拽高亮 */
 .meta-panel.drag { border-color: var(--primary); background: #fff4e9; }
 .meta-panel.drag .upload-drop { border-color: var(--primary); background: #fff1e6; }
+/* 资源上传面板：默认内联折叠；改为点击后右下角浮动浮层（不再挤压列表） */
+#uploadPanel {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 120px);
+  z-index: 200;
+  box-shadow: 0 14px 40px rgba(20, 24, 30, .22);
+  background: #fff;
+  animation: upPanelIn .16s ease;
+}
+#uploadPanel[hidden] { display: none; }
+@keyframes upPanelIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+#uploadPanel .panel-head { display: flex; align-items: center; gap: 6px; position: relative; padding-right: 34px; }
+#uploadPanel .panel-close {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; line-height: 20px; text-align: center;
+  border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 13px; flex: none;
+}
+#uploadPanel .panel-close:hover { background: #f0f2f5; color: var(--text); }
+/* 移动端：浮层宽度铺满，底部贴底 */
+@media (max-width: 900px) {
+  #uploadPanel { right: 10px; left: 10px; bottom: 10px; width: auto; max-width: none; }
+}
 /* 资源上传：清晰的拖拽区 */
 .upload-target { display: flex; align-items: center; gap: 10px; padding: 10px 2px 6px; }
 .ut-label { font-size: 13px; font-weight: 600; color: #51585f; white-space: nowrap; }
@@ -1568,6 +1601,9 @@ textarea { resize: vertical; }
 .ov-card-ico { font-size: 22px; line-height: 1; }
 .ov-card-val { font-size: 30px; font-weight: 800; color: #2b3038; line-height: 1.1; }
 .ov-card-label { font-size: 13px; color: var(--muted); }
+/* 加载中骨架卡：占位显示「统计中」，固定为 5 张，加载完由真实卡片替换 */
+.ov-card--skeleton { cursor: default; opacity: .72; }
+.ov-card--skeleton .ov-card-val { font-size: 15px; font-weight: 600; color: var(--muted); }
 
 /* 最近内容：两列（文章 / 动态） */
 .ov-recent { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -1583,7 +1619,6 @@ textarea { resize: vertical; }
 .ov-item-date { font-size: 12px; color: var(--muted); flex: none; }
 .ov-empty { font-size: 13px; color: var(--muted); padding: 8px; }
 /* 概览加载占位：加载中显示「正在统计中…」友好提示，加载完由真实数据重置 */
-.ov-card-skeleton { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 14px; padding: 38px 4px; }
 .ov-loading-inline { color: var(--muted); font-size: 13px; padding: 18px 4px; }
 
 /* 项目信息 / 作者信息：两块卡片横向排列，内容管理概览底部 */

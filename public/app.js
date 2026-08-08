@@ -3284,11 +3284,31 @@
     const ovBtn = $("ovRefreshBtn");
     const spinning = isManual && ovBtn; // 仅手动刷新时旋转图标（首次加载已有 loading 文案）
     if (spinning) ovBtn.classList.add("refreshing");
-    // 进入加载态：先清空旧数据（默认空白），显示「正在统计中…」，卡片容器保持占位固定显示
-    if (stats) stats.innerHTML = '<div class="ov-card-skeleton">正在统计中…</div>';
-    if (recent) recent.innerHTML = '<div class="ov-col"><div class="ov-col-h">📝 最新文章</div><div class="ov-loading-inline">正在统计中…</div></div><div class="ov-col"><div class="ov-col-h">⚡ 最新动态</div><div class="ov-loading-inline">正在统计中…</div></div>';
+    // 进入加载态：先清空旧数据（默认空白），显示「正在统计中…」占位，卡片容器/最新内容容器保持固定显示
+    // 统计卡片：先用 5 张固定骨架卡占位（显示「统计中」），加载完再替换为真实数量
+    if (stats) {
+      const SK = [
+        { ico: "📝", label: "文章内容" },
+        { ico: "⚡", label: "我的动态" },
+        { ico: "📄", label: "页面信息" },
+        { ico: "🖼️", label: "图库分类" },
+        { ico: "⚙️", label: "站点配置" },
+      ];
+      stats.innerHTML = SK.map((c) =>
+        `<button class="ov-card ov-card--skeleton" type="button" disabled>` +
+        `<span class="ov-card-ico">${c.ico}</span>` +
+        `<span class="ov-card-val">统计中</span>` +
+        `<span class="ov-card-label">${c.label}</span>` +
+        `</button>`
+      ).join("");
+    }
+    // 最新内容：仅重置两个列表的占位（保留列头容器与 ul#ovPosts/#ovDynamic，避免 renderRecentList 拿不到节点而卡在「正在统计中」）
+    if (recent) {
+      const op = $("ovPosts"); if (op) op.innerHTML = '<li class="ov-loading-inline">正在统计中…</li>';
+      const od = $("ovDynamic"); if (od) od.innerHTML = '<li class="ov-loading-inline">正在统计中…</li>';
+    }
     loading.hidden = true; // 数据区已自带「正在统计中」占位提示
-    stats.hidden = false;  // 卡片容器固定显示（加载中显示占位，加载完重置为真实卡片）
+    stats.hidden = false;  // 卡片容器固定显示（加载中显示骨架占位，加载完重置为真实卡片）
     recent.hidden = false;
     if ($("ovInfo")) $("ovInfo").hidden = false;
     $("ovRepo").textContent = `${state.owner}/${state.repo}@${state.branch}`;
@@ -4944,11 +4964,13 @@
     on("newBtn", "onclick", newFile);
     on("newCatBtn", "onclick", newCategory);
     on("quickUploadBtn", "onclick", () => {
-      // 先展开底部「资源上传」面板，确保用户能看到并选择目标文件夹
+      // 资源上传改为右下角浮动浮层：点击「上传资源」显示浮层（不再内联挤压列表）
       const up = $("uploadPanel");
-      if (up) up.classList.remove("collapsed");
-      const fi = $("fileInput");
-      if (fi) fi.click();
+      if (up) { up.hidden = false; up.classList.remove("collapsed"); }
+    });
+    on("uploadClose", "onclick", () => {
+      const up = $("uploadPanel");
+      if (up) up.hidden = true;
     });
     // 新建文件时切换后缀：md/mdx 同属 Markdown 模式，仅更新文件名预览，不重建编辑器（避免草稿丢失）；
     // 配置类 html↔ts 模式不同，才完整重建编辑器

@@ -138,9 +138,9 @@
         <div class="file-list" id="fileList"></div>
         <div class="crumb" id="crumb"></div>
 
-        <!-- 资源上传：每个内容板块独立的上传区域，上传到当前板块，可选择子文件夹 -->
-        <div class="meta-panel collapsed" id="uploadPanel">
-          <button type="button" class="panel-head">📤 <span id="uploadTitle">资源上传</span> <span class="chev">▾</span></button>
+        <!-- 资源上传：点击「上传资源」后浮动显示在右下角的浮层（不再内联挤压列表），默认隐藏 -->
+        <div class="meta-panel collapsed" id="uploadPanel" hidden>
+          <button type="button" class="panel-head">📤 <span id="uploadTitle">资源上传</span> <span class="chev">▾</span><span class="panel-close" id="uploadClose" title="关闭">✕</span></button>
           <div class="panel-body">
             <div class="upload-target">
               <label class="ut-label" for="uploadDirSel">上传到文件夹</label>
