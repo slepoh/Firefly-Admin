@@ -91,7 +91,7 @@
     "profileConfig.ts": "用户资料",
     "sidebarConfig.ts": "侧边栏布局",
     "sponsorConfig.ts": "打赏配置",
-    "mermaidConfig.ts": "Mermaid图表",
+    "mermaidConfig.ts": "Mermaid 图表",
     "displaySettingsConfig.ts": "显示设置",
     "booknavConfig.ts": "书签导航",
     "FooterConfig.html": "页脚内容",
@@ -2523,6 +2523,7 @@
     $("infoView").hidden = name !== "info";
     $("overviewView").hidden = name !== "overview";
     $("backupView").hidden = name !== "backup";
+    $("restoreView").hidden = name !== "restore";
   }
 
   function backToEmpty() {
@@ -3049,10 +3050,16 @@
       if (isReadme) loadInfoReadme();
       return;
     }
-    // 数据安全：数据备份与恢复
+    // 数据安全：数据备份
     if (type === "backup") {
       showView("backup");
       loadBackupView();
+      return;
+    }
+    // 数据安全：数据恢复（独立菜单）
+    if (type === "restore") {
+      showView("restore");
+      loadRestoreView();
       return;
     }
     if (type === "gallery") {
@@ -4239,14 +4246,23 @@
   // ===== 数据备份与恢复 =====
   // 打包博客仓库 src/config/ 下全部配置文件为 JSON（含 path/sha/content），可下载留存；
   // 也可将备份 JSON 逐文件写回 GitHub 实现恢复（保留原 sha 以便冲突检测）。
-  const backupState = { data: null, restoreFile: null };
+  const backupState = { data: null };
+  const restoreState = { file: null };
 
   async function loadBackupView() {
     const list = $("bkList");
     const status = $("bkStatus");
     if (status) status.textContent = "";
-    if (list) list.innerHTML = '<div class="bk-empty">点击「生成备份」打包当前线上配置；生成后可下载 JSON，或选择备份文件恢复到 GitHub。</div>';
+    if (list) list.innerHTML = '<div class="bk-empty">点击「生成备份」打包当前线上配置；生成后可下载 JSON 留存，再到左侧「数据恢复」写回 GitHub。</div>';
     bindBackupEvents();
+  }
+
+  async function loadRestoreView() {
+    const list = $("rsList");
+    const status = $("rsStatus");
+    if (status) status.textContent = "";
+    if (list) list.innerHTML = '<div class="bk-empty">选择此前在「数据备份」下载的 JSON 备份文件，确认后即可写回 GitHub 恢复。</div>';
+    bindRestoreEvents();
   }
 
   let _bkEventsBound = false;
@@ -4255,12 +4271,25 @@
     _bkEventsBound = true;
     on("bkCreateBtn", "onclick", () => createBackup());
     on("bkDownloadBtn", "onclick", () => downloadBackup());
-    on("bkRestoreInput", "onchange", (e) => onRestoreFileChosen(e));
-    on("bkRestoreBtn", "onclick", () => restoreBackup());
+  }
+
+  let _rsEventsBound = false;
+  function bindRestoreEvents() {
+    if (_rsEventsBound) return;
+    _rsEventsBound = true;
+    on("rsRestoreInput", "onchange", (e) => onRestoreFileChosen(e));
+    on("rsRestoreBtn", "onclick", () => restoreBackup());
   }
 
   function bkSet(msg, kind) {
     const el = $("bkStatus");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "backup-status" + (kind ? " " + kind : "");
+  }
+
+  function rsSet(msg, kind) {
+    const el = $("rsStatus");
     if (!el) return;
     el.textContent = msg;
     el.className = "backup-status" + (kind ? " " + kind : "");
@@ -4287,17 +4316,33 @@
       }
       bkSet("已发现 " + files.length + " 个文件，开始读取内容…", "");
       // 3) 逐文件读取内容（串行，避免触发 GitHub 限流；配置量不大）
+      // 注意：f.path 形如 src/config/siteConfig.ts，后端 ghApi 会对每段单独 encodeURIComponent，
+      // 因此这里【不能】整体 encodeURIComponent（会把 / 编成 %2F 再被后端二次编码成 %252F → 404）。
+      // 仅对路径按 / 分段后逐段编码，与后端 encodePath 互逆且唯一。
+      const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
       const entries = [];
+      let skip = 0;
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         try {
-          const r = await api("/api/file?path=" + encodeURIComponent(f.path));
+          const r = await api("/api/file?path=" + enc(f.path));
           if (r.status === 200 && r.data.content != null) {
             entries.push({ path: f.path, sha: f.sha, size: f.size, content: r.data.content });
+          } else {
+            skip++;
+            console.warn("备份：文件读取失败", f.path, r.status, r.data && r.data.error);
           }
-        } catch (e) { /* 单文件失败跳过 */ }
+        } catch (e) {
+          skip++;
+          console.warn("备份：文件读取异常", f.path, e.message);
+        }
         if ((i + 1) % 5 === 0) bkSet("已读取 " + (i + 1) + " / " + files.length + " 个文件…", "");
       }
+      if (entries.length === 0) {
+        bkSet("❌ 未能读取任何文件内容（" + skip + " 个读取失败）。请检查网络或稍后重试；若持续失败可能是 GitHub API 限流。", "err");
+        return;
+      }
+      if (skip > 0) bkSet("⚠️ 有 " + skip + " 个文件读取失败，已跳过。当前生成 " + entries.length + " 个文件。", "warn");
       const payload = {
         tool: "Firefly-Admin Backup",
         version: 1,
@@ -4345,36 +4390,38 @@
       try {
         const obj = JSON.parse(reader.result);
         if (!obj.files || !Array.isArray(obj.files)) throw new Error("备份文件格式不正确（缺少 files 数组）");
-        backupState.restoreFile = obj;
-        const rb = $("bkRestoreBtn");
+        restoreState.file = obj;
+        const rb = $("rsRestoreBtn");
         if (rb) rb.disabled = false;
-        bkSet("✅ 已选择备份：" + file.name + "（含 " + obj.files.length + " 个文件）。点击「执行恢复」将写回 GitHub。", "ok");
+        const list = $("rsList");
+        if (list) list.innerHTML = obj.files.map((f) => '<div class="bk-item"><span class="bk-path">' + esc(f.path) + '</span><span class="bk-meta">' + (f.size || 0) + ' B</span></div>').join("");
+        rsSet("✅ 已选择备份：" + file.name + "（含 " + obj.files.length + " 个文件）。点击「执行恢复」将写回 GitHub。", "ok");
       } catch (err) {
-        backupState.restoreFile = null;
-        const rb = $("bkRestoreBtn");
+        restoreState.file = null;
+        const rb = $("rsRestoreBtn");
         if (rb) rb.disabled = true;
-        bkSet("❌ 备份文件解析失败：" + (err.message || ""), "err");
+        rsSet("❌ 备份文件解析失败：" + (err.message || ""), "err");
       }
     };
     reader.readAsText(file);
   }
 
   async function restoreBackup() {
-    const obj = backupState.restoreFile;
-    if (!obj || !obj.files || !obj.files.length) { bkSet("请先选择有效的备份文件", "warn"); return; }
+    const obj = restoreState.file;
+    if (!obj || !obj.files || !obj.files.length) { rsSet("请先选择有效的备份文件", "warn"); return; }
     if (!confirm("确定要将备份中的 " + obj.files.length + " 个文件恢复（写回 GitHub）吗？\n此操作会覆盖现有线上文件，建议先下载当前备份留存。")) return;
-    bkSet("开始恢复，已处理 0 / " + obj.files.length + " 个文件…", "");
+    rsSet("开始恢复，已处理 0 / " + obj.files.length + " 个文件…", "");
     let okCount = 0, failCount = 0;
     for (let i = 0; i < obj.files.length; i++) {
       const f = obj.files[i];
       try {
         const r = await putConfigFile(f.path, f.content, f.sha);
         if (r.status === 200 || r.status === 201) okCount++;
-        else { failCount++; bkSet("⚠️ 文件恢复失败：" + esc(f.path) + " — " + ((r.data && (r.data.error || r.data.message)) || r.status), "warn"); }
+        else { failCount++; rsSet("⚠️ 文件恢复失败：" + esc(f.path) + " — " + ((r.data && (r.data.error || r.data.message)) || r.status), "warn"); }
       } catch (e) { failCount++; }
-      if ((i + 1) % 3 === 0) bkSet("恢复中，已处理 " + (i + 1) + " / " + obj.files.length + " 个文件（成功 " + okCount + "，失败 " + failCount + "）…", "");
+      if ((i + 1) % 3 === 0) rsSet("恢复中，已处理 " + (i + 1) + " / " + obj.files.length + " 个文件（成功 " + okCount + "，失败 " + failCount + "）…", "");
     }
-    bkSet("♻️ 恢复完成：成功 " + okCount + " 个，失败 " + failCount + " 个。GitHub 将自动重新部署。", failCount ? "warn" : "ok");
+    rsSet("♻️ 恢复完成：成功 " + okCount + " 个，失败 " + failCount + " 个。GitHub 将自动重新部署。", failCount ? "warn" : "ok");
   }
 
   // 极简 Markdown 渲染（用于配置区操作说明）
