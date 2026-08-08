@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>内容管理后台 - Firefly</title>
+  <link rel="stylesheet" href="/vendor/toastui/toastui-editor.min.css" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn" title="菜单" aria-label="菜单">☰</button>
+    <div class="brand">
+      <span class="logo"><svg t="1786063670003" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4310"><path d="M151.556 670.693c9.991-80.095 46.548-164.173 108.614-228.211 57.916-59.753 88.258-125.544 103.249-203.657 5.498-28.651 24.16-53.04 21.62-85.5-4.948-63.084-30.49-95.294-93.986-107.493-13.268-2.551-32.46 0.373-27.937-21.307 3.486-16.765 20.24-20.271 34.483-15.988 46.05 13.85 90.48 32.004 107.098 82.98 12.822 39.328 31.267 50.686 70.365 28.425 22.843-13.009 52.729-13.31 76.453 1.098 38.424 23.331 54.721 5.281 65.136-29.347C631.79 41.38 674.953 24.658 717.87 8.86c16.887-6.225 33.601 0.32 36.225 19.864 2.49 18.55-15.135 14.887-26.402 17.211-76.496 15.747-115.5 83.518-85.002 155.356 18.103 42.614 30.197 86.372 34.597 131.33 2.437 24.98 16.918 38.55 31.142 51.808 76.433 71.3 125.802 158.199 155.688 257.434 21.256 70.591-18.87 192.1-117.857 191.208-40.903-0.364-48.237 31.648-60.987 56.32-23.89 46.233-54.035 86.888-99.638 111.329-84.162 45.114-186.894 8.704-239.125-88.727-24.294-45.333-42.8-80.25-104.058-83.726-50.374-2.85-90.563-79.562-90.896-157.574z m339.086-265.042c0-22.32 0.093-31.149-0.01-39.978-0.594-52.845-17.565-62.755-63.08-33.921-26.567 16.836-53.438 35.013-75.071 57.5-81.567 84.786-160.463 171.919-162.635 300.069-0.85 50.177 17.325 88.513 67.201 106.74 48.143 17.586 79.136-8.993 106.723-42.469 86.467-104.906 105.776-233.397 126.872-347.941z m341.81 280.271c-2.793-20.887-2.213-42.947-8.983-62.465-27.422-79.177-73.475-146.804-131.578-207.077-31.94-33.132-65.819-63.69-104.644-87.922-39.646-24.73-53.98-14.344-57.78 32.146-5.007 61.24 9.015 119.83 24.626 177.155 21.095 77.398 46.283 153.554 100.375 217.347 34.785 41.028 74.523 53.242 121.346 34.598 44.745-17.813 58.382-57.354 56.637-103.782zM511.495 151.514c-74.222-3.44-96.949 50.852-120.007 105.765-6.396 15.268-14.967 31.7-1.142 43.479 11.26 9.587 26.622 0.862 38.587-7.28 53.605-36.47 107.563-32.75 161.988-1.788 7.448 4.248 15.467 8.247 23.725 10.168 12.048 2.784 20.098-1.64 21.697-15.58 6.356-55.443-66.517-134.339-124.848-134.764zM339.329 835.49c104.323 0 196.68 0.353 289.037-0.417 12.287-0.104 32.863 5.995 33.206-14.635 0.238-13.7-15.277-23.867-28.345-28.385-11.177-3.865-24.316-2.597-36.591-2.65-58.05-0.268-116.144 0.874-174.152-0.726-30.537-0.843-54.944 7.29-83.155 46.813z m173.705 39.363v-0.3c-35.284 0-70.567-0.323-105.84 0.176-11.642 0.166-27.627-2.276-27.191 16.048 0.353 14.57 6.698 28.23 24.947 28.23 70.505-0.01 141.01-0.041 211.502-0.976 14.354-0.198 21.585-11.051 22.32-24.97 0.966-18.457-12.92-18-25.196-18.114-33.507-0.29-67.035-0.094-100.542-0.094z" fill="#515151" p-id="4311"></path></svg></span>
+      <span class="title">Firefly</span>
+      <span class="sub">内容管理系统</span>
+    </div>
+    <div class="top-divider"></div>
+    <div class="repo-info" id="repoInfo"></div>
+    <div class="top-actions">
+      <div class="qr-icon" id="topHelpBtn" title="操作说明" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2m1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4"/></svg>
+        <span class="qr-label">操作说明</span>
+      </div>
+      <div class="qr-icon" id="topAboutBtn" title="关于" role="button" tabindex="0">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 7h2v2h-2V7m0 4h2v6h-2v-6m1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8"/></svg>
+        <span class="qr-label">关于</span>
+      </div>
+      <button id="logoutBtn" class="btn ghost" hidden>退出登录</button>
+    </div>
+  </header>
+
+  <!-- 移动端抽屉遮罩 -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+  <!-- 主区域 -->
+  <main class="layout" id="mainApp" hidden>
+    <!-- 左侧栏：移动端抽屉一级导航 / PC 端二级菜单 -->
+    <aside class="sidebar" id="sidebar">
+      <!-- 移动端抽屉内的一级导航 -->
+      <nav class="nav-bar" id="navBar" aria-label="主导航">
+        <!-- 概览：始终置顶、不随分组折叠（默认首页） -->
+        <button class="nav-btn active" type="button" data-type="overview"><span class="ni-ico">📊</span><span class="ni-tx">概览</span></button>
+
+        <!-- 板块一：内容管理（文章 / 动态 / 页面 / 图库素材） -->
+        <div class="nav-group collapsible collapsed" data-group="content">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">内容管理</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="posts"><span class="ni-ico">📝</span><span class="ni-tx">文章内容</span></button>
+            <button class="nav-btn" type="button" data-type="dynamic"><span class="ni-ico">⚡</span><span class="ni-tx">我的动态</span></button>
+            <button class="nav-btn" type="button" data-type="spec"><span class="ni-ico">📄</span><span class="ni-tx">页面信息</span></button>
+            <button class="nav-btn" type="button" data-type="gallery"><span class="ni-ico">🖼️</span><span class="ni-tx">图库素材</span></button>
+          </div>
+        </div>
+        <!-- 板块二：站点配置（基础 / 功能 / 页面 / 扩展） -->
+        <div class="nav-group collapsible collapsed" data-group="config">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">站点配置</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="config"><span class="ni-ico">⚙️</span><span class="ni-tx">基础配置</span></button>
+            <button class="nav-btn" type="button" data-type="cfgfunc"><span class="ni-ico">🧩</span><span class="ni-tx">功能配置</span></button>
+            <button class="nav-btn" type="button" data-type="cfgpage"><span class="ni-ico">📑</span><span class="ni-tx">页面配置</span></button>
+            <button class="nav-btn" type="button" data-type="cfgext"><span class="ni-ico">🧪</span><span class="ni-tx">扩展功能</span></button>
+          </div>
+        </div>
+        <!-- 板块三：其他信息（操作说明 / 关于） -->
+        <div class="nav-group collapsible collapsed" data-group="info">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-group-title">其他信息</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="nav-group-body">
+            <button class="nav-btn" type="button" data-type="readme"><span class="ni-ico">📖</span><span class="ni-tx">操作说明</span></button>
+            <button class="nav-btn" type="button" data-type="about"><span class="ni-ico">ℹ️</span><span class="ni-tx">关于</span></button>
+          </div>
+        </div>
+      </nav>
+      <!-- 退出：移动端独立分区（与功能菜单 / 信息板块分开，靠底部显示） -->
+      <div class="nav-group nav-group-logout" id="navLogout">
+        <button class="nav-btn" type="button" id="logoutNavBtn"><span class="ni-ico">⛔️</span><span class="ni-tx">退出登录</span></button>
+      </div>
+      <div class="nav-foot" id="navFoot">
+        <a class="nav-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener" title="GitHub 开源地址">
+          <span class="ni-ico">🔗</span><span class="ni-tx">(Firefly-Admin)项目地址</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- 右侧主区域：内容列表 / 编辑器（同一时刻仅显示一个） -->
+    <section class="main-area" id="mainArea">
+
+      <!-- 内容列表视图：显示选中板块的内容，可批量删除、单独编辑/重命名/删除、新建 -->
+      <div class="content-view" id="contentView">
+        <div class="content-toolbar">
+          <label class="ct-selectall" id="selectAllRow">
+            <input type="checkbox" id="selectAll" /> 全选
+          </label>
+          <div class="ct-title" id="ctTitle">文章内容</div>
+          <div class="ct-actions">
+            <button id="batchDelBtn" class="btn danger sm">🗑 批量删除</button>
+            <button id="newBtn" class="btn primary sm">＋ 新建</button>
+            <button id="topRefreshBtn" class="btn ghost sm" title="刷新当前列表"><span class="ri">⟳</span> 刷新</button>
+            <button id="quickUploadBtn" class="btn ghost sm" title="上传资源到仓库">📤 上传资源</button>
+            <button id="newCatBtn" class="btn ghost sm" title="在当前目录下新建分类 / 文件夹">📁 新建分类</button>
+          </div>
+        </div>
+        <div class="list-tools">
+          <button id="upDirBtn" class="btn ghost sm" hidden>↑ 上级</button>
+          <input type="text" id="searchInput" placeholder="搜索文件名…" />
+          <select id="galleryCatSel" class="gallery-cat-sel" hidden>
+            <option value="">全部分类</option>
+          </select>
+          <button id="refreshBtn" class="btn ghost sm" title="刷新列表"><span class="ri">⟳</span></button>
+        </div>
+        <div class="file-list" id="fileList"></div>
+        <div class="crumb" id="crumb"></div>
+
+        <!-- 资源上传：每个内容板块独立的上传区域，上传到当前板块，可选择子文件夹 -->
+        <div class="meta-panel" id="uploadPanel">
+          <button type="button" class="panel-head">📤 <span id="uploadTitle">资源上传</span> <span class="chev">▾</span></button>
+          <div class="panel-body">
+            <div class="upload-target">
+              <label class="ut-label" for="uploadDirSel">上传到文件夹</label>
+              <select id="uploadDirSel" class="ut-select">
+                <option value="">根目录（当前板块）</option>
+              </select>
+            </div>
+            <div class="upload-drop" id="uploadDrop">
+              <div class="ud-icon">⬆</div>
+              <div class="ud-text">拖拽文件到此处，或</div>
+              <button type="button" class="btn primary block" id="pickBtn">＋ 选择文件</button>
+              <input type="file" id="fileInput" multiple hidden />
+            </div>
+            <div class="up-hint">自动上传到 <code id="uploadTarget">当前板块根目录</code></div>
+            <div class="up-list" id="upList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 概览视图：后台首页，统计博客数据（文章 / 动态数量等） -->
+      <div class="overview-view" id="overviewView" hidden>
+        <div class="ov-head">
+          <div class="ov-title">📊 数据概览</div>
+          <div class="ov-sub" id="ovRepo"></div>
+          <button id="ovRefreshBtn" class="btn ghost sm" title="刷新统计"><span class="ri">⟳</span> 刷新</button>
+        </div>
+        <div class="ov-loading" id="ovLoading">正在统计博客数据，请稍等…</div>
+        <div class="ov-stats" id="ovStats" hidden></div>
+        
+        <div class="ov-recent" id="ovRecent" hidden>
+          <div class="ov-col">
+            <div class="ov-col-h">📝 最新文章</div>
+            <ul class="ov-list" id="ovPosts"></ul>
+          </div>
+          <div class="ov-col">
+            <div class="ov-col-h">⚡ 最新动态</div>
+            <ul class="ov-list" id="ovDynamic"></ul>
+          </div>
+        </div>
+		
+		<div class="ov-info" id="ovInfo" hidden>
+          <div class="ov-info-card" id="ovProjectCard">
+            <div class="ov-info-h">📦 项目信息</div>
+            <div class="ov-info-body">
+              <p class="ov-info-desc">Firefly-Admin 是 Firefly 博客的可视化管理后台：通过 GitHub API 远程管理文章、动态、单页与图库素材，在线编辑全部站点配置，保存即提交、由 Cloudflare 自动部署，无需服务器。</p>
+              <div class="ov-info-row"><span class="ov-info-k">项目地址</span><a class="ov-info-link" href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener">Slepoh/Firefly-Admin</a></div>
+              <div class="ov-info-row"><span class="ov-info-k">开源许可</span><span class="ov-info-v">开源 · 允许二次开发与商业使用（须保留版权署名与原始开源地址）</span></div>
+            </div>
+          </div>
+          <div class="ov-info-card" id="ovAuthorCard">
+            <div class="ov-info-h">👤 作者信息</div>
+            <div class="ov-info-body ov-author">
+              <div class="ov-author-qr"><img src="/uploads/wechat.jpg" alt="微信二维码" loading="lazy" /><span class="ov-author-cap">微信 · 扫码联系</span></div>
+              <div class="ov-author-meta">
+			    <div class="ov-info-row"><span class="ov-info-k">官网</span><a class="ov-info-link" href="https://aioky.cn" target="_blank">aioky.cn</a></div>
+                <div class="ov-info-row"><span class="ov-info-k">邮箱</span><a class="ov-info-link" href="mailto:info@aioky.cn">info#aioky.cn</a></div>
+                <div class="ov-info-row"><span class="ov-info-k">微信号</span><span class="ov-info-v">admin_303</span></div>
+				<div class="ov-info-row"><span class="ov-info-k">博客</span><a class="ov-info-link" href="https://823331.xyz" target="_blank">823331.xyz</a></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 配置视图：配置文件子菜单（基础/功能/页面/扩展） -->
+      <div class="config-view" id="configView" hidden>
+        <aside class="cfg-nav" id="cfgNav">
+          <div class="cfg-nav-head">
+            <span class="cfg-nav-title">配置分类</span>
+          </div>
+          <div class="cfg-nav-scroll" id="cfgNavScroll"></div>
+        </aside>
+        <section class="cfg-content" id="cfgContent">
+          <div id="cfgPanes"></div>
+          <!-- 站点资源：Logo（深/浅两套）与作者头像，从「站点外观」合并而来 -->
+          <div class="cfg-resource" id="cfgResource" hidden>
+            <div class="res-pane" data-pane="logo">
+              <div class="ap-group">
+                <div class="ap-group-title">站点 Logo</div>
+                <div class="ap-cards">
+                  <div class="ap-card">
+                    <div class="ap-preview"><img id="prevLogoDark" alt="深色 Logo" /></div>
+                    <div class="ap-name">深色 Logo</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-dark">更换</button>
+                    <input type="file" class="ap-file" data-asset="logo-dark" accept="image/*" hidden />
+                  </div>
+                  <div class="ap-card">
+                    <div class="ap-preview"><img id="prevLogoLight" alt="浅色 Logo" /></div>
+                    <div class="ap-name">浅色 Logo</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="logo-light">更换</button>
+                    <input type="file" class="ap-file" data-asset="logo-light" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="res-pane" data-pane="avatar" hidden>
+              <div class="ap-group">
+                <div class="ap-group-title">作者头像</div>
+                <div class="ap-cards">
+                  <div class="ap-card">
+                    <div class="ap-preview ap-preview--round"><img id="prevAvatar" alt="作者头像" /></div>
+                    <div class="ap-name">avatar.webp</div>
+                    <button class="btn ghost sm ap-btn" type="button" data-pick="avatar">更换</button>
+                    <input type="file" class="ap-file" data-asset="avatar" accept="image/*" hidden />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 信息视图：操作说明（README） / 关于 -->
+      <div class="info-view" id="infoView" hidden>
+        <div class="info-pane info-readme" id="infoReadme"><div class="info-empty">加载操作说明中，请稍等…</div></div>
+        <div class="info-pane info-about" id="infoAbout" hidden>
+          <section class="about-card">
+            <h3 class="about-h">📌 项目介绍</h3>
+            <p><strong>Firefly-Admin</strong> 是 Firefly 博客（<a href="https://github.com/Slepoh/Firefly" target="_blank" rel="noopener">Slepoh/Firefly</a>）的可视化管理后台：通过 GitHub API 远程增删改文章、动态、单页与图库素材，在线编辑全部站点配置文件，保存即提交到 GitHub，由 Cloudflare 自动重新部署，无需服务器与构建。</p>
+            <ul>
+              <li><strong>文章内容</strong> — Markdown / MDX 结构化编辑，支持子目录分类</li>
+              <li><strong>我的动态</strong> — 时间线式动态发布，自动按时间命名</li>
+              <li><strong>页面信息</strong> — 关于 / 友链 / 留言等单页管理</li>
+              <li><strong>图库素材</strong> — 图片资源集中浏览、上传与管理</li>
+              <li><strong>基础 / 功能 / 页面 / 扩展配置</strong> — 站点全部配置在线可视化编辑。同时支持高级版配置，可通过查看源代码进行修改。</li>
+            </ul>
+            <div class="about-license">
+              <strong>📜 开源许可 · 二次开发约定</strong>
+              <p>本项目为开源项目，允许个人或企业基于其进行<strong>二次开发、修改与商业使用</strong>。请务必遵守以下约定：</p>
+              <ul>
+                <li>任何使用、修改或分发本项目的行为，<strong>必须完整保留版权信息与原作者署名</strong>，不得删除、遮挡或篡改；</li>
+                <li>基于本项目开发的衍生作品，应在显著位置注明<a href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener">「基于 Firefly-Admin 二次开发」</a>；</li>
+                <li>请在衍生作品的说明文档中保留本项目开源地址（<a href="https://github.com/slepoh/Firefly-Admin" target="_blank" rel="noopener">Slepoh/Firefly-Admin</a>），方便他人查阅原始来源。</li>
+              </ul>
+            </div>
+          </section>
+          <section class="about-card">
+            <h3 class="about-h">🏭 业务范围</h3>
+            <p>专业的全网营销解决方案服务商，15 年互联网产品开发与运营经验，助力企业数字化转型与业务增长。</p>
+            <ul>
+              <li><strong>外贸站开发</strong> — B2B / B2C 外贸独立站开发、Shopify模板定制、阿里国际站等，助力企业拓展全球市场</li>
+              <li><strong>小程序开发</strong> — 微信 / 抖音 / 百度等全平台小程序，一次开发、多端部署</li>
+              <li><strong>短视频矩阵</strong> — 抖音 / 快手 / 视频号等平台矩阵运营，内容策划与数据优化</li>
+              <li><strong>网站优化</strong> — SEO 搜索引擎优化、性能提速、移动端适配</li>
+              <li><strong>网络推广</strong> — 搜索引擎营销、社交媒体广告、内容营销策略</li>
+              <li><strong>AI 人工智能</strong> — GEO优化、智能客服、数据分析、AI 图像 / 视频生成</li>
+              <li><strong>内容平台运营</strong> — 抖音 / 快手 / 视频号 / Tiktok / Youtube / Reddit / Facebook / 小红书 / 百家号 / 头条号内容策划与增长</li>
+            </ul>
+          </section>
+          <section class="about-card">
+            <h3 class="about-h">📮 联系信息</h3>
+            <p class="about-line">📧 邮箱：<a href="mailto:info@aioky.cn">info#aioky.cn</a></p>
+            <p class="about-line">💬 微信号：<strong>admin_303</strong></p>
+			<p class="about-line">💬 Youtube：<strong><a href="https://www.youtube.com/@slepoh" target="_blank">点击关注频道</a></strong></p>
+			<p class="about-line">💬 Telegram：<strong><a href="https://t.me/slepxh" target="_blank">关注频道交流更多</a></strong></p>
+
+            <div class="about-qr-group">
+              <h4 class="about-subh">交流学习</h4>
+              <div class="about-qrs">
+                <figure class="about-qr">
+                  <img src="/uploads/wechat.jpg" alt="微信二维码" />
+                  <figcaption>微信 </figcaption>
+                </figure>
+				<figure class="about-qr">
+                  <img src="/uploads/QQ.jpg" alt="QQ二维码" />
+                  <figcaption>QQ</figcaption>
+                </figure>
+                <figure class="about-qr">
+                  <img src="/uploads/qr-whatsapp.jpg" alt="WhatsApp 二维码" />
+                  <figcaption>WhatsApp</figcaption>
+                </figure>
+                <figure class="about-qr">
+                  <img src="/uploads/qr-telegram.jpg" alt="Telegram 二维码" />
+                  <figcaption>Telegram</figcaption>
+                </figure>
+              </div>
+            </div>
+
+            <div class="about-qr-group">
+              <h4 class="about-subh">自媒体平台</h4>
+              <div class="about-qrs">
+                <figure class="about-qr">
+                  <img src="/uploads/mp.jpg" alt="公众号二维码" />
+                  <figcaption>公众号</figcaption>
+                </figure>
+                <figure class="about-qr">
+                  <img src="/uploads/sph.jpg" alt="视频号二维码" />
+                  <figcaption>视频号</figcaption>
+                </figure>
+				<figure class="about-qr">
+                  <img src="/uploads/youtube.jpg" alt="Youtube 二维码" />
+                  <figcaption>Youtube</figcaption>
+                </figure>
+                <figure class="about-qr">
+                  <img src="/uploads/tiktok.jpg" alt="TikTok 二维码" />
+                  <figcaption>TikTok</figcaption>
+                </figure>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 编辑区 -->
+      <div class="editor" id="editorPane" hidden>
+        <div class="empty-state" id="emptyState">
+          <div class="big">🗂️</div>
+          <p>从左侧选择文件进行编辑，或点击「新建」创建内容。</p>
+        </div>
+
+        <div class="edit-form" id="editForm" hidden>
+          <!-- 顶部操作栏：返回 / 删除 / 保存 -->
+          <div class="edit-topbar">
+            <button id="backBtn" class="btn ghost">← 返回</button>
+            <span class="ab-spacer"></span>
+            <button id="deleteBtn" class="btn danger" hidden>🗑 删除</button>
+            <button id="saveBtn" class="btn primary">💾 保存</button>
+          </div>
+
+          <div class="editor-head">
+            <span class="eh-icon" id="ehIcon">📝</span>
+            <div class="eh-meta">
+              <div class="fn-row">
+                <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
+                <select id="extSelect" class="ext-select" aria-label="文件后缀" title="选择文件后缀"></select>
+              </div>
+              <div class="eh-path" id="ehPath"></div>
+            </div>
+            <div class="eh-right">
+              <span class="ed-type-badge" id="edTypeBadge">Markdown 富文本</span>
+              <div class="edit-status" id="editStatus"></div>
+            </div>
+          </div>
+
+          <!-- 内容 ⇄ 文章信息 Tab 切换（文章 / 动态类型显示，默认「内容」占满编辑区） -->
+          <div class="editor-tabs" id="editorTabs" hidden>
+            <button type="button" class="etab active" id="tabContentBtn" data-tab="content">📝 内容</button>
+            <button type="button" class="etab" id="tabMetaBtn" data-tab="meta" hidden>📋 文章信息</button>
+            <button type="button" class="etab" id="tabDynBtn" data-tab="dyn" hidden>⚡ 动态信息</button>
+          </div>
+
+          <!-- 文章结构化表单（Tab「文章信息」视图） -->
+          <div class="meta-panel collapsed" id="postPanel" hidden>
+            <button type="button" class="panel-head">📋 文章信息 <span class="lock-badge" id="encBadge" hidden>🔒 已加密</span></button>
+            <div class="panel-body"><div id="postFields" class="post-fields"></div></div>
+          </div>
+
+          <!-- 动态字段（Tab「动态信息」视图） -->
+          <div class="meta-panel collapsed" id="dynamicPanel" hidden>
+            <button type="button" class="panel-head">⚡ 动态信息</button>
+            <div class="panel-body">
+              <div id="dynamicFields" class="dynamic-fields">
+                <div class="field">
+                  <label>发布时间</label>
+                  <input type="datetime-local" id="dynPublished" />
+                </div>
+                <div class="field">
+                  <label>地点 (location，可选)</label>
+                  <input type="text" id="dynLocation" placeholder="如 郑州" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 编辑模式切换 -->
+          <div class="mode-switch" id="modeSwitch">
+            <span>编辑模式：</span>
+            <button class="seg active" id="modeRich" data-mode="rich">富文本</button>
+            <button class="seg" id="modeRaw" data-mode="raw">源代码</button>
+          </div>
+
+          <!-- 编辑主区 -->
+          <div class="editor-main" id="editorMain">
+            <div class="editor-host" id="editorHost">
+              <div id="editor"></div>
+            </div>
+          </div>
+
+          <!-- 源代码模式：整文件编辑 -->
+          <textarea id="rawEditor" class="raw-editor" hidden placeholder="编辑完整文件（含 Frontmatter）…"></textarea>
+
+          <!-- 结构化配置编辑：参数名锁定，仅值可编辑 -->
+          <div id="configEditor" class="config-editor" hidden></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 右键菜单 -->
+  <div class="ctx-menu" id="ctxMenu" hidden></div>
+  <input type="file" id="ctxFileInput" multiple hidden />
+
+  <!-- 提示条 -->
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- 保存成功弹窗 -->
+  <div class="ok-popup" id="okPopup" hidden></div>
+
+  <!-- 高级模式（源码编辑）风险确认弹窗 -->
+  <div class="modal-overlay" id="advModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="advModalTitle">
+      <div class="modal-title" id="advModalTitle">⚠️ 进入高级模式（源码编辑）</div>
+      <div class="modal-body modal-msg">
+        开启高级模式后，将直接以 <b>源代码</b> 形式对该配置文件进行编辑。此模式会绕过可视化编辑器的字段校验，保存后将直接覆盖原文件内容。
+        <br><br>
+        如因操作原因（如语法错误、字段缺失等）导致站点配置异常或页面无法正常显示，需由您 <b>自行承担</b> 由此带来的风险。
+        <br><br>
+        是否确认进入高级模式？
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="advCancel" type="button">不同意</button>
+        <button class="btn primary" id="advConfirm" type="button">同意并继续</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vendor/toastui/toastui-editor-all.min.js"></script>
+  <script src="/config-parser.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
