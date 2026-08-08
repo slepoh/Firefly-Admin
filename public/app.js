@@ -573,7 +573,7 @@
         f._title = t; // 缓存到文件对象，供搜索与再次渲染直接复用（避免异步闪烁）
         nameEl.textContent = t;
       }
-      // 动态列表：第一列显示「动态内容」（正文首段纯文本），标题降级为副标题；发表时间另作副信息
+      // 动态列表：第一列显示「动态内容」（正文首段纯文本），下方副信息显示「发布时间」（不再显示文件名/标题）
       if (state.type === "dynamic") {
         const contentEl = div.querySelector(".fi-content");
         const bodyText = (fm.body || "").replace(/^[\s\n]+/, "").trim();
@@ -582,7 +582,11 @@
         if (contentEl) contentEl.textContent = content;
         f._content = content;
         const pub = (fm.data && (fm.data.published || fm.data.date)) || f.created || f.updated;
-        if (pub) f._published = pub;
+        if (pub) {
+          f._published = pub;
+          const pubEl = div.querySelector(".fi-pub");
+          if (pubEl) pubEl.textContent = fmtDateTime(pub) || "—";
+        }
       }
       // 文件名已在独立「文件名」列展示（fi-fname），此处仅把完整文件名写入行 title 便于悬停核对
       div.title = f.name + (t ? " · " + t : "");
@@ -701,9 +705,10 @@
         } else {
           if (_isDyn) {
             const contentText = f._content || "（加载中…）";
-            const pubText = f._published ? fmtDateTime(f._published) : "";
+            const pub = f._published || f.created || f.updated;
+            const pubText = pub ? fmtDateTime(pub) : "—";
             mainInner += `<span class="fi-content">${esc(contentText)}</span>`;
-            mainInner += `<span class="fi-sub"><span class="fi-stitle">${nameHtml}</span>${pubText ? `<span class="fi-pub">${esc(pubText)}</span>` : ""}</span>`;
+            mainInner += `<span class="fi-pub">${esc(pubText)}</span>`;
           } else {
             mainInner += nameHtml;
           }

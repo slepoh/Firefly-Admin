@@ -404,10 +404,7 @@ textarea { resize: vertical; }
 /* 动态列表：主列第一格显示「动态内容」，标题与发表时间降级为下方副信息（纵向堆叠） */
 .file-item .fi-main.fi-main--dyn { flex-direction: column; align-items: flex-start; gap: 3px; }
 .file-item .fi-main--dyn .fi-content { flex: none; font-weight: 600; color: var(--text); line-height: 1.4; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-item .fi-main--dyn .fi-sub { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
-.file-item .fi-main--dyn .fi-stitle { flex: none; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
-.file-item .fi-main--dyn .fi-stitle .fi-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-item .fi-main--dyn .fi-pub { flex: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.file-item .fi-main--dyn .fi-pub { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
 /* 文件项行内操作按钮：编辑常驻；重命名 / 删除仅可修改板块显示 */
 .fi-act {
   border: none; background: transparent; border-radius: 7px;
