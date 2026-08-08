@@ -3054,12 +3054,21 @@
     const sS = raw.indexOf(NAVBAR_START), eS = raw.indexOf(NAVBAR_END);
     if (sS !== -1 && eS !== -1) {
       region = raw.slice(raw.indexOf("\n", sS) + 1, raw.lastIndexOf("\n", eS));
+    } else if (sS !== -1) {
+      // START 存在但 END 缺失（官方模板更新删除了 END 标记）：
+      // 截取到函数 return 之前，保证自定义区域完整可解析
+      const ret = raw.indexOf("return { links }");
+      const regionEnd = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
+      region = raw.slice(raw.indexOf("\n", sS) + 1, regionEnd);
     } else {
       const a = raw.indexOf("自定义导航栏链接");
       if (a === -1) return [];
       const regionStart = raw.lastIndexOf("\n", a) + 1;
       const ret = raw.indexOf("return { links }");
       const regionEnd = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
+      // 防止误匹配（如 LinkPresets 标题注释「可自由自定义导航栏链接…」）
+      // 导致 regionStart > regionEnd 得到空区域，可视化分组静默丢失
+      if (regionEnd <= regionStart) return [];
       region = raw.slice(regionStart, regionEnd);
     }
     const groups = [];
@@ -3113,6 +3122,11 @@
     if (ss !== -1 && es !== -1) {
       regionStart = raw.lastIndexOf("\n", ss);
       regionEnd = raw.indexOf("\n", es);
+    } else if (ss !== -1) {
+      // START 存在但 END 缺失：替换 START 行首至 return 行首，保留函数尾
+      regionStart = raw.lastIndexOf("\n", ss);
+      const ret = raw.indexOf("return { links }");
+      regionEnd = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
     } else {
       const a = raw.indexOf("自定义导航栏链接");
       if (a === -1) {
@@ -3123,6 +3137,12 @@
         regionStart = raw.lastIndexOf("\n", a);
         const ret = raw.indexOf("return { links }");
         regionEnd = ret === -1 ? raw.length : raw.lastIndexOf("\n", ret);
+        // 误匹配保护：区域起点越过终点时退化为「return 前插入」，避免破坏文件
+        if (regionEnd < regionStart) {
+          const ret2 = raw.indexOf("return { links }");
+          regionStart = ret2 === -1 ? raw.length : raw.lastIndexOf("\n", ret2);
+          regionEnd = regionStart;
+        }
       }
     }
     return raw.slice(0, regionStart) + "\n" + custom + "\n" + raw.slice(regionEnd);
