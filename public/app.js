@@ -569,11 +569,21 @@
       if (r.status !== 200 || !r.data || r.data.content == null) return;
       const fm = parseFrontmatter(r.data.content);
       const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
-      if (!t) return; // 无 title 则保留文件名兜底
-      f._title = t; // 缓存到文件对象，供搜索与再次渲染直接复用（避免异步闪烁）
-      nameEl.textContent = t;
+      if (t) {
+        f._title = t; // 缓存到文件对象，供搜索与再次渲染直接复用（避免异步闪烁）
+        nameEl.textContent = t;
+      }
+      // 动态列表：主列显示「发表时间」（published 优先，回退 date / 文件创建时间），标题降级为副标题
+      if (state.type === "dynamic") {
+        const pubEl = div.querySelector(".fi-pub");
+        const pub = (fm.data && (fm.data.published || fm.data.date)) || f.created || f.updated;
+        if (pub) {
+          f._published = pub;
+          if (pubEl) pubEl.textContent = fmtDateTime(pub) || "—";
+        }
+      }
       // 文件名已在独立「文件名」列展示（fi-fname），此处仅把完整文件名写入行 title 便于悬停核对
-      div.title = f.name + " · " + t;
+      div.title = f.name + (t ? " · " + t : "");
     } catch (e) { /* 读取失败则保留文件名 */ }
   }
 
@@ -624,7 +634,7 @@
       const head = document.createElement("div");
       head.className = "file-list-head";
       const isArticle = (state.type === "posts" || state.type === "dynamic" || state.type === "spec");
-      const flhName = isArticle ? "文章标题" : "文件名称";
+      const flhName = state.type === "dynamic" ? "发表时间" : (isArticle ? "文章标题" : "文件名称");
       let headHtml = '<span class="flh-name">' + flhName + '</span>';
       headHtml += '<span class="flh-fname">文件名</span>';
       if (state.type === "posts") {
@@ -683,9 +693,20 @@
         const fnameCell = isDir
           ? `<span class="fi-fname"></span>`
           : `<span class="fi-fname" title="${esc(f.name)}">${esc(f.name)}</span>`;
+        const _isDyn = state.type === "dynamic";
+        let mainInner = `<span class="fi-icon">${icon}</span>`;
+        if (isDir) {
+          mainInner += `<span class="fi-name">${esc(f.name)}</span>`;
+        } else {
+          if (_isDyn) {
+            const pubText = f._published ? fmtDateTime(f._published) : "—";
+            mainInner += `<span class="fi-pub">${esc(pubText)}</span>`;
+          }
+          mainInner += nameHtml;
+        }
         div.innerHTML =
           check +
-          `<div class="fi-main"><span class="fi-icon">${icon}</span>${nameHtml}</div>` +
+          `<div class="fi-main${_isDyn ? " fi-main--dyn" : ""}">${mainInner}</div>` +
           fnameCell +
           (state.type === "posts" && !isDir
             ? `<span class="fi-created">${fmtDate(f.created)}</span><span class="fi-updated">${fmtDateTime(f.updated)}</span>`
