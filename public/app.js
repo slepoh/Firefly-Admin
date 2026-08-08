@@ -619,8 +619,8 @@
       .filter((f) => !(state.type === "config" && f.name === "index.ts"))
       // 文章板块隐藏子目录（images / guide 等），这些统一由「图库」集中管理
       .filter((f) => !(state.type === "posts" && f.type === "dir"));
-    // 文章板块：按文件创建日期降序排列（最新创建排第一），无日期的排末尾
-    if (state.type === "posts") {
+    // 文章 / 动态板块：按文件创建日期降序排列（最近发布排第一），无日期的排末尾
+    if (state.type === "posts" || state.type === "dynamic") {
       _files.sort((a, b) => {
         const ta = a.created ? new Date(a.created).getTime() : 0;
         const tb = b.created ? new Date(b.created).getTime() : 0;
@@ -4972,14 +4972,23 @@
     on("modeRaw", "onclick", () => applyMode("raw"));
 
     // 抽屉
+    // 顶栏 ☰：仅移动端显示，作为抽屉开合入口（PC 折叠入口已移入侧栏底部 #collapseBtn）
     on("menuBtn", "onclick", () => {
       if (isMobile()) {
         if ($("sidebar").classList.contains("open")) closeDrawer();
         else openDrawer();
-      } else {
-        const collapsed = $("mainApp").classList.toggle("sidebar-collapsed");
-        window.dispatchEvent(new Event("resize"));
       }
+    });
+    // 侧栏底部「收起侧边栏」：仅桌面显示，切换侧栏折叠态并更新按钮文案/箭头
+    on("collapseBtn", "onclick", () => {
+      const collapsed = $("mainApp").classList.toggle("sidebar-collapsed");
+      window.dispatchEvent(new Event("resize"));
+      const btn = $("collapseBtn");
+      if (!btn) return;
+      const ico = btn.querySelector(".ni-ico");
+      const tx = btn.querySelector(".ni-tx");
+      if (ico) ico.textContent = collapsed ? "»" : "«";
+      if (tx) tx.textContent = collapsed ? "展开侧边栏" : "收起侧边栏";
     });
     // 移动端：抽屉右上角「✕」关闭
     on("navCloseBtn", "onclick", closeDrawer);
