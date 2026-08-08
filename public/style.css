@@ -326,7 +326,7 @@ textarea { resize: vertical; }
 /* 文档列表表格化：表头（与 .file-item 同款 grid 列模板，滚动时吸顶） */
 .file-list-head {
   display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) 110px 80px 200px 140px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 150px 80px 188px;
   align-items: stretch;
   gap: 8px;
   padding: 6px 10px;
@@ -346,35 +346,42 @@ textarea { resize: vertical; }
   line-height: 1.2;
 }
 .flh-name { grid-column: 3 / 4; }
-.flh-pubdate { grid-column: 4 / 5; text-align: left; }
-.flh-time { grid-column: 5 / 6; text-align: left; }
-.flh-fname { grid-column: 6 / 7; text-align: left; }
-.flh-actions { grid-column: 7 / 8; justify-content: flex-end; }
-/* 文章/动态/单页板块：表头与数据行统一为 7 列（复选/图标/标题/发布日期/时间/文件名/操作） */
+.flh-fname { grid-column: 4 / 5; text-align: left; }
+.flh-created { grid-column: 5 / 6; text-align: left; }
+.flh-updated { grid-column: 6 / 7; text-align: left; }
+.flh-size { grid-column: 5 / 6; justify-content: flex-end; }
+.flh-actions { grid-column: 6 / 7; justify-content: flex-end; }
+.file-list.has-dates .flh-created { grid-column: 5 / 6; }
+.file-list.has-dates .flh-updated { grid-column: 6 / 7; }
+.file-list.has-dates .flh-size { grid-column: 7 / 8; }
+.file-list.has-dates .flh-actions { grid-column: 8 / 9; }
+/* 文章板块：表头与数据行统一为 8 列（复选/图标/标题/文件名/创建/修改/大小/操作），与数据行对齐 */
 .file-list.has-dates .file-list-head,
 .file-list.has-dates .file-item {
-  grid-template-columns: 24px 28px minmax(0, 1fr) 110px 80px 200px 140px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 150px 96px 120px 80px 188px;
 }
 /* 列分割线 + 内边距，表头与数据行对齐成表格 */
 .file-list-head .flh-name,
-.file-list-head .flh-pubdate,
-.file-list-head .flh-time,
-.file-list-head .flh-fname {
+.file-list-head .flh-fname,
+.file-list-head .flh-created,
+.file-list-head .flh-updated,
+.file-list-head .flh-size {
   padding: 0 10px;
   border-right: 1px solid var(--border, #e5e7eb);
 }
 .file-list-head .flh-actions { padding: 0 10px; }
 .file-item .fi-main,
-.file-item .fi-pubdate,
-.file-item .fi-time,
-.file-item .fi-fname {
+.file-item .fi-fname,
+.file-item .fi-created,
+.file-item .fi-updated,
+.file-item .fi-size {
   padding-right: 10px;
   border-right: 1px solid #eef0f3;
 }
-/* 文件项：以表格行形式呈现（标题 / 发布日期 / 时间 / 文件名 / 操作 分列，斑马纹 + 行分隔线） */
+/* 文件项：以表格行形式呈现（名称 / 大小 / 操作分列，斑马纹 + 行分隔线） */
 .file-item {
   display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) 110px 80px 200px 140px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 150px 80px 188px;
   align-items: center;
   gap: 8px;
   padding: 9px 10px;
@@ -391,10 +398,11 @@ textarea { resize: vertical; }
 .file-item .fi-icon { width: 20px; text-align: center; flex: none; }
 .file-item .fi-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-item .fi-ext { flex: none; color: var(--muted); }
-.file-item .fi-fname { grid-column: 6 / 7; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-item .fi-pubdate { grid-column: 4 / 5; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.file-item .fi-time { grid-column: 5 / 6; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.file-item .fi-actions { grid-column: 7 / 8; display: flex; gap: 4px; justify-content: flex-end; }
+.file-item .fi-fname { grid-column: 4 / 5; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item .fi-created { grid-column: 5 / 6; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.file-item .fi-updated { grid-column: 6 / 7; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.file-item .fi-size { grid-column: 5 / 6; color: var(--muted); font-size: 11px; text-align: right; }
+.file-item .fi-actions { grid-column: 6 / 7; display: flex; gap: 4px; justify-content: flex-end; }
 .file-item { user-select: none; }
 /* 动态列表：主列第一格显示「动态内容」，标题与发表时间降级为下方副信息（纵向堆叠） */
 .file-item .fi-main.fi-main--dyn { flex-direction: column; align-items: flex-start; gap: 3px; }
