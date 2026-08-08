@@ -240,6 +240,9 @@ body {
 .ct-selectall input { width: 16px; height: 16px; }
 .ct-title { font-size: 16px; font-weight: 700; color: #2b3038; }
 .ct-actions { margin-left: auto; display: flex; gap: 8px; }
+/* 搜索框 / 图库分类下拉移入按钮组后（位于按钮左边），定宽避免被全局 input width:100% 撑满 */
+.ct-actions #searchInput { flex: 0 1 auto; width: 200px; min-width: 140px; }
+.ct-actions #galleryCatSel { flex: 0 1 auto; width: 180px; min-width: 120px; }
 .content-view .list-tools { padding: 10px 16px 4px; }
 .content-view .list-tools2 { padding: 0 16px 8px; }
 
@@ -877,6 +880,15 @@ textarea { resize: vertical; }
   .content-toolbar { flex-wrap: wrap; }
   .ct-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
   .ct-actions .btn { flex: 1 1 auto; min-width: 120px; justify-content: center; }
+  /* 移入按钮组的搜索框 / 下拉：移动端占满一行（文章/动态/单页）；图库用 order 把下拉排到「新建分类」左边 */
+  .ct-actions #searchInput,
+  .ct-actions #galleryCatSel { width: 100%; flex: 1 1 auto; }
+  body.section-gallery #batchDelBtn { order: 1; }
+  body.section-gallery #topRefreshBtn { order: 2; }
+  body.section-gallery #quickUploadBtn { order: 3; }
+  body.section-gallery #newBtn { order: 4; }
+  body.section-gallery #galleryCatSel { order: 5; width: auto; flex: 1 1 120px; }
+  body.section-gallery #newCatBtn { order: 6; }
   .file-list { max-height: 64vh; overflow-y: auto; }
   .file-item .fi-actions { gap: 2px; }
   .fi-act { padding: 4px 7px; }

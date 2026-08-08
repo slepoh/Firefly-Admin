@@ -3074,6 +3074,17 @@
     $("searchInput").hidden = isConfig || isGallery || isOverview;
     $("refreshBtn").hidden = isConfig || isGallery || isOverview;
     if (isGallery || isOverview) $("searchInput").value = "";
+    // 将搜索框与图库分类下拉移入右上角按钮组（作为首子节点 = 按钮左边）：
+    // PC 端 文章内容/我的动态/页面信息 的搜索框显示在按钮左边；
+    // 移动端 图库素材 的分类下拉通过 body.section-gallery + CSS order 显示在「新建分类」按钮左边。
+    // 两元素 hidden 时移入无副作用；元素按 id 引用，切换父节点不影响事件绑定。
+    const _cta = document.querySelector(".ct-actions");
+    if (_cta) {
+      _cta.insertBefore($("galleryCatSel"), _cta.firstChild);
+      _cta.insertBefore($("searchInput"), _cta.firstChild);
+    }
+    document.body.classList.toggle("section-gallery", isGallery);
+    document.body.classList.toggle("section-content", ["posts", "dynamic", "spec"].includes(type));
 
     state.selected.clear();
 
