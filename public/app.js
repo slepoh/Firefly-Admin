@@ -4979,12 +4979,10 @@
       } else {
         const collapsed = $("mainApp").classList.toggle("sidebar-collapsed");
         window.dispatchEvent(new Event("resize"));
-        const lbl = $("menuBtn") && $("menuBtn").querySelector(".ni-tx");
-        if (lbl) lbl.textContent = collapsed ? "展开侧栏" : "收起侧栏";
       }
     });
-    // 移动端：抽屉关闭时点击左上角 Logo 打开侧栏导航（导航按钮已置于侧栏内，关闭后不可见，需此入口）
-    on("brand", "click", () => { if (isMobile() && !$("sidebar").classList.contains("open")) openDrawer(); });
+    // 移动端：抽屉右上角「✕」关闭
+    on("navCloseBtn", "onclick", closeDrawer);
     on("drawerBackdrop", "onclick", closeDrawer);
 
     // 编辑器 Tab：内容 ⇄ 文章信息 / 动态信息 互斥切换

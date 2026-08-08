@@ -166,16 +166,18 @@ body {
   color: var(--primary-d); font-weight: 700;
   box-shadow: inset 3px 0 0 var(--primary);
 }
-/* 侧栏顶部导航开关：作为导航栏首个独立控件，与下方菜单项区分 */
-.nav-btn.nav-toggle {
-  margin-bottom: 6px;
-  padding: 11px 13px;
+/* 移动端抽屉头部：标题 + 关闭按钮（桌面端隐藏） */
+.sidebar-head {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 12px 0 16px;
   border-bottom: 1px solid var(--border);
-  border-radius: 11px 11px 0 0;
-  background: #f2f4f7;
-  font-weight: 700;
+  background: var(--panel);
+  flex: none;
 }
-.nav-btn.nav-toggle:hover { background: #e9edf2; }
+.sidebar-head .sh-title { font-weight: 700; font-size: 15px; color: var(--primary-d); }
 
 /* 侧栏底部：开源地址 */
 .nav-foot { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); flex: none; }
@@ -900,6 +902,8 @@ textarea { resize: vertical; }
     box-shadow: var(--shadow); overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
   .sidebar.open { transform: translateX(0); }
+  /* 移动端抽屉头部：显示标题与关闭按钮，点击 ✕ 或遮罩均可关闭 */
+  .sidebar-head { display: flex; }
   /* 桌面折叠态在移动端还原为全宽抽屉：避免窗口缩小时折叠类把抽屉压成 64px */
   .layout.sidebar-collapsed .sidebar { width: 230px; min-width: 230px; padding: 0; }
   .layout.sidebar-collapsed .nav-group-title { display: flex; }
