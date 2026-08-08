@@ -330,6 +330,29 @@ textarea { resize: vertical; }
 .file-list.has-dates .flh-updated { grid-column: 6 / 7; }
 .file-list.has-dates .flh-size { grid-column: 7 / 8; }
 .file-list.has-dates .flh-actions { grid-column: 8 / 9; }
+/* 文章板块：表头与数据行统一为 8 列（复选/图标/标题/文件名/创建/修改/大小/操作），与数据行对齐 */
+.file-list.has-dates .file-list-head,
+.file-list.has-dates .file-item {
+  grid-template-columns: 24px 28px minmax(0, 1fr) 150px 96px 120px 80px 188px;
+}
+/* 列分割线 + 内边距，表头与数据行对齐成表格 */
+.file-list-head .flh-name,
+.file-list-head .flh-fname,
+.file-list-head .flh-created,
+.file-list-head .flh-updated,
+.file-list-head .flh-size {
+  padding: 0 10px;
+  border-right: 1px solid var(--border, #e5e7eb);
+}
+.file-list-head .flh-actions { padding: 0 10px; }
+.file-item .fi-main,
+.file-item .fi-fname,
+.file-item .fi-created,
+.file-item .fi-updated,
+.file-item .fi-size {
+  padding-right: 10px;
+  border-right: 1px solid #eef0f3;
+}
 /* 文件项：以表格行形式呈现（名称 / 大小 / 操作分列，斑马纹 + 行分隔线） */
 .file-item {
   display: grid;

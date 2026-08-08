@@ -3101,7 +3101,7 @@
     $("quickUploadBtn").hidden = isConfig || isOverview;
     $("newCatBtn").hidden = isConfig || isOverview;
     $("searchInput").hidden = isConfig || isGallery || isOverview;
-    $("refreshBtn").hidden = isConfig || isGallery || isOverview;
+    const _rb = $("refreshBtn"); if (_rb) _rb.hidden = isConfig || isGallery || isOverview;
     if (isGallery || isOverview) $("searchInput").value = "";
     // 将搜索框与图库分类下拉移入右上角按钮组（作为首子节点 = 按钮左边）：
     // PC 端 文章内容/我的动态/页面信息 的搜索框显示在按钮左边；
