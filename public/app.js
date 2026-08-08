@@ -672,7 +672,11 @@
         // 文字包入 .fi-act-label，移动端隐藏文字仅留图标，避免遮挡文件名
         let actions = `<button class="fi-act edit" type="button" data-act="edit" title="编辑">✏️<span class="fi-act-label">编辑</span></button>`;
         if (modifiable) {
-          if (!isDir) actions += `<button class="fi-act" type="button" data-act="rename" title="重命名">🏷️<span class="fi-act-label">重命名</span></button>`;
+          if (!isDir) {
+            const _isArt = isArticleMd(f);
+            const _rnLabel = _isArt ? "改标题" : "重命名";
+            actions += `<button class="fi-act" type="button" data-act="rename" title="${_rnLabel}">${_isArt ? "🔤" : "🏷️"}<span class="fi-act-label">${_rnLabel}</span></button>`;
+          }
           actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑<span class="fi-act-label">删除</span></button>`;
         }
 
@@ -2775,6 +2779,8 @@
   }
 
   async function renameItem(item) {
+    // 文章类（posts/dynamic/spec 的 .md/.mdx）：「重命名」改为直接修改 frontmatter 的 title
+    if (isArticleMd(item)) { await editArticleTitle(item); return; }
     const isFile = item.type !== "dir";
     const dot = item.name.lastIndexOf(".");
     const ext = isFile && dot > 0 ? item.name.slice(dot) : "";
@@ -2814,6 +2820,63 @@
     } catch (e) {
       toast(e.message || "重命名失败", "err");
     }
+  }
+
+  // 仅替换 frontmatter 中的 title 行，其余字段（tags / image 等）原样保留，避免整段重序列化引入意外改动
+  function replaceFrontmatterTitle(text, newTitle) {
+    const m = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
+    if (!m) return text; // 无 frontmatter 则不处理
+    const ser = yamlScalar(newTitle, false);
+    const fmBlock = m[1];
+    const body = m[2];
+    let newFm;
+    if (/^[ \t]*title[ \t]*:/m.test(fmBlock)) {
+      newFm = fmBlock.replace(/^[ \t]*title[ \t]*:.*$/m, "title: " + ser);
+    } else {
+      newFm = "title: " + ser + "\n" + fmBlock; // 原 frontmatter 缺 title 时插入
+    }
+    return "---\n" + newFm + "\n---\n" + body;
+  }
+
+  // 文章类：列表内「重命名」改为编辑 frontmatter 的 title（而非改文件名 / slug）
+  async function editArticleTitle(item) {
+    let content, sha;
+    try {
+      const r = await api("/api/file?path=" + encodeURIComponent(item.path));
+      if (r.status !== 200 || !r.data || r.data.content == null) { toast("读取文件失败", "err"); return; }
+      content = r.data.content;
+      sha = r.data.sha || item.sha;
+    } catch (e) { toast(e.message || "读取文件失败", "err"); return; }
+    const fm = parseFrontmatter(content);
+    const cur = (fm.data && typeof fm.data.title === "string") ? fm.data.title : "";
+    const nn = await openModal({
+      title: "修改文章标题",
+      input: cur,
+      placeholder: "请输入文章标题",
+      confirmText: "保存标题",
+    });
+    if (nn === null || nn === undefined) return;
+    const newTitle = nn.trim();
+    if (!newTitle) { toast("标题不能为空", "err"); return; }
+    if (newTitle === cur) { toast("标题未改变"); return; }
+    const newContent = replaceFrontmatterTitle(content, newTitle);
+    try {
+      const { status, data } = await api("/api/file", {
+        method: "PUT",
+        body: JSON.stringify({
+          path: item.path,
+          content: newContent,
+          sha,
+          message: "Update title of " + item.path + " BY YiQiCMS",
+        }),
+      });
+      if (status === 200 || status === 201) {
+        toast("已更新标题");
+        await refreshCurrent();
+      } else {
+        toast((data && (data.error || data.message)) || "更新标题失败", "err");
+      }
+    } catch (e) { toast(e.message || "更新标题失败", "err"); }
   }
 
   // 真正执行删除（无确认弹窗），供单条删除与批量删除复用
@@ -4871,10 +4934,14 @@
         if ($("sidebar").classList.contains("open")) closeDrawer();
         else openDrawer();
       } else {
-        $("mainApp").classList.toggle("sidebar-collapsed");
+        const collapsed = $("mainApp").classList.toggle("sidebar-collapsed");
         window.dispatchEvent(new Event("resize"));
+        const lbl = $("menuBtn") && $("menuBtn").querySelector(".ni-tx");
+        if (lbl) lbl.textContent = collapsed ? "展开侧栏" : "收起侧栏";
       }
     });
+    // 移动端：抽屉关闭时点击左上角 Logo 打开侧栏导航（导航按钮已置于侧栏内，关闭后不可见，需此入口）
+    on("brand", "click", () => { if (isMobile() && !$("sidebar").classList.contains("open")) openDrawer(); });
     on("drawerBackdrop", "onclick", closeDrawer);
 
     // 编辑器 Tab：内容 ⇄ 文章信息 / 动态信息 互斥切换
