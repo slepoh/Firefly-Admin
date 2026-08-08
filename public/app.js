@@ -4288,6 +4288,26 @@
     el.className = "backup-status" + (kind ? " " + kind : "");
   }
 
+  // 备份进度条：首次调用时动态创建 .bk-progress 容器（含 .bk-bar），
+  // 之后仅更新宽度与文案；pct 为 0~100 的整数。错误/完成时置为 100 并保留条体。
+  function bkProgress(pct, label) {
+    let box = $("bkProgress");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "bkProgress";
+      box.className = "bk-progress";
+      box.innerHTML = '<div class="bk-bar"></div>';
+      const anchor = $("bkStatus");
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor);
+    }
+    const bar = box.querySelector(".bk-bar");
+    if (bar) {
+      const p = Math.max(0, Math.min(100, pct | 0));
+      bar.style.width = p + "%";
+      box.setAttribute("data-label", label || "");
+    }
+  }
+
   function rsSet(msg, kind) {
     const el = $("rsStatus");
     if (!el) return;
@@ -4296,8 +4316,12 @@
   }
 
   async function createBackup() {
+    const createBtn = $("bkCreateBtn");
     const withContent = $("bkWithContent") && $("bkWithContent").checked;
+    // 即时反馈：按钮进入「工作中」状态（禁用 + 文案变化），避免出现「点了没反应」的错觉
+    if (createBtn) { createBtn.disabled = true; createBtn.dataset.label = createBtn.textContent; createBtn.textContent = "⏳ 生成中…"; }
     bkSet("正在读取配置列表…", "");
+    bkProgress(0, "正在读取配置列表…");
     try {
       // 1) 配置目录（src/config）
       const { status, data } = await api("/api/list?type=config");
@@ -4314,7 +4338,12 @@
           } catch (e) { /* 单目录失败不阻塞整体 */ }
         }
       }
-      bkSet("已发现 " + files.length + " 个文件，开始读取内容…", "");
+      if (files.length === 0) {
+        bkSet("⚠️ 未发现任何可备份的配置文件。", "warn");
+        bkProgress(100, "未发现可备份文件");
+        return;
+      }
+      bkSet("已发现 " + files.length + " 个文件，开始逐个读取内容…", "");
       // 3) 逐文件读取内容（串行，避免触发 GitHub 限流；配置量不大）
       // 注意：f.path 形如 src/config/siteConfig.ts，后端 ghApi 会对每段单独 encodeURIComponent，
       // 因此这里【不能】整体 encodeURIComponent（会把 / 编成 %2F 再被后端二次编码成 %252F → 404）。
@@ -4336,10 +4365,13 @@
           skip++;
           console.warn("备份：文件读取异常", f.path, e.message);
         }
-        if ((i + 1) % 5 === 0) bkSet("已读取 " + (i + 1) + " / " + files.length + " 个文件…", "");
+        // 进度条：列表读取(10%) + 逐文件读取(10%→95%)，给用户连续可见的进展
+        const pct = Math.round(10 + ((i + 1) / files.length) * 85);
+        bkProgress(pct, "正在读取文件 " + (i + 1) + " / " + files.length + (f.name ? "：" + f.name : "") + "…");
       }
       if (entries.length === 0) {
         bkSet("❌ 未能读取任何文件内容（" + skip + " 个读取失败）。请检查网络或稍后重试；若持续失败可能是 GitHub API 限流。", "err");
+        bkProgress(100, "读取失败");
         return;
       }
       if (skip > 0) bkSet("⚠️ 有 " + skip + " 个文件读取失败，已跳过。当前生成 " + entries.length + " 个文件。", "warn");
@@ -4361,9 +4393,13 @@
       }
       const dl = $("bkDownloadBtn");
       if (dl) dl.disabled = false;
-      bkSet("✅ 备份生成完成：共 " + entries.length + " 个文件。可下载 JSON 留存，或选择备份文件恢复。", "ok");
+      bkProgress(100, "完成");
+      bkSet("✅ 备份生成完成：共 " + entries.length + " 个文件。可下载 JSON 留存，或到「数据恢复」写回 GitHub。", "ok");
     } catch (e) {
       bkSet("❌ 生成备份失败：" + (e.message || ""), "err");
+      bkProgress(100, "失败");
+    } finally {
+      if (createBtn) { createBtn.disabled = false; createBtn.textContent = createBtn.dataset.label || "📦 生成备份"; }
     }
   }
 

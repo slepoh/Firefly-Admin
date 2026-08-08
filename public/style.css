@@ -1559,6 +1559,11 @@ textarea { resize: vertical; }
 .backup-actions .btn { padding: 9px 16px; font-size: 14px; }
 .backup-actions label.btn { display: inline-flex; align-items: center; cursor: pointer; }
 .backup-status { min-height: 18px; font-size: 13px; margin: 6px 0 10px; line-height: 1.6; }
+/* 备份进度条：首次读取即出现，宽度随进程推进，避免「点击无反应」错觉 */
+.bk-progress { height: 10px; background: #eceef1; border-radius: 999px; overflow: hidden; margin: 8px 0 4px; }
+.bk-progress .bk-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ff8a3d, #ff6a00); border-radius: 999px; transition: width .25s ease; }
+/* 生成中：按钮文案变为「⏳ 生成中…」并禁用，给出明确工作中状态 */
+#bkCreateBtn:disabled { opacity: .65; cursor: progress; }
 .backup-status.ok { color: var(--ok); }
 .backup-status.err { color: var(--danger); }
 .backup-status.warn { color: #b7791f; font-weight: 600; }
