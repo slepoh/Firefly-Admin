@@ -161,7 +161,11 @@ body {
 }
 .nav-btn .ni-ico { font-size: 17px; width: 20px; text-align: center; flex: none; line-height: 1; }
 .nav-btn:hover { background: #f0f2f5; }
-.nav-btn.active { background: linear-gradient(135deg, #fff1e3, #ffe6d2); color: var(--primary-d); }
+.nav-btn.active {
+  background: linear-gradient(135deg, #ffe6cc, #ffcf9e);
+  color: var(--primary-d); font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--primary);
+}
 
 /* 侧栏底部：开源地址 */
 .nav-foot { margin-top: auto; padding: 10px 12px; border-top: 1px solid var(--border); flex: none; }
@@ -304,7 +308,7 @@ textarea { resize: vertical; }
 /* 文档列表表格化：表头（与 .file-item 同款 grid 列模板，滚动时吸顶） */
 .file-list-head {
   display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) 96px 150px 80px 188px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 150px 80px 188px;
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
@@ -317,14 +321,19 @@ textarea { resize: vertical; }
   user-select: none;
 }
 .flh-name { grid-column: 3 / 4; }
-.flh-created { grid-column: 4 / 5; text-align: left; }
-.flh-updated { grid-column: 5 / 6; text-align: left; }
-.flh-size { grid-column: 6 / 7; text-align: right; }
-.flh-actions { grid-column: 7 / 8; text-align: right; }
+.flh-fname { grid-column: 4 / 5; text-align: left; }
+.flh-created { grid-column: 5 / 6; text-align: left; }
+.flh-updated { grid-column: 6 / 7; text-align: left; }
+.flh-size { grid-column: 5 / 6; text-align: right; }
+.flh-actions { grid-column: 6 / 7; text-align: right; }
+.file-list.has-dates .flh-created { grid-column: 5 / 6; }
+.file-list.has-dates .flh-updated { grid-column: 6 / 7; }
+.file-list.has-dates .flh-size { grid-column: 7 / 8; }
+.file-list.has-dates .flh-actions { grid-column: 8 / 9; }
 /* 文件项：以表格行形式呈现（名称 / 大小 / 操作分列，斑马纹 + 行分隔线） */
 .file-item {
   display: grid;
-  grid-template-columns: 24px 28px minmax(0, 1fr) 96px 150px 80px 188px;
+  grid-template-columns: 24px 28px minmax(0, 1fr) 150px 80px 188px;
   align-items: center;
   gap: 8px;
   padding: 9px 10px;
@@ -341,10 +350,15 @@ textarea { resize: vertical; }
 .file-item .fi-icon { width: 20px; text-align: center; flex: none; }
 .file-item .fi-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-item .fi-ext { flex: none; color: var(--muted); }
-.file-item .fi-created { grid-column: 4 / 5; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.file-item .fi-updated { grid-column: 5 / 6; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.file-item .fi-size { grid-column: 6 / 7; color: var(--muted); font-size: 11px; text-align: right; }
-.file-item .fi-actions { grid-column: 7 / 8; display: flex; gap: 4px; justify-content: flex-end; }
+.file-item .fi-fname { grid-column: 4 / 5; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item .fi-created { grid-column: 5 / 6; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.file-item .fi-updated { grid-column: 6 / 7; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.file-item .fi-size { grid-column: 5 / 6; color: var(--muted); font-size: 11px; text-align: right; }
+.file-item .fi-actions { grid-column: 6 / 7; display: flex; gap: 4px; justify-content: flex-end; }
+.file-list.has-dates .file-item .fi-created { grid-column: 5 / 6; }
+.file-list.has-dates .file-item .fi-updated { grid-column: 6 / 7; }
+.file-list.has-dates .file-item .fi-size { grid-column: 7 / 8; text-align: right; }
+.file-list.has-dates .file-item .fi-actions { grid-column: 8 / 9; }
 .file-item { user-select: none; }
 /* 文件项行内操作按钮：编辑常驻；重命名 / 删除仅可修改板块显示 */
 .fi-act {
@@ -937,12 +951,14 @@ textarea { resize: vertical; }
   .fi-act-label { display: none; }
   /* 移动端：列表只显示「文件标题 + 三个操作按钮」，其余（复选框/图标/日期/大小/后缀/文件名副标识/表头）全部隐藏 */
   .file-list-head { display: none; }
-  .file-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .file-item,
+  .file-list.has-dates .file-item { grid-template-columns: minmax(0, 1fr) auto; }
   .file-item .fi-check,
   .file-item .fi-icon,
   .file-item .fi-created,
   .file-item .fi-updated,
   .file-item .fi-size,
+  .file-item .fi-fname,
   .file-item .fi-origin { display: none; }
   .file-item .fi-main { grid-column: 1 / 2; }
   .file-item .fi-actions { grid-column: 2 / 3; }

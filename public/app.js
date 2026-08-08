@@ -571,15 +571,7 @@
       const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
       if (!t) return; // 无 title 则保留文件名兜底
       nameEl.textContent = t;
-      // 原文件名以小字副标识保留（与配置映射风格一致），便于定位真实文件
-      let origin = div.querySelector(".fi-origin");
-      if (!origin) {
-        origin = document.createElement("span");
-        origin.className = "fi-origin";
-        nameEl.insertAdjacentElement("afterend", origin);
-      }
-      origin.textContent = f.name;
-      origin.title = f.path;
+      // 文件名已在独立「文件名」列展示（fi-fname），此处仅把完整文件名写入行 title 便于悬停核对
       div.title = f.name + " · " + t;
     } catch (e) { /* 读取失败则保留文件名 */ }
   }
@@ -595,6 +587,7 @@
   function renderList() {
     const box = $("fileList");
     box.innerHTML = "";
+    box.classList.toggle("has-dates", state.type === "posts");
     const kw = ($("searchInput").value || "").toLowerCase();
     const modifiable = canModify();
     state.selectableCount = 0;
@@ -621,8 +614,10 @@
     if (_docs.length) {
       const head = document.createElement("div");
       head.className = "file-list-head";
-      const flhName = (state.type === "posts" || state.type === "dynamic" || state.type === "spec") ? "文章标题" : "文件名称";
+      const isArticle = (state.type === "posts" || state.type === "dynamic" || state.type === "spec");
+      const flhName = isArticle ? "文章标题" : "文件名称";
       let headHtml = '<span class="flh-name">' + flhName + '</span>';
+      headHtml += '<span class="flh-fname">文件名</span>';
       if (state.type === "posts") {
         headHtml += '<span class="flh-created">创建日期</span><span class="flh-updated">修改时间</span>';
       }
@@ -653,9 +648,8 @@
           if (state.type === "config" && CONFIG_NAME_MAP[f.name]) { displayBase = CONFIG_NAME_MAP[f.name]; mapped = true; }
           else if (state.type === "spec" && SPEC_NAME_MAP[f.name]) { displayBase = SPEC_NAME_MAP[f.name]; mapped = true; }
           nameHtml = `<span class="fi-name">${esc(displayBase)}</span>`;
-          if (mapped) nameHtml += `<span class="fi-origin" title="${esc(f.name)}">${esc(f.name)}</span>`;
           // 文章类 md/mdx：不渲染独立的后缀 span（标题/文件名已能标识，避免冗余 .md/.mdx）
-          else if (!isArticleMd(f)) nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
+          if (!isArticleMd(f)) nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
         }
 
         // 左侧可勾选（仅可修改板块的内容，配置类不可批量操作）
@@ -672,9 +666,13 @@
           actions += `<button class="fi-act danger" type="button" data-act="delete" title="删除">🗑<span class="fi-act-label">删除</span></button>`;
         }
 
+        const fnameCell = isDir
+          ? `<span class="fi-fname"></span>`
+          : `<span class="fi-fname" title="${esc(f.name)}">${esc(f.name)}</span>`;
         div.innerHTML =
           check +
           `<div class="fi-main"><span class="fi-icon">${icon}</span>${nameHtml}</div>` +
+          fnameCell +
           (state.type === "posts" && !isDir
             ? `<span class="fi-created">${fmtDate(f.created)}</span><span class="fi-updated">${fmtDateTime(f.updated)}</span>`
             : "") +
