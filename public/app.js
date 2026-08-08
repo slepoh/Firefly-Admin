@@ -1313,9 +1313,13 @@
       if (type === "boolean") return inp.checked ? "true" : "false";
       return FireflyConfig.encodeValue("string", inp.value, '"');
     });
-    let text;
-    if (items.length === 0) text = "[" + indentClose + "]";
-    else text = "[" + indentItem + items.join("," + indentItem) + "," + indentClose + "]";
+    // Strip leading commas from indentClose to prevent ,, / ,,,  (the serialization
+    // already adds its own trailing comma; if the original source had trailing commas
+    // baked into indentClose, they would accumulate on every save cycle).
+    var cleanClose = indentClose.replace(/^,+,*/, "");
+    var text;
+    if (items.length === 0) text = "[" + cleanClose + "]";
+    else text = "[" + indentItem + items.join("," + indentItem) + "," + cleanClose + "]";
     return { start, end, text };
   }
 
