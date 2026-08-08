@@ -923,16 +923,17 @@ textarea { resize: vertical; }
   /* 移动端：列表行内操作按钮仅显示图标，避免遮挡文件名 */
   .fi-act { padding: 6px 9px; }
   .fi-act-label { display: none; }
-  .fi-size { display: none; }
-  .fi-origin { max-width: 84px; }
-  /* 移动端：隐藏大小与日期列，表头与行同步为 4 列，保持列对齐 */
-  .file-list-head, .file-item { grid-template-columns: 24px 28px minmax(0, 1fr) auto; }
-  .flh-size, .flh-created, .flh-updated { display: none; }
-  .fi-created, .fi-updated { display: none; }
-  .flh-name { grid-column: 3 / 4; }
-  .flh-actions { grid-column: 4 / 5; }
-  .file-item .fi-main { grid-column: 3 / 4; }
-  .file-item .fi-actions { grid-column: 4 / 5; }
+  /* 移动端：列表只显示「文件标题 + 三个操作按钮」，其余（复选框/图标/日期/大小/后缀/文件名副标识/表头）全部隐藏 */
+  .file-list-head { display: none; }
+  .file-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .file-item .fi-check,
+  .file-item .fi-icon,
+  .file-item .fi-created,
+  .file-item .fi-updated,
+  .file-item .fi-size,
+  .file-item .fi-origin { display: none; }
+  .file-item .fi-main { grid-column: 1 / 2; }
+  .file-item .fi-actions { grid-column: 2 / 3; }
 }
 
 /* 编辑器顶部操作栏（返回 / 删除 / 保存） */

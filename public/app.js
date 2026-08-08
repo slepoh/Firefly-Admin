@@ -654,7 +654,8 @@
           else if (state.type === "spec" && SPEC_NAME_MAP[f.name]) { displayBase = SPEC_NAME_MAP[f.name]; mapped = true; }
           nameHtml = `<span class="fi-name">${esc(displayBase)}</span>`;
           if (mapped) nameHtml += `<span class="fi-origin" title="${esc(f.name)}">${esc(f.name)}</span>`;
-          else nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
+          // 文章类 md/mdx：不渲染独立的后缀 span（标题/文件名已能标识，避免冗余 .md/.mdx）
+          else if (!isArticleMd(f)) nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
         }
 
         // 左侧可勾选（仅可修改板块的内容，配置类不可批量操作）
