@@ -470,10 +470,12 @@ textarea { resize: vertical; }
   background: #fafbfc; border-bottom: 1px solid var(--border); color: var(--text);
 }
 .pf-g-icon { font-size: 15px; }
-.pf-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; padding: 12px 14px; }
-.pf-fields .field { display: flex; flex-direction: column; gap: 4px; }
+.pf-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 14px; padding: 12px 14px; }
+.pf-fields .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pf-fields label { font-size: 12px; color: var(--muted); }
 .pf-fields .full { grid-column: 1 / -1; }
+.pf-fields .s2 { grid-column: span 2; }
+.pf-fields .s3 { grid-column: span 3; }
 .pf-fields .field.checkbox { flex-direction: row; align-items: center; gap: 8px; }
 .pf-fields .field.checkbox input { width: auto; }
 
@@ -559,6 +561,7 @@ textarea { resize: vertical; }
 }
 @media (max-width: 560px) {
   .pf-fields, .dynamic-fields { grid-template-columns: 1fr; }
+  .pf-fields .s2, .pf-fields .s3 { grid-column: auto; }
 }
 
 /* 富文本编辑器宿主：填满剩余高度 */
@@ -812,6 +815,7 @@ textarea { resize: vertical; }
   .brand .sub { display: none; }
   .editor { min-height: 0; }
   .pf-fields, .dynamic-fields { grid-template-columns: 1fr; }
+  .pf-fields .s2, .pf-fields .s3 { grid-column: auto; }
   .panel-body { max-height: 46vh; }
   .editor-main { flex-direction: column; }
   .editor-head { flex-wrap: wrap; }
@@ -932,7 +936,8 @@ textarea { resize: vertical; }
 /* 移动端底部悬浮保存条：桌面端默认隐藏（仅移动端启用，见下方 @media 规则）。
    与表头保存按钮共用同一 data-save，点击委托到 #cfgPanes 的同一处理函数。 */
 .ap-save-bar { display: none; }
-.ap-pane-status { font-size: 12.5px; min-height: 16px; color: var(--muted); }
+.ap-pane-status { position: sticky; bottom: 0; flex: none; margin-top: 6px; padding: 7px 8px 1px; background: var(--card); border-top: 1px dashed var(--border); font-size: 12.5px; min-height: 16px; color: var(--muted); }
+.ap-pane-status.warn { color: #b7791f; font-weight: 600; }
 .ap-pane-status.ok { color: var(--ok); }
 .ap-pane-status.err { color: var(--danger); }
 .ap-cfg-host { flex: 1; min-height: 0; overflow-y: auto; }
@@ -1239,6 +1244,39 @@ textarea { resize: vertical; }
 .nv-field-inline { display: flex; flex-direction: column; gap: 3px; flex: 1 1 140px; min-width: 120px; }
 .nv-field-inline span { font-size: 11px; color: var(--muted); }
 .nv-ext { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); padding-bottom: 8px; white-space: nowrap; }
+
+/* 图标输入控件（预览 + 文本框 + 选择按钮） */
+.icon-control { display: flex; align-items: center; gap: 8px; }
+.icon-preview { flex: 0 0 30px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 15px; overflow: hidden; }
+.icon-preview img { width: 22px; height: 22px; }
+.icon-preview.empty { color: var(--muted); }
+.icon-control .icon-input { flex: 1 1 auto; min-width: 0; }
+.icon-control .icon-pick { flex: 0 0 auto; white-space: nowrap; }
+
+/* 图标选择弹层 */
+.icon-picker-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.icon-picker-modal[hidden] { display: none; }
+.ip-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.ip-dialog { position: relative; width: min(740px, 92vw); max-height: 86vh; display: flex; flex-direction: column; background: var(--card, #fff); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
+.ip-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.ip-sub { margin-left: 8px; font-weight: 400; font-size: 12px; color: var(--muted); }
+.ip-close { border: none; background: transparent; font-size: 18px; cursor: pointer; color: var(--muted); line-height: 1; }
+.ip-toolbar { display: flex; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.ip-collection { flex: 0 0 230px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card, #fff); color: var(--text, #222); font-size: 13px; }
+.ip-search { flex: 1 1 auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--card, #fff); color: var(--text, #222); }
+.ip-body { padding: 12px 16px; overflow: auto; }
+.ip-section { margin-bottom: 14px; }
+.ip-section-title { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+.ip-search-info { font-weight: 400; color: var(--muted); }
+.ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+.ip-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: pointer; font-size: 11px; color: var(--muted); transition: border-color .15s, background .15s; }
+.ip-cell img { width: 22px; height: 22px; }
+.ip-cell:hover { border-color: #4f8cff; background: #f0f6ff; }
+.ip-cell.selected { border-color: #2f6fed; background: #e3edff; box-shadow: 0 0 0 2px rgba(47,111,237,.25); }
+.ip-footer { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.ip-current { font-size: 13px; color: var(--text, #444); }
+.ip-current-val { font-family: ui-monospace, Consolas, monospace; color: #2f6fed; }
+.ip-spacer { flex: 1 1 auto; }
 .nv-raw { width: 100%; min-height: 360px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.5; }
 
 /* 带行号的源码编辑器：左侧行号列 + 右侧 textarea，滚动同步 */

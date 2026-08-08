@@ -31,26 +31,28 @@
   };
 
   // 文章信息字段：按分组美化展示，加密保护单独成组并带启用开关
+  // span 控制跨列：1（默认，不写）=1/4 宽；2=半行；3=3/4；full=整行。
+  // PC 端 .pf-fields 为 4 列网格，短字段自然一行多列，移动端自动回落单列。
   const POST_GROUPS = [
     { title: "基础信息", icon: "📌", fields: [
       { key: "title", label: "标题", type: "text", required: true, full: true },
       { key: "published", label: "发布日期", type: "datetime", required: true },
       { key: "updated", label: "更新日期", type: "datetime" },
       { key: "slug", label: "自定义路径 Slug", type: "text" },
-      { key: "lang", label: "语言 Lang", type: "text" },
       { key: "author", label: "作者 Author", type: "text" },
+      { key: "lang", label: "语言 Lang", type: "text" },
     ]},
     { title: "摘要与封面", icon: "🖼️", fields: [
       { key: "description", label: "描述 Description", type: "textarea", full: true },
       { key: "image", label: "封面图 Image", type: "text", full: true },
     ]},
     { title: "分类与标签", icon: "🏷️", fields: [
-      { key: "tags", label: "标签 Tags（逗号分隔）", type: "text" },
-      { key: "category", label: "分类 Category", type: "text" },
+      { key: "tags", label: "标签 Tags（逗号分隔）", type: "text", span: 2 },
+      { key: "category", label: "分类 Category", type: "text", span: 2 },
     ]},
     { title: "加密保护", icon: "🔒", encrypt: true, fields: [
       { key: "password", label: "访问密码 Password", type: "password" },
-      { key: "passwordHint", label: "密码提示 PasswordHint", type: "text", full: true },
+      { key: "passwordHint", label: "密码提示 PasswordHint", type: "text", span: 3 },
     ]},
     { title: "发布选项", icon: "⚙️", fields: [
       { key: "draft", label: "草稿（不对读者可见）", type: "checkbox" },
@@ -58,9 +60,9 @@
       { key: "comment", label: "允许评论 Comment", type: "checkbox" },
     ]},
     { title: "高级", icon: "🧩", fields: [
-      { key: "licenseName", label: "许可证名称", type: "text", full: true },
-      { key: "licenseUrl", label: "许可证链接", type: "text", full: true },
-      { key: "sourceLink", label: "来源链接", type: "text", full: true },
+      { key: "licenseName", label: "许可证名称", type: "text", span: 2 },
+      { key: "licenseUrl", label: "许可证链接", type: "text", span: 2 },
+      { key: "sourceLink", label: "来源链接", type: "text", span: 2 },
     ]},
   ];
   // 扁平化便于遍历（保持分组顺序）
@@ -1052,6 +1054,9 @@
   // ----------------------------------------------------------------------
   function showEditor(body, fm, name) {
     showView("editor");
+    // 资源上传面板：确保默认展开（不被折叠），方便直接拖拽 / 选择文件上传
+    const _up = $("uploadPanel");
+    if (_up) _up.classList.remove("collapsed");
     $("emptyState").hidden = true;
     $("editForm").hidden = false;
     $("deleteBtn").hidden = state.current.isNew;
@@ -1179,7 +1184,7 @@
 
       g.fields.forEach((f) => {
         const wrap = document.createElement("div");
-        wrap.className = "field" + (f.full ? " full" : "") + (f.type === "checkbox" ? " checkbox" : "");
+        wrap.className = "field" + (f.full ? " full" : "") + (f.span ? " s" + f.span : "") + (f.type === "checkbox" ? " checkbox" : "");
         const label = document.createElement("label");
         label.textContent = f.label + (f.required ? " *" : "");
         let input;
@@ -1469,6 +1474,12 @@
         inp.className = "cfg-input cfg-obj-field cfg-obj-tags";
         inp.value = Array.isArray(raw) ? raw.join(", ") : "";
         inp.placeholder = "逗号分隔多个值";
+      } else if (f.key === "icon") {
+        inp = makeIconControl(raw != null ? String(raw) : "", null);
+        const ri = inp.querySelector(".icon-input");
+        ri.classList.add("cfg-obj-field");
+        ri.dataset.fkey = f.key;
+        ri.dataset.ftype = f.type;
       } else {
         inp = document.createElement("input");
         inp.type = "text";
@@ -1669,6 +1680,16 @@
       return row;
     }
 
+    if (keyLabel === "icon") {
+      const ctrl = makeIconControl(node.value != null ? node.value : "", null);
+      const ri = ctrl.querySelector(".icon-input");
+      ri.dataset.start = node.start;
+      ri.dataset.end = node.end;
+      ri.dataset.vtype = "string";
+      if (node.quote) ri.dataset.quote = node.quote;
+      row.appendChild(ctrl);
+      return row;
+    }
     let inp;
     if (node.type === "boolean") {
       inp = document.createElement("input");
@@ -1706,6 +1727,227 @@
   function lockChip(name) {
     return '<span class="cfg-key-chip" title="参数名固定，不可修改">🔒 ' + esc(name) + "</span>";
   }
+
+  // ----------------------------------------------------------------------
+  // 图标选择器：仅暴露构建安全的 Iconify 集合，避免手动输错导致 Cloudflare 构建失败
+  // 安全集合 = Firefly 主题实际安装的 @iconify-json/*（见博客仓库 package.json）
+  // ----------------------------------------------------------------------
+  const ICON_SAFE_COLLECTIONS = [
+    { prefix: "fa7-brands", name: "Font Awesome 7 品牌" },
+    { prefix: "fa7-solid", name: "Font Awesome 7 实心" },
+    { prefix: "fa7-regular", name: "Font Awesome 7 常规" },
+    { prefix: "material-symbols", name: "Material Symbols" },
+    { prefix: "mingcute", name: "Mingcute" },
+    { prefix: "simple-icons", name: "Simple Icons" },
+    { prefix: "mdi", name: "Material Design Icons" },
+    { prefix: "svg-spinners", name: "SVG Spinners" },
+  ];
+  const ICON_SAFE_PREFIXES = ICON_SAFE_COLLECTIONS.map((c) => c.prefix).join(",");
+  // 常用图标（离线可用，覆盖社交品牌 + 常用 UI）。其余可用搜索框实时检索（同样限定安全集合）
+  const ICON_COMMON = [
+    "fa7-brands:github", "fa7-brands:weixin", "fa7-brands:weibo", "fa7-brands:qq", "fa7-brands:bilibili",
+    "fa7-brands:zhihu", "fa7-brands:x-twitter", "fa7-brands:twitter", "fa7-brands:facebook", "fa7-brands:youtube",
+    "fa7-brands:instagram", "fa7-brands:linkedin", "fa7-brands:telegram", "fa7-brands:discord", "fa7-brands:envelope",
+    "fa7-brands:rss", "fa7-brands:link", "fa7-brands:alipay", "fa7-brands:tiktok", "fa7-brands:juejin",
+    "fa7-brands:csdn", "fa7-brands:gitlab", "fa7-brands:docker", "fa7-brands:steam", "fa7-brands:spotify",
+    "fa7-brands:paypal", "fa7-brands:google", "fa7-brands:microsoft", "fa7-brands:apple", "fa7-brands:cloudflare",
+    "material-symbols:link", "material-symbols:home", "material-symbols:person", "material-symbols:settings",
+    "material-symbols:favorite", "material-symbols:star", "material-symbols:share", "material-symbols:menu",
+    "material-symbols:search", "material-symbols:add", "material-symbols:edit", "material-symbols:delete",
+    "material-symbols:visibility", "material-symbols:code", "material-symbols:public", "material-symbols:language",
+    "material-symbols:article", "material-symbols:image", "material-symbols:cloud", "material-symbols:download",
+    "material-symbols:mail", "material-symbols:phone", "material-symbols:location-on", "material-symbols:schedule",
+    "material-symbols:info", "material-symbols:check", "material-symbols:close", "material-symbols:menu-book",
+    "material-symbols:account-circle", "material-symbols:dashboard", "material-symbols:bolt", "material-symbols:lightbulb",
+    "material-symbols:category", "material-symbols:label", "material-symbols:bookmark", "material-symbols:history",
+    "material-symbols:notifications", "material-symbols:lock", "material-symbols:key", "material-symbols:content-copy",
+    "material-symbols:launch", "material-symbols:anchor", "material-symbols:group", "material-symbols:hub",
+    "material-symbols:rocket-launch", "material-symbols:trending-up", "material-symbols:insights", "material-symbols:description",
+    "material-symbols:folder", "material-symbols:camera", "material-symbols:videocam", "material-symbols:mic",
+    "material-symbols:music-note", "material-symbols:play-arrow", "material-symbols:forum", "material-symbols:chat",
+    "material-symbols:comment", "material-symbols:thumb-up", "material-symbols:calendar-month", "material-symbols:event",
+    "material-symbols:flag", "material-symbols:workspace-premium", "material-symbols:auto-awesome", "material-symbols:payments",
+    "material-symbols:paid", "material-symbols:currency-yuan", "material-symbols:shopping-cart", "material-symbols:store",
+    "material-symbols:local-shipping", "material-symbols:map", "material-symbols:explore", "material-symbols:restaurant",
+    "material-symbols:eco", "material-symbols:volunteer-activism", "material-symbols:emoji-events",
+    "fa7-solid:link", "fa7-solid:home", "fa7-solid:user", "fa7-solid:gear", "fa7-solid:envelope",
+    "fa7-solid:phone", "fa7-solid:location-dot", "fa7-solid:clock", "fa7-solid:circle-info", "fa7-solid:xmark",
+    "fa7-solid:bars", "fa7-solid:star", "fa7-solid:heart", "fa7-solid:image", "fa7-solid:file",
+    "fa7-solid:folder", "fa7-solid:download", "fa7-solid:upload", "fa7-solid:eye", "fa7-solid:code",
+    "fa7-solid:bolt", "fa7-solid:lightbulb", "fa7-solid:tag", "fa7-solid:bookmark", "fa7-solid:bell",
+    "fa7-solid:lock", "fa7-solid:copy", "fa7-solid:arrow-left", "fa7-solid:users", "fa7-solid:comment",
+    "fa7-solid:calendar", "fa7-solid:cloud", "fa7-solid:rocket", "fa7-solid:chart-line", "fa7-solid:camera",
+    "fa7-solid:video", "fa7-solid:microphone", "fa7-solid:music", "fa7-solid:handshake", "fa7-solid:credit-card",
+    "fa7-solid:cart-shopping", "fa7-solid:store", "fa7-solid:globe", "fa7-solid:wrench", "fa7-solid:leaf",
+    "fa7-solid:gift", "fa7-solid:paintbrush", "fa7-solid:palette",
+    "mingcute:home-2-line", "mingcute:user-2-line", "mingcute:settings-3-line", "mingcute:edit-line", "mingcute:delete-2-line",
+    "mingcute:search-line", "mingcute:link-line", "mingcute:mail-line", "mingcute:phone-line", "mingcute:location-line",
+    "mingcute:time-line", "mingcute:information-line", "mingcute:check-line", "mingcute:close-line", "mingcute:menu-line",
+    "mingcute:share-line", "mingcute:star-line", "mingcute:heart-line", "mingcute:image-line", "mingcute:file-line",
+    "mingcute:folder-line", "mingcute:download-line", "mingcute:upload-line", "mingcute:eye-line", "mingcute:code-line",
+    "mdi:home", "mdi:cog", "mdi:link", "mdi:email", "mdi:phone", "mdi:map-marker", "mdi:clock", "mdi:information",
+    "mdi:check", "mdi:close", "mdi:menu", "mdi:share", "mdi:star", "mdi:heart", "mdi:image", "mdi:file",
+    "mdi:folder", "mdi:download", "mdi:upload", "mdi:eye", "mdi:code", "mdi:github", "mdi:wechat", "mdi:weibo",
+    "mdi:qqchat", "mdi:bilibili", "mdi:zhihu",
+  ];
+
+  function iconImgUrl(prefix, name, h) {
+    return "https://api.iconify.design/" + encodeURIComponent(prefix) + "/" + encodeURIComponent(name) + ".svg?height=" + (h || 22);
+  }
+
+  // 生成一个图标输入控件：预览 + 文本框（可手动输入）+ 选择按钮。onCommit(v) 在值变化时回调
+  function makeIconControl(value, onCommit) {
+    const wrap = document.createElement("div");
+    wrap.className = "icon-control";
+    const preview = document.createElement("span");
+    preview.className = "icon-preview";
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.className = "cfg-input icon-input";
+    inp.value = value != null ? value : "";
+    inp.placeholder = "如 material-symbols:link";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn ghost sm icon-pick";
+    btn.textContent = "🎨 选择";
+    btn.title = "从图标库选择（仅构建安全的图标集合）";
+    function updatePreview() {
+      const v = (inp.value || "").trim();
+      const idx = v.indexOf(":");
+      if (idx > 0) {
+        const p = v.slice(0, idx), n = v.slice(idx + 1);
+        preview.innerHTML = '<img src="' + iconImgUrl(p, n, 22) + '" alt="" onerror="this.style.visibility=\'hidden\'">';
+        preview.classList.remove("empty");
+      } else {
+        preview.textContent = v ? "🔤" : "🚫";
+        preview.classList.add("empty");
+      }
+    }
+    inp.addEventListener("input", () => { updatePreview(); if (onCommit) onCommit(inp.value); });
+    btn.addEventListener("click", () => openIconPicker(inp.value, (v) => { inp.value = v; updatePreview(); if (onCommit) onCommit(v); }));
+    updatePreview();
+    wrap.appendChild(preview);
+    wrap.appendChild(inp);
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  let _iconPickerEl = null;
+
+  function buildIconPicker() {
+    const modal = document.createElement("div");
+    modal.className = "icon-picker-modal";
+    modal.hidden = true;
+    modal.innerHTML =
+      '<div class="ip-backdrop"></div>' +
+      '<div class="ip-dialog" role="dialog" aria-modal="true">' +
+        '<div class="ip-header"><span>🎨 选择图标<span class="ip-sub">仅显示构建安全的集合</span></span>' +
+          '<button type="button" class="ip-close" title="关闭">✕</button></div>' +
+        '<div class="ip-toolbar">' +
+          '<select class="ip-collection" title="图标集合">' +
+            ICON_SAFE_COLLECTIONS.map((c) => '<option value="' + c.prefix + '">' + c.name + "（" + c.prefix + "）</option>").join("") +
+          "</select>" +
+          '<input class="ip-search" type="text" placeholder="搜索图标，如 link / github / 主页 …">' +
+        "</div>" +
+        '<div class="ip-body">' +
+          '<div class="ip-section"><div class="ip-section-title">常用图标</div><div class="ip-grid ip-common-grid"></div></div>' +
+          '<div class="ip-section"><div class="ip-section-title">搜索结果 <span class="ip-search-info"></span></div><div class="ip-grid ip-result-grid"></div></div>' +
+        "</div>" +
+        '<div class="ip-footer">' +
+          '<span class="ip-current">当前：<b class="ip-current-val">—</b></span>' +
+          '<span class="ip-spacer"></span>' +
+          '<button type="button" class="btn ghost sm ip-clear">清除</button>' +
+          '<button type="button" class="btn primary sm ip-ok">使用此图标</button>' +
+        "</div>" +
+      "</div>";
+    document.body.appendChild(modal);
+    modal._selected = "";
+    modal._onPick = null;
+    modal.querySelector(".ip-close").addEventListener("click", () => closeIconPicker(modal));
+    modal.querySelector(".ip-backdrop").addEventListener("click", () => closeIconPicker(modal));
+    modal.querySelector(".ip-clear").addEventListener("click", () => {
+      modal._selected = "";
+      modal.querySelector(".ip-current-val").textContent = "—";
+      renderPickerSelection(modal);
+    });
+    modal.querySelector(".ip-ok").addEventListener("click", () => {
+      if (modal._onPick) modal._onPick(modal._selected || "");
+      closeIconPicker(modal);
+    });
+    let t;
+    modal.querySelector(".ip-search").addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(() => doIconSearch(modal), 300);
+    });
+    renderIconCommon(modal);
+    return modal;
+  }
+
+  function renderIconCommon(modal) {
+    const grid = modal.querySelector(".ip-common-grid");
+    grid.innerHTML = "";
+    ICON_COMMON.forEach((full) => {
+      const sp = full.indexOf(":");
+      const p = full.slice(0, sp), n = full.slice(sp + 1);
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "ip-cell";
+      cell.title = full;
+      cell.innerHTML = '<img src="' + iconImgUrl(p, n, 20) + '" alt="" onerror="this.style.visibility=\'hidden\'"><span>' + esc(n) + "</span>";
+      cell.addEventListener("click", () => selectIcon(modal, full));
+      grid.appendChild(cell);
+    });
+  }
+
+  function doIconSearch(modal) {
+    const q = modal.querySelector(".ip-search").value.trim();
+    const info = modal.querySelector(".ip-search-info");
+    const grid = modal.querySelector(".ip-result-grid");
+    if (!q) { grid.innerHTML = ""; info.textContent = ""; return; }
+    info.textContent = "搜索中…";
+    const url = "https://api.iconify.design/search?query=" + encodeURIComponent(q) + "&prefixes=" + ICON_SAFE_PREFIXES + "&limit=80";
+    fetch(url).then((r) => r.json()).then((data) => {
+      const icons = (data && data.icons) || [];
+      grid.innerHTML = "";
+      if (!icons.length) { info.textContent = "（无结果）"; return; }
+      info.textContent = "（" + icons.length + " 个）";
+      icons.forEach((full) => {
+        const sp = full.indexOf(":");
+        const p = full.slice(0, sp), n = full.slice(sp + 1);
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "ip-cell";
+        cell.title = full;
+        cell.innerHTML = '<img src="' + iconImgUrl(p, n, 20) + '" alt="" onerror="this.style.visibility=\'hidden\'"><span>' + esc(n) + "</span>";
+        cell.addEventListener("click", () => selectIcon(modal, full));
+        grid.appendChild(cell);
+      });
+    }).catch(() => { info.textContent = "（网络不可用，可手动输入）"; });
+  }
+
+  function selectIcon(modal, full) {
+    modal._selected = full;
+    modal.querySelector(".ip-current-val").textContent = full;
+    renderPickerSelection(modal);
+  }
+  function renderPickerSelection(modal) {
+    modal.querySelectorAll(".ip-cell.selected").forEach((c) => c.classList.remove("selected"));
+    if (!modal._selected) return;
+    modal.querySelectorAll(".ip-cell").forEach((c) => { if (c.title === modal._selected) c.classList.add("selected"); });
+  }
+  function openIconPicker(initial, onPick) {
+    if (!_iconPickerEl) _iconPickerEl = buildIconPicker();
+    const modal = _iconPickerEl;
+    modal._onPick = onPick;
+    modal._selected = (initial && initial.indexOf(":") > 0) ? initial : "";
+    modal.querySelector(".ip-current-val").textContent = modal._selected || "—";
+    modal.querySelector(".ip-search").value = "";
+    modal.querySelector(".ip-result-grid").innerHTML = "";
+    modal.querySelector(".ip-search-info").textContent = "";
+    renderPickerSelection(modal);
+    modal.hidden = false;
+  }
+  function closeIconPicker(modal) { modal.hidden = true; }
 
   // 收集对象数组（整块重序列化）：读取每个对象卡片的字段，重建 [ ... ] 文本并按原始偏移写回
   function collectObjectArrayEdits(hostEl) {
@@ -1836,13 +2078,19 @@
     wrap.className = "bn-field";
     const lab = document.createElement("label");
     lab.textContent = label;
-    const inp = document.createElement("input");
-    inp.type = type || "text";
-    inp.className = "cfg-input";
-    inp.value = value != null ? value : "";
-    inp.oninput = () => onChange(inp.value);
+    let ctrl;
+    if (label.indexOf("图标") >= 0) {
+      ctrl = makeIconControl(value, (v) => onChange(v));
+    } else {
+      const inp = document.createElement("input");
+      inp.type = type || "text";
+      inp.className = "cfg-input";
+      inp.value = value != null ? value : "";
+      inp.oninput = () => onChange(inp.value);
+      ctrl = inp;
+    }
     wrap.appendChild(lab);
-    wrap.appendChild(inp);
+    wrap.appendChild(ctrl);
     return wrap;
   }
 
@@ -3240,16 +3488,28 @@
   function nvField(label, obj, key, onEdit) {
     const d = document.createElement("label"); d.className = "nv-field";
     const s = document.createElement("span"); s.className = "nv-field-label"; s.textContent = label;
-    const inp = document.createElement("input"); inp.type = "text"; inp.value = obj[key] || ""; inp.className = "nv-input";
-    inp.oninput = () => { obj[key] = inp.value; if (onEdit) onEdit(); };
-    d.appendChild(s); d.appendChild(inp); return d;
+    let ctrl;
+    if (key === "icon") {
+      ctrl = makeIconControl(obj[key] || "", (v) => { obj[key] = v; if (onEdit) onEdit(); });
+    } else {
+      const inp = document.createElement("input"); inp.type = "text"; inp.value = obj[key] || ""; inp.className = "nv-input";
+      inp.oninput = () => { obj[key] = inp.value; if (onEdit) onEdit(); };
+      ctrl = inp;
+    }
+    d.appendChild(s); d.appendChild(ctrl); return d;
   }
   function nvFieldInline(label, obj, key, onEdit) {
     const d = document.createElement("div"); d.className = "nv-field-inline";
     const s = document.createElement("span"); s.textContent = label;
-    const inp = document.createElement("input"); inp.type = "text"; inp.value = obj[key] || ""; inp.className = "nv-input";
-    inp.oninput = () => { obj[key] = inp.value; if (onEdit) onEdit(); };
-    d.appendChild(s); d.appendChild(inp); return d;
+    let ctrl;
+    if (key === "icon") {
+      ctrl = makeIconControl(obj[key] || "", (v) => { obj[key] = v; if (onEdit) onEdit(); });
+    } else {
+      const inp = document.createElement("input"); inp.type = "text"; inp.value = obj[key] || ""; inp.className = "nv-input";
+      inp.oninput = () => { obj[key] = inp.value; if (onEdit) onEdit(); };
+      ctrl = inp;
+    }
+    d.appendChild(s); d.appendChild(ctrl); return d;
   }
   // 编辑时若该项是模板预设引用，则转为自定义对象（序列化时不再输出 LinkPresets.xxx）
   function detachPreset(obj) { if (obj && obj.preset) obj.preset = null; }
@@ -4222,6 +4482,8 @@
       // 输入框/选择框直接标记；点击仅当作用在按钮上（书签的结构性增删改）
       if (e.type === "click" && !(e.target.closest && e.target.closest("button"))) return;
       apState[pane.dataset.pane].dirty = true;
+      const _st = pane.querySelector(".ap-pane-status");
+      if (_st) { _st.textContent = "● 已编辑（源码格式）·未保存"; _st.className = "ap-pane-status warn"; }
       scheduleAutosave(pane.dataset.pane);
     }
     document.addEventListener("input", markCfgDirty);
