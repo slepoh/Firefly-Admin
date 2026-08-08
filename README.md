@@ -4,7 +4,7 @@ Firefly 博客（[Slepoh/Firefly](https://github.com/slepoh/Firefly)）的内容
 本项目是Firefly项目的**可视化管理后台**，直接通过 GitHub API 远程增删改博客内容、配置博客信息等操作，
 保存即提交到 GitHub，Cloudflare 自动重新部署。
 
-> 当前版本：**v3.2.6**
+> 当前版本：**v3.2.6** 
 
 支持四类内容管理：
 
