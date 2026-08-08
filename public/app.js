@@ -2964,6 +2964,10 @@
         st.rawFallback = true;
       }
       renderNavBarLinksEditor(host);
+      // 导航栏有结构化模型：恢复高级模式入口（进入高级模式时被 renderCfgConfig 隐藏）
+      const pane = cfgPanesRoot().querySelector('.ap-pane[data-pane="' + name + '"]');
+      const advBtn = pane ? pane.querySelector(".ap-adv") : null;
+      if (advBtn) advBtn.hidden = false;
       return;
     }
     if (st.ext === ".ts") {
@@ -3561,6 +3565,8 @@
     }
     // 合并页脚：上方结构化配置 + 下方富文本 HTML 内容
     if (st.merged) {
+      // merged 含结构化 .ts 部分：恢复高级模式入口（进入高级模式时被隐藏）
+      if (advBtn) advBtn.hidden = !(st.roots && st.roots.length);
       host.innerHTML = "";
       const tsWrap = document.createElement("div");
       tsWrap.className = "cfg-sub";
@@ -3575,8 +3581,9 @@
       if (footerEditor) setTimeout(() => footerEditor.on("change", () => markDirtyOf(htmlWrap)), 0);
       return;
     }
-    // 独立 .html 配置：富文本编辑
+    // 独立 .html 配置：富文本编辑（无结构化参数，不提供高级模式入口）
     if (st.ext === ".html") {
+      if (advBtn) advBtn.hidden = true;
       host.innerHTML = '<div class="cfg-footer-editor" id="footerHtmlEditor"></div>';
       initFooterEditor(st.raw || "");
       if (footerEditor) setTimeout(() => footerEditor.on("change", () => markDirtyOf(host)), 0);
