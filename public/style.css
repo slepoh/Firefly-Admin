@@ -936,7 +936,8 @@ textarea { resize: vertical; }
 /* 移动端底部悬浮保存条：桌面端默认隐藏（仅移动端启用，见下方 @media 规则）。
    与表头保存按钮共用同一 data-save，点击委托到 #cfgPanes 的同一处理函数。 */
 .ap-save-bar { display: none; }
-.ap-pane-status { font-size: 12.5px; min-height: 16px; color: var(--muted); }
+.ap-pane-status { position: sticky; bottom: 0; flex: none; margin-top: 6px; padding: 7px 8px 1px; background: var(--card); border-top: 1px dashed var(--border); font-size: 12.5px; min-height: 16px; color: var(--muted); }
+.ap-pane-status.warn { color: #b7791f; font-weight: 600; }
 .ap-pane-status.ok { color: var(--ok); }
 .ap-pane-status.err { color: var(--danger); }
 .ap-cfg-host { flex: 1; min-height: 0; overflow-y: auto; }

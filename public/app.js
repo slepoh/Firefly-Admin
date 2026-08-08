@@ -4482,6 +4482,8 @@
       // 输入框/选择框直接标记；点击仅当作用在按钮上（书签的结构性增删改）
       if (e.type === "click" && !(e.target.closest && e.target.closest("button"))) return;
       apState[pane.dataset.pane].dirty = true;
+      const _st = pane.querySelector(".ap-pane-status");
+      if (_st) { _st.textContent = "● 已编辑（源码格式）·未保存"; _st.className = "ap-pane-status warn"; }
       scheduleAutosave(pane.dataset.pane);
     }
     document.addEventListener("input", markCfgDirty);
