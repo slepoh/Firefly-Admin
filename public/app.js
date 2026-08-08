@@ -436,10 +436,12 @@
     const showMain = active === "main";   // 富文本 / HTML 所见即所得
     const showRaw = active === "raw";      // 源代码
     const showCfg = active === "config";   // 可视化配置（参数锁定）
+    const showFriends = active === "friends"; // 友情链接注意事项 notes 结构化编辑
     $("editorMain").hidden = !showMain;
     $("editorHost").hidden = !showMain;
     $("rawEditor").hidden = !showRaw;
     $("configEditor").hidden = !showCfg;
+    $("friendsNotesPanel").hidden = !showFriends;
   }
 
   // 编辑器 Tab：内容 ⇄ 文章信息 / 动态信息 互斥切换（表单视图占满编辑区，独立滚动）
@@ -473,6 +475,7 @@
 
   // 根据当前文件类型推断「编辑器类型」徽标（让用户清楚当前用的是哪种编辑器）
   function editorKind() {
+    if (state.friendsNotesMode) return { kind: "friends", label: "友情链接 · 注意事项", icon: "🔗" };
     if (state.configStruct) return { kind: "config", label: "可视化配置 · 参数锁定", icon: "⚙️" };
     if (state.htmlMode) return { kind: "html", label: "HTML 富文本", icon: "🌐" };
     if (state.plainRaw) return { kind: "raw", label: "源代码", icon: "📄" };
@@ -1094,6 +1097,7 @@
       state.plainRaw = false;
       state.configStruct = false;
       state.forceMarkdown = false;
+      state.friendsNotesMode = false;
       // 任意 .ts 配置文件：尝试结构化解析（参数名锁定、值可编辑）；解析失败或 .md 等则回退源码
       // 不再依赖 state.type，确保从「站点外观」等任意入口打开 .ts 都能结构化编辑
       if (!state.htmlMode && /\.ts$/i.test(f.name) && typeof FireflyConfig !== "undefined") {
@@ -1109,6 +1113,12 @@
       // booknavConfig.ts：以「列表」形式编辑（非树形），并解析出分组模型
       state.booknavMode = (f.name === "booknavConfig.ts");
       if (state.booknavMode) state.booknavModel = parseBooknavModel();
+      // friends.mdx：仅结构化编辑底部「注意事项」notes 数组的 {title, content}，其余原样保留
+      state.friendsNotesMode = (f.name === "friends.mdx");
+      if (state.friendsNotesMode) {
+        state.friendsRaw = data.content;
+        state.friendsNotes = parseFriendsNotes(data.content);
+      }
       let fm = {}, body = data.content;
       if (!state.htmlMode && !state.configStruct) {
         const parsed = parseFrontmatter(data.content);
@@ -1144,6 +1154,7 @@
     state.plainRaw = false;
     state.configStruct = false;
     state.forceMarkdown = false;
+    state.friendsNotesMode = false;
     let base, body, fm = {};
     if (state.type === "dynamic") {
       base = tsFilename().replace(/\.md$/i, "");
@@ -1176,7 +1187,7 @@
     if (!opts.includes(sel.value)) sel.value = opts[0];
     const ext = sel.value;
     const t = state.type;
-    state.htmlMode = false; state.plainRaw = false; state.configStruct = false; state.forceMarkdown = false;
+    state.htmlMode = false; state.plainRaw = false; state.configStruct = false; state.forceMarkdown = false; state.friendsNotesMode = false;
     if (t === "config") {
       if (ext === ".html") state.htmlMode = true;
       else state.plainRaw = true; // .ts 新文件暂无内容，暂走源代码编辑
@@ -1239,8 +1250,10 @@
     const isPosts = state.type === "posts";
     const isDynamic = state.type === "dynamic";
     const isConfig = state.type === "config";
+    const isFriends = state.friendsNotesMode;
     $("postPanel").hidden = !isPosts;
     $("dynamicPanel").hidden = !isDynamic;
+    $("friendsNotesPanel").hidden = !isFriends;
 
     if (isPosts) {
       renderPostFields(fm);
@@ -1252,11 +1265,14 @@
       $("dynLocation").value = fm.location || "";
     }
 
-    // 纯文本配置文件（如 .md）或结构化配置（.ts）不显示富文本/源代码切换
-    $("modeSwitch").hidden = state.plainRaw || state.configStruct;
+    // 纯文本配置文件（如 .md）或结构化配置（.ts）不显示富文本/源代码切换；友情链接 notes 视图同样隐藏
+    $("modeSwitch").hidden = state.plainRaw || state.configStruct || state.friendsNotesMode;
 
     // 同一时刻只显示一种编辑器（避免后缀对应的编辑器叠加）
-    if (state.configStruct) {
+    if (state.friendsNotesMode) {
+      renderFriendsNotes();
+      showOnlyEditor("friends");
+    } else if (state.configStruct) {
       renderConfigEditor();
       showOnlyEditor("config");
     } else if (state.plainRaw) {
@@ -2471,6 +2487,137 @@
   }
 
   // ----------------------------------------------------------------------
+  // 友情链接（friends.mdx）注意事项 notes 结构化编辑
+  // 仅解析并编辑底部「注意事项」notes 数组的 {title, content}；title 为固定中文标题（不可编辑），
+  // content 为可编辑内容。其余整份文件（frontmatter、site、JSX 布局等）原样保留。
+  // ----------------------------------------------------------------------
+
+  // 抓取「export const notes = [...]」整段（基于括号平衡），返回 { text, start, end }
+  function extractNotesBlock(src) {
+    const m = src.match(/export\s+const\s+notes\s*=\s*\[/);
+    if (!m) return null;
+    const start = m.index;
+    let i = src.indexOf("[", start);
+    if (i < 0) return null;
+    let depth = 0, inStr = false, strCh = "", esc = false;
+    for (let j = i; j < src.length; j++) {
+      const c = src[j];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === "\\") esc = true;
+        else if (c === strCh) inStr = false;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === "`") { inStr = true; strCh = c; }
+      else if (c === "[") depth++;
+      else if (c === "]") { depth--; if (depth === 0) { let e = j + 1; while (e < src.length && /\s/.test(src[e])) e++; if (src[e] === ";") e++; return { text: src.slice(start, e), start, end: e }; } }
+    }
+    return null;
+  }
+
+  // 从 notes 数组文本中解析出 [{title, content}]（title 不可编辑，content 可编辑）
+  function parseFriendsNotes(src) {
+    const block = extractNotesBlock(src);
+    if (!block) return [];
+    const arr = block.text.replace(/export\s+const\s+notes\s*=\s*/, "").trim();
+    // 逐条对象提取（基于括号平衡，避免 title/content 内含逗号/引号导致误切）
+    const items = [];
+    let i = 0;
+    while (i < arr.length) {
+      if (arr[i] === "{") {
+        let depth = 0, inStr = false, strCh = "", esc = false, s = i;
+        for (let j = i; j < arr.length; j++) {
+          const c = arr[j];
+          if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === strCh) inStr = false; }
+          else if (c === '"' || c === "'" || c === "`") { inStr = true; strCh = c; }
+          else if (c === "{") depth++;
+          else if (c === "}") { depth--; if (depth === 0) { items.push(arr.slice(s, j + 1)); i = j + 1; break; } }
+          if (j === arr.length - 1) i = arr.length;
+        }
+        continue;
+      }
+      i++;
+    }
+    return items.map((objText) => {
+      const title = (objText.match(/title\s*:\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/) || [])[1];
+      const content = (objText.match(/content\s*:\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/) || [])[1];
+      return {
+        title: title ? stripQuotes(title) : "",
+        content: content ? stripQuotes(content) : "",
+      };
+    });
+  }
+
+  function stripQuotes(s) {
+    if (!s) return "";
+    if ((s[0] === '"' || s[0] === "'" || s[0] === "`") && s[s.length - 1] === s[0]) {
+      return s.slice(1, -1).replace(/\\(["'`\\])/g, "$1");
+    }
+    return s;
+  }
+
+  function fnQuote(s) {
+    // 内容可能含双引号，统一用双引号并转义内部双引号/反斜杠/换行
+    const v = (s == null ? "" : String(s));
+    return '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"';
+  }
+
+  // 把 notes 数组序列化回「\t」缩进的 JS 数组文本（与原文件风格一致）
+  function serializeFriendsNotes(notes) {
+    const T = "\t";
+    const lines = ["[", T + "{"];
+    notes.forEach((n, idx) => {
+      lines[lines.length - 1] = T + "{";
+      lines.push(T + T + "title: " + fnQuote(n.title) + ",");
+      lines.push(T + T + "content: " + fnQuote(n.content) + ",");
+      lines.push(T + "},");
+    });
+    if (!notes.length) { lines.length = 0; lines.push("[", "]"); }
+    else lines.push("]");
+    return lines.join("\n");
+  }
+
+  // 仅替换 notes 块，其余文件原样保留
+  function buildFriendsNotesContent() {
+    const block = extractNotesBlock(state.friendsRaw);
+    if (!block) return state.friendsRaw; // 兜底：结构异常则不动
+    const arrText = serializeFriendsNotes(state.friendsNotes || []);
+    return state.friendsRaw.slice(0, block.start) + "export const notes = " + arrText + ";" + state.friendsRaw.slice(block.end);
+  }
+
+  function renderFriendsNotes() {
+    const host = $("friendsNotesPanel");
+    host.innerHTML = "";
+    const list = state.friendsNotes || [];
+    const hint = document.createElement("div");
+    hint.className = "pf-hint";
+    hint.innerHTML = "🔒 <b>标题固定</b>（互换原则 / 链接维护 / 内容要求 / 站点要求），仅可编辑右侧说明内容；其余整份文件原样保留。";
+    host.appendChild(hint);
+    if (!list.length) {
+      const empty = document.createElement("div");
+      empty.className = "cfg-empty";
+      empty.textContent = "未解析到注意事项（notes）条目。";
+      host.appendChild(empty);
+      return;
+    }
+    list.forEach((n, idx) => {
+      const card = document.createElement("div");
+      card.className = "fn-note-card";
+      const title = document.createElement("div");
+      title.className = "fn-note-title";
+      title.textContent = n.title || ("条目 " + (idx + 1));
+      const ta = document.createElement("textarea");
+      ta.className = "fn-note-content";
+      ta.rows = 3;
+      ta.value = n.content || "";
+      ta.oninput = () => { state.friendsNotes[idx].content = ta.value; };
+      card.appendChild(title);
+      card.appendChild(ta);
+      host.appendChild(card);
+    });
+  }
+
+  // ----------------------------------------------------------------------
   // 模式切换（富文本 / 源代码）
   // ----------------------------------------------------------------------
   function setModeButtons(mode) {
@@ -2487,6 +2634,7 @@
   function applyMode(mode) {
     if (state.plainRaw) return; // 纯文本配置文件无富文本/源代码切换
     if (state.configStruct) return; // 结构化配置无富文本/源代码切换（键名锁定）
+    if (state.friendsNotesMode) return; // 友情链接 notes 视图无模式切换
     if (mode === "raw") {
       $("rawEditor").value = buildContent(); // 基于当前富文本状态构建整文件
       showOnlyEditor("raw");
@@ -2528,6 +2676,7 @@
   // ----------------------------------------------------------------------
   function buildContent() {
     if (state.booknavMode) return buildBooknavContent();
+    if (state.friendsNotesMode) return buildFriendsNotesContent();
     if (state.configStruct) return buildConfigContent();
     if (state.plainRaw) return $("rawEditor").value;
     if (state.mode === "raw") return $("rawEditor").value;
