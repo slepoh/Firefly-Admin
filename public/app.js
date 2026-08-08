@@ -2459,7 +2459,7 @@
       path,
       content,
       sha: state.current.sha || undefined,
-      message: (state.current.isNew ? "Create " : "Update ") + path + " via FireflyCMS",
+      message: (state.current.isNew ? "Create " : "Update ") + path + " Chrome FFCMS",
     };
     setStatus("上传至 GitHub 中，请等待…");
     okPopup("⏳ 上传至 GitHub 中，请等待…", true);
@@ -3441,8 +3441,8 @@
   // ===== 导航栏自定义链接编辑器（navBarConfig.ts） =====
   // navBarConfig.ts 是函数式构建（getDynamicNavBarConfig），无法用通用配置编辑器安全编辑，
   // 因此单独管理其中「// 自定义导航栏链接」区域（自定义分组 + 子链接）的增删改。
-  const NAVBAR_START = "FireflyCMS:NAVBAR_CUSTOM_START";
-  const NAVBAR_END = "FireflyCMS:NAVBAR_CUSTOM_END";
+  const NAVBAR_START = "FFCMS:NAVBAR_CUSTOM_START";
+  const NAVBAR_END = "FFCMS:NAVBAR_CUSTOM_END";
 
   // 将 TS 对象字面量（含未引号键、单行/块注释、单引号、尾逗号）转为可 JSON.parse 的文本
   function tsObjToJsonish(src) {
@@ -3924,7 +3924,7 @@
       path,
       content,
       sha: sha || undefined,
-      message: "Update " + path.split("/").pop() + " via FireflyCMS",
+      message: "Update " + path.split("/").pop() + " Chrome FFCMS",
     };
     return api("/api/file", { method: "PUT", body: JSON.stringify(payload) });
   }
