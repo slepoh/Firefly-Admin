@@ -2591,7 +2591,7 @@
     const list = state.friendsNotes || [];
     const hint = document.createElement("div");
     hint.className = "pf-hint";
-    hint.innerHTML = "🔒 <b>标题固定</b>（互换原则 / 链接维护 / 内容要求 / 站点要求），仅可编辑右侧说明内容；其余整份文件原样保留。";
+    hint.innerHTML = "✏️ <b>标题与说明均可编辑</b>；其余整份文件（站点信息、页面布局等）原样保留，保存时仅替换「注意事项」notes 段。";
     host.appendChild(hint);
     if (!list.length) {
       const empty = document.createElement("div");
@@ -2603,15 +2603,24 @@
     list.forEach((n, idx) => {
       const card = document.createElement("div");
       card.className = "fn-note-card";
-      const title = document.createElement("div");
+      const titleWrap = document.createElement("label");
+      titleWrap.className = "fn-note-title-wrap";
+      const titleLabel = document.createElement("span");
+      titleLabel.className = "fn-note-title-label";
+      titleLabel.textContent = "标题";
+      const title = document.createElement("input");
+      title.type = "text";
       title.className = "fn-note-title";
-      title.textContent = n.title || ("条目 " + (idx + 1));
+      title.value = n.title || ("条目 " + (idx + 1));
+      title.oninput = () => { state.friendsNotes[idx].title = title.value; };
+      titleWrap.appendChild(titleLabel);
+      titleWrap.appendChild(title);
       const ta = document.createElement("textarea");
       ta.className = "fn-note-content";
       ta.rows = 3;
       ta.value = n.content || "";
       ta.oninput = () => { state.friendsNotes[idx].content = ta.value; };
-      card.appendChild(title);
+      card.appendChild(titleWrap);
       card.appendChild(ta);
       host.appendChild(card);
     });
