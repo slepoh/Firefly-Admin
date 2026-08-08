@@ -828,8 +828,20 @@
     }
   }
 
-  // 返回「内容列表」视图并刷新（用于保存新建文件后自动返回、或点击编辑器「返回」时刷新列表）
+  // 返回上级视图并刷新：
+  // - 从「概览」点开文章/动态编辑页再返回时，回到概览并重新统计（否则会切到内容列表且 type=overview 无列表导致空白）
+  // - 从内容列表打开的编辑页，返回内容列表并刷新
   async function returnToContentAndRefresh() {
+    if (state.current && state.current.fromOverview) {
+      state.current = null;
+      state.selected.clear();
+      $("editForm").hidden = true;
+      $("emptyState").hidden = true;
+      updateBatchCount();
+      showView("overview");
+      loadOverview(); // 重新统计，加载中显示「正在统计中…」
+      return;
+    }
     backToEmpty();
     await refreshCurrent();
   }
@@ -1068,7 +1080,7 @@
   // ----------------------------------------------------------------------
   // 打开 / 新建
   // ----------------------------------------------------------------------
-  async function openFile(f) {
+  async function openFile(f, opts) {
     try {
       const { data } = await api("/api/file?path=" + encodeURIComponent(f.path));
       state.htmlMode = /\.html?$/i.test(f.name);
@@ -1097,7 +1109,7 @@
         body = parsed.body;
         state.postDataQuoted = parsed.quoted || {};
       }
-      state.current = { path: f.path, sha: data.sha, name: f.name, isNew: false, type: state.type };
+      state.current = { path: f.path, sha: data.sha, name: f.name, isNew: false, type: state.type, fromOverview: !!(opts && opts.fromOverview) };
       showEditor(body, fm, f.name);
     } catch (e) {
       toast(e.message || "打开失败", "err");
@@ -2582,6 +2594,9 @@
         // 新增文件：保存后自动返回上级列表并刷新（满足「新增后自动返回并刷新」）
         if (wasNew) {
           await returnToContentAndRefresh();
+        } else if (state.current.fromOverview) {
+          // 从概览打开的编辑页：停留在编辑器，无需刷新内容列表（返回时概览会重新统计）
+          // 不调用 loadList，避免 type=overview 触发无效列表请求
         } else {
           // 编辑已有文件：停留在编辑器，后台静默刷新文件列表（满足「修改后列表自动刷新」）
           loadList().catch(() => {});
@@ -3269,9 +3284,13 @@
     const ovBtn = $("ovRefreshBtn");
     const spinning = isManual && ovBtn; // 仅手动刷新时旋转图标（首次加载已有 loading 文案）
     if (spinning) ovBtn.classList.add("refreshing");
-    loading.hidden = false;
-    stats.hidden = true;
-    recent.hidden = true;
+    // 进入加载态：先清空旧数据（默认空白），显示「正在统计中…」，卡片容器保持占位固定显示
+    if (stats) stats.innerHTML = '<div class="ov-card-skeleton">正在统计中…</div>';
+    if (recent) recent.innerHTML = '<div class="ov-col"><div class="ov-col-h">📝 最新文章</div><div class="ov-loading-inline">正在统计中…</div></div><div class="ov-col"><div class="ov-col-h">⚡ 最新动态</div><div class="ov-loading-inline">正在统计中…</div></div>';
+    loading.hidden = true; // 数据区已自带「正在统计中」占位提示
+    stats.hidden = false;  // 卡片容器固定显示（加载中显示占位，加载完重置为真实卡片）
+    recent.hidden = false;
+    if ($("ovInfo")) $("ovInfo").hidden = false;
     $("ovRepo").textContent = `${state.owner}/${state.repo}@${state.branch}`;
     if (ovBtn) ovBtn.onclick = () => loadOverview(true);
 
@@ -3363,9 +3382,6 @@
     renderRecentList($("ovDynamic"), recentDyn, "dynamic", "暂无动态", "content");
 
     loading.hidden = true;
-    stats.hidden = false;
-    if ($("ovInfo")) $("ovInfo").hidden = false;
-    recent.hidden = false;
     if (ovBtn && spinning) ovBtn.classList.remove("refreshing");
   }
 
@@ -3412,7 +3428,7 @@
           loadList();
           return;
         }
-        openFile({ name, path, type: "file" });
+        openFile({ name, path, type: "file" }, { fromOverview: true });
       });
     });
   }

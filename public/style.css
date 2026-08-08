@@ -1582,6 +1582,9 @@ textarea { resize: vertical; }
 .ov-item-name { font-size: 14px; color: #2b3038; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-item-date { font-size: 12px; color: var(--muted); flex: none; }
 .ov-empty { font-size: 13px; color: var(--muted); padding: 8px; }
+/* 概览加载占位：加载中显示「正在统计中…」友好提示，加载完由真实数据重置 */
+.ov-card-skeleton { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 14px; padding: 38px 4px; }
+.ov-loading-inline { color: var(--muted); font-size: 13px; padding: 18px 4px; }
 
 /* 项目信息 / 作者信息：两块卡片横向排列，内容管理概览底部 */
 .ov-info { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
