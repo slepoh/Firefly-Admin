@@ -554,6 +554,44 @@
     return state.type !== "config";
   }
 
+  // 文章类（posts / dynamic / spec）列表里以 frontmatter 的 title 代替文件名显示。
+  // title 必须远程读取：先渲染文件名作为占位/兜底，再逐篇请求 /api/file 解析 frontmatter 后替换。
+  let _titleToken = 0;
+  const isArticleMd = (f) =>
+    (state.type === "posts" || state.type === "dynamic" || state.type === "spec") &&
+    f.type !== "dir" && /\.(md|mdx)$/i.test(f.name);
+
+  async function enrichOne(div, f) {
+    const nameEl = div.querySelector(".fi-name");
+    if (!nameEl) return;
+    try {
+      const r = await api("/api/file?path=" + encodeURIComponent(f.path));
+      if (r.status !== 200 || !r.data || r.data.content == null) return;
+      const fm = parseFrontmatter(r.data.content);
+      const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
+      if (!t) return; // 无 title 则保留文件名兜底
+      nameEl.textContent = t;
+      // 原文件名以小字副标识保留（与配置映射风格一致），便于定位真实文件
+      let origin = div.querySelector(".fi-origin");
+      if (!origin) {
+        origin = document.createElement("span");
+        origin.className = "fi-origin";
+        nameEl.insertAdjacentElement("afterend", origin);
+      }
+      origin.textContent = f.name;
+      origin.title = f.path;
+      div.title = f.name + " · " + t;
+    } catch (e) { /* 读取失败则保留文件名 */ }
+  }
+
+  // 串行补充，避免文章较多时并发打满 GitHub 限流；token 保证新一轮渲染废弃旧请求
+  async function enrichTitles(jobs, token) {
+    for (const job of jobs) {
+      if (token !== _titleToken) return;
+      await enrichOne(job.div, job.f);
+    }
+  }
+
   function renderList() {
     const box = $("fileList");
     box.innerHTML = "";
@@ -583,7 +621,8 @@
     if (_docs.length) {
       const head = document.createElement("div");
       head.className = "file-list-head";
-      let headHtml = '<span class="flh-name">文件名称</span>';
+      const flhName = (state.type === "posts" || state.type === "dynamic" || state.type === "spec") ? "文章标题" : "文件名称";
+      let headHtml = '<span class="flh-name">' + flhName + '</span>';
       if (state.type === "posts") {
         headHtml += '<span class="flh-created">创建日期</span><span class="flh-updated">修改时间</span>';
       }
@@ -591,6 +630,7 @@
       head.innerHTML = headHtml;
       box.appendChild(head);
     }
+    const titleJobs = [];
     _docs.forEach((f) => {
         const div = document.createElement("div");
         div.className = "file-item";
@@ -669,6 +709,7 @@
         };
 
         box.appendChild(div);
+        if (isArticleMd(f)) titleJobs.push({ div, f });
       });
 
     // 图片以宫格展示，点击预览而非编辑（不再打开源码/结构化编辑器）
@@ -715,6 +756,9 @@
       });
       box.appendChild(grid);
     }
+    // 文章类：异步远程补充 frontmatter 的 title（先显示文件名，读回后替换为标题）
+    const token = ++_titleToken;
+    if (titleJobs.length) enrichTitles(titleJobs, token).catch(() => {});
     updateBatchCount();
   }
 
