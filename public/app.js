@@ -570,6 +570,7 @@
       const fm = parseFrontmatter(r.data.content);
       const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
       if (!t) return; // 无 title 则保留文件名兜底
+      f._title = t; // 缓存到文件对象，供搜索与再次渲染直接复用（避免异步闪烁）
       nameEl.textContent = t;
       // 文件名已在独立「文件名」列展示（fi-fname），此处仅把完整文件名写入行 title 便于悬停核对
       div.title = f.name + " · " + t;
@@ -578,10 +579,14 @@
 
   // 串行补充，避免文章较多时并发打满 GitHub 限流；token 保证新一轮渲染废弃旧请求
   async function enrichTitles(jobs, token) {
+    let changed = false;
     for (const job of jobs) {
-      if (token !== _titleToken) return;
+      if (token !== _titleToken) return false;
+      const before = job.f._title;
       await enrichOne(job.div, job.f);
+      if (job.f._title && job.f._title !== before) changed = true;
     }
+    return changed;
   }
 
   function renderList() {
@@ -593,7 +598,11 @@
     state.selectableCount = 0;
     const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i;
     const _files = state.files
-      .filter((f) => f.name.toLowerCase().includes(kw))
+      .filter((f) => {
+        // 文章/动态/单页：搜索匹配 frontmatter 的 title（而非文件名）；其余板块按文件名匹配
+        const hay = isArticleMd(f) ? (f._title || f.name).toLowerCase() : f.name.toLowerCase();
+        return hay.includes(kw);
+      })
       // 配置板块隐藏 index.ts（仅为统一导出，无可视化参数）
       .filter((f) => !(state.type === "config" && f.name === "index.ts"))
       // 文章板块隐藏子目录（images / guide 等），这些统一由「图库」集中管理
@@ -647,6 +656,7 @@
           let mapped = false;
           if (state.type === "config" && CONFIG_NAME_MAP[f.name]) { displayBase = CONFIG_NAME_MAP[f.name]; mapped = true; }
           else if (state.type === "spec" && SPEC_NAME_MAP[f.name]) { displayBase = SPEC_NAME_MAP[f.name]; mapped = true; }
+          if (isArticleMd(f) && f._title) displayBase = f._title; // 已缓存的 title 直接显示，避免异步闪烁
           nameHtml = `<span class="fi-name">${esc(displayBase)}</span>`;
           // 文章类 md/mdx：不渲染独立的后缀 span（标题/文件名已能标识，避免冗余 .md/.mdx）
           if (!isArticleMd(f)) nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
@@ -708,7 +718,7 @@
         };
 
         box.appendChild(div);
-        if (isArticleMd(f)) titleJobs.push({ div, f });
+        if (isArticleMd(f) && !f._title) titleJobs.push({ div, f });
       });
 
     // 图片以宫格展示，点击预览而非编辑（不再打开源码/结构化编辑器）
@@ -757,7 +767,14 @@
     }
     // 文章类：异步远程补充 frontmatter 的 title（先显示文件名，读回后替换为标题）
     const token = ++_titleToken;
-    if (titleJobs.length) enrichTitles(titleJobs, token).catch(() => {});
+    if (titleJobs.length) {
+      enrichTitles(titleJobs, token)
+        .then((changed) => {
+          // 若搜索词非空且本次有 title 变化，重新按 title 过滤（让「搜索按标题」在标题加载后立即生效）
+          if (changed && ($("searchInput").value || "").trim()) renderList();
+        })
+        .catch(() => {});
+    }
     updateBatchCount();
   }
 
@@ -775,6 +792,12 @@
       await new Promise((r) => setTimeout(r, 350));
       btns.forEach((b) => b.classList.remove("refreshing"));
     }
+  }
+
+  // 返回「内容列表」视图并刷新（用于保存新建文件后自动返回、或点击编辑器「返回」时刷新列表）
+  async function returnToContentAndRefresh() {
+    backToEmpty();
+    await refreshCurrent();
   }
 
   // 图库：集中展示 src/content/posts 下各子目录（如 123456、abcdefg 等图库分类）的资源
@@ -2476,6 +2499,7 @@
   // ----------------------------------------------------------------------
   async function saveFile() {
     let content;
+    const wasNew = state.current && state.current.isNew;
     try {
       content = buildContent();
     } catch (e) {
@@ -2521,6 +2545,13 @@
         $("extSelect").disabled = true;
         setStatus("已保存，GitHub 自动部署中");
         okPopup("✅ 已保存，GitHub 自动部署中");
+        // 新增文件：保存后自动返回上级列表并刷新（满足「新增后自动返回并刷新」）
+        if (wasNew) {
+          await returnToContentAndRefresh();
+        } else {
+          // 编辑已有文件：停留在编辑器，后台静默刷新文件列表（满足「修改后列表自动刷新」）
+          loadList().catch(() => {});
+        }
       } else {
         const errMsg = (data && (data.error || data.message)) || "保存失败";
         setStatus(errMsg, "err");
@@ -2553,7 +2584,7 @@
       if (status === 200 || status === 204) {
         toast("已删除");
         backToEmpty();
-        await loadList();
+        await refreshCurrent();
       } else {
         toast((data && (data.error || data.message)) || "删除失败", "err");
       }
@@ -3204,6 +3235,17 @@
         return tb - ta;
       })
       .slice(0, 6);
+    // 最新文章显示 title（而非文件名）：并行读取前 6 篇 frontmatter 的 title
+    await Promise.all(recentPosts.map(async (it) => {
+      try {
+        const r = await api("/api/file?path=" + encodeURIComponent(it.path));
+        if (r.status === 200 && r.data && r.data.content != null) {
+          const fm = parseFrontmatter(r.data.content);
+          const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
+          if (t) it.title = t;
+        }
+      } catch (e) { /* 读取失败则保留文件名兜底 */ }
+    }));
     renderRecentList($("ovPosts"), recentPosts, "posts", "暂无文章");
 
     // 最新动态（按文件名降序兜底，取前 6；动态文件通常按时间命名）
@@ -3240,7 +3282,7 @@
           (isDir ? "1" : "0") +
           '">' +
           '<span class="ov-item-name">' +
-          esc(it.name) +
+          esc(it.title || it.name) +
           "</span>" +
           (date ? '<span class="ov-item-date">' + date + "</span>" : "") +
           "</li>"
@@ -4802,7 +4844,7 @@
     });
     on("saveBtn", "onclick", saveFile);
     on("deleteBtn", "onclick", deleteFile);
-    on("backBtn", "onclick", backToEmpty);
+    on("backBtn", "onclick", returnToContentAndRefresh);
     // 退出登录：顶栏按钮（PC）与左侧导航按钮（移动端）共用同一逻辑
     const doLogout = async () => {
       // 与删除一致：先确认再执行
@@ -4991,6 +5033,8 @@
         if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) {
           const dir = dirForUpload();
           for (const f of ev.dataTransfer.files) uploadFileToDir(f, dir);
+          // 图库素材上传后自动刷新列表（其他板块上传为插入编辑器，无需刷新列表）
+          if (state.type === "gallery") loadGallery();
         }
       });
     }
@@ -5007,6 +5051,8 @@
       const dir = e.target.dataset.dir || dirForUpload();
       if (e.target.files && e.target.files.length) {
         for (const f of e.target.files) uploadFileToDir(f, dir);
+        // 图库素材上传后自动刷新列表（右键菜单「上传到此目录」）
+        if (state.type === "gallery") loadGallery();
       }
       e.target.value = "";
     });
