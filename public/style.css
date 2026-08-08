@@ -152,7 +152,7 @@ body {
 .sub-nav-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
 
 /* 左侧：纯导航栏 */
-.nav-bar { display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; flex: 1; min-height: 0; }
+.nav-bar { display: flex; flex-direction: column; gap: 4px; padding: 14px 12px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .nav-btn {
   display: flex; align-items: center; gap: 11px; width: 100%; box-sizing: border-box;
   border: none; background: transparent; padding: 12px 13px; border-radius: 11px;

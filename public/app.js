@@ -562,16 +562,18 @@
     f.type !== "dir" && /\.(md|mdx)$/i.test(f.name);
 
   async function enrichOne(div, f) {
-    const nameEl = div.querySelector(".fi-name");
-    if (!nameEl) return;
     try {
       const r = await api("/api/file?path=" + encodeURIComponent(f.path));
       if (r.status !== 200 || !r.data || r.data.content == null) return;
       const fm = parseFrontmatter(r.data.content);
       const t = fm.data && typeof fm.data.title === "string" ? fm.data.title.trim() : "";
-      if (t) {
+      // 文章 / 单页：异步补充 frontmatter 的 title（替换 .fi-name），并缓存供搜索复用
+      // 注意：动态行没有 .fi-name（只有 .fi-content/.fi-pub），这里必须判空，否则会跳过动态内容的填充
+      const nameEl = div.querySelector(".fi-name");
+      if (nameEl && t) {
         f._title = t; // 缓存到文件对象，供搜索与再次渲染直接复用（避免异步闪烁）
         nameEl.textContent = t;
+        div.title = f.name + " · " + t; // 悬停显示完整文件名 + 标题
       }
       // 动态列表：第一列显示「动态内容」（正文首段纯文本），下方副信息显示「发布时间」（不再显示文件名/标题）
       if (state.type === "dynamic") {
@@ -588,9 +590,7 @@
           if (pubEl) pubEl.textContent = fmtDateTime(pub) || "—";
         }
       }
-      // 文件名已在独立「文件名」列展示（fi-fname），此处仅把完整文件名写入行 title 便于悬停核对
-      div.title = f.name + (t ? " · " + t : "");
-    } catch (e) { /* 读取失败则保留文件名 */ }
+    } catch (e) { /* 读取失败则保留原占位（加载中…） */ }
   }
 
   // 串行补充，避免文章较多时并发打满 GitHub 限流；token 保证新一轮渲染废弃旧请求
