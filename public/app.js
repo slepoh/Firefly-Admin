@@ -2192,8 +2192,8 @@
           '<input class="ip-search" type="text" placeholder="搜索图标，如 link / github / 主页 …">' +
         "</div>" +
         '<div class="ip-body">' +
-          '<div class="ip-section"><div class="ip-section-title">常用图标</div><div class="ip-grid ip-common-grid"></div></div>' +
-          '<div class="ip-section"><div class="ip-section-title">搜索结果 <span class="ip-search-info"></span></div><div class="ip-grid ip-result-grid"></div></div>' +
+          '<div class="ip-section ip-section-common"><div class="ip-section-title">常用图标</div><div class="ip-grid ip-common-grid"></div></div>' +
+          '<div class="ip-section ip-section-result" hidden><div class="ip-section-title">搜索结果 <span class="ip-search-info"></span></div><div class="ip-grid ip-result-grid"></div></div>' +
         "</div>" +
         '<div class="ip-footer">' +
           '<span class="ip-current">当前：<b class="ip-current-val">—</b></span>' +
@@ -2224,6 +2224,7 @@
     modal.querySelector(".ip-collection").addEventListener("change", () => {
       renderIconCommon(modal);
       if (modal.querySelector(".ip-search").value.trim()) doIconSearch(modal);
+      else modal.querySelector(".ip-section-common").hidden = false;
     });
     renderIconCommon(modal);
     return modal;
@@ -2249,9 +2250,20 @@
 
   function doIconSearch(modal) {
     const q = modal.querySelector(".ip-search").value.trim();
+    const commonSec = modal.querySelector(".ip-section-common");
+    const resultSec = modal.querySelector(".ip-section-result");
     const info = modal.querySelector(".ip-search-info");
     const grid = modal.querySelector(".ip-result-grid");
-    if (!q) { grid.innerHTML = ""; info.textContent = ""; return; }
+    if (!q) {
+      // 清空搜索：恢复默认（仅显示常用图标，隐藏搜索结果区）
+      grid.innerHTML = ""; info.textContent = "";
+      resultSec.hidden = true;
+      commonSec.hidden = false;
+      return;
+    }
+    // 搜索中：只显示搜索结果，隐藏常用图标区
+    commonSec.hidden = true;
+    resultSec.hidden = false;
     info.textContent = "搜索中…";
     const sel = modal.querySelector(".ip-collection") ? modal.querySelector(".ip-collection").value : "";
     const prefixes = sel || ICON_SAFE_PREFIXES;
@@ -2295,6 +2307,11 @@
     modal.querySelector(".ip-search").value = "";
     modal.querySelector(".ip-result-grid").innerHTML = "";
     modal.querySelector(".ip-search-info").textContent = "";
+    // 默认（无搜索）：显示常用图标，隐藏搜索结果区
+    const _common = modal.querySelector(".ip-section-common");
+    const _result = modal.querySelector(".ip-section-result");
+    if (_common) _common.hidden = false;
+    if (_result) _result.hidden = true;
     renderIconCommon(modal);
     renderPickerSelection(modal);
     modal.hidden = false;
@@ -3496,7 +3513,7 @@
     // 配置类（含三个独立配置菜单）：禁止新建文件 / 批量删除 / 全选 / 上传 / 新建分类
     const isConfig = state.type === "config";
     const isGallery = type === "gallery";
-    const _gcs = $("galleryCatSel"); if (_gcs && !isGallery) _gcs.hidden = true;
+    const _gcs = $("galleryCatSel"); if (_gcs) _gcs.hidden = !isGallery;
     const isOverview = type === "overview";
     // 批量删除 / 全选：仅文章、动态、图库支持；配置、概览、单页（页面信息）不支持
     const batchEnabled = !isConfig && !isOverview && type !== "spec";
@@ -3509,14 +3526,17 @@
     $("searchInput").hidden = isConfig || isGallery || isOverview;
     const _rb = $("refreshBtn"); if (_rb) _rb.hidden = isConfig || isGallery || isOverview;
     if (isGallery || isOverview) $("searchInput").value = "";
-    // 将搜索框与图库分类下拉移入右上角按钮组（作为首子节点 = 按钮左边）：
-    // PC 端 文章内容/我的动态/页面信息 的搜索框显示在按钮左边；
-    // 移动端 图库素材 的分类下拉通过 body.section-gallery + CSS order 显示在「新建分类」按钮左边。
-    // 两元素 hidden 时移入无副作用；元素按 id 引用，切换父节点不影响事件绑定。
+    // 将搜索框与图库分类下拉移入右上角按钮组（元素按 id 引用，切换父节点不影响事件绑定）：
+    // - 搜索框：文章内容/我的动态/页面信息 显示在按钮组左侧（图库/配置/概览隐藏）。
+    // - 图库分类下拉（全部分类）：仅图库显示，移入 .ct-util 工具按钮组、排在「上传资源」与「新建分类」之间，
+    //   移动端即可与「上传资源 / 新建分类」同处一行；非图库时放回 .list-tools（隐藏）。
     const _cta = document.querySelector(".ct-actions");
-    if (_cta) {
-      _cta.insertBefore($("galleryCatSel"), _cta.firstChild);
-      _cta.insertBefore($("searchInput"), _cta.firstChild);
+    if (_cta) _cta.insertBefore($("searchInput"), _cta.firstChild);
+    const _util = document.querySelector(".ct-util");
+    if (isGallery && _util) {
+      _util.insertBefore(_gcs, $("newCatBtn"));
+    } else if (_gcs && _gcs.parentElement !== document.querySelector(".list-tools")) {
+      document.querySelector(".list-tools").appendChild(_gcs);
     }
     document.body.classList.toggle("section-gallery", isGallery);
     document.body.classList.toggle("section-content", ["posts", "dynamic", "spec"].includes(type));

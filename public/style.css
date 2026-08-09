@@ -261,7 +261,9 @@ body {
 .ct-selectall { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
 .ct-selectall input { width: 16px; height: 16px; }
 .ct-title { font-size: 16px; font-weight: 700; color: #2b3038; }
-.ct-actions { margin-left: auto; display: flex; gap: 8px; }
+.ct-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+/* 工具按钮组（刷新 / 上传资源 / 新建分类）：桌面端与原按钮组内联，移动端独占一行三等分 */
+.ct-util { display: flex; align-items: center; gap: 8px; }
 /* 搜索框 / 图库分类下拉移入按钮组后（位于按钮左边），定宽避免被全局 input width:100% 撑满 */
 .ct-actions #searchInput { flex: 0 1 auto; width: 200px; min-width: 140px; }
 .ct-actions #galleryCatSel { flex: 0 1 auto; width: 180px; min-width: 120px; }
@@ -1020,17 +1022,15 @@ textarea { resize: vertical; }
   /* 移动端：抽屉内导航竖排；内容工具栏换行；文件项操作按钮常驻可见 */
   .nav-bar { flex: none; overflow: visible; }
   .content-toolbar { flex-wrap: wrap; }
-  .ct-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
-  .ct-actions .btn { flex: 1 1 auto; min-width: 120px; justify-content: center; }
-  /* 移入按钮组的搜索框 / 下拉：移动端占满一行（文章/动态/单页）；图库用 order 把下拉排到「新建分类」左边 */
-  .ct-actions #searchInput,
-  .ct-actions #galleryCatSel { width: 100%; flex: 1 1 auto; }
-  body.section-gallery #batchDelBtn { order: 1; }
-  body.section-gallery #topRefreshBtn { order: 2; }
-  body.section-gallery #quickUploadBtn { order: 3; }
-  body.section-gallery #newBtn { order: 4; }
-  body.section-gallery #galleryCatSel { order: 5; width: auto; flex: 1 1 120px; }
-  body.section-gallery #newCatBtn { order: 6; }
+  .ct-actions { margin-left: 0; width: 100%; flex-wrap: wrap; gap: 8px; }
+  /* 批量删除 / 新建 各占一份，自动换行到工具按钮组上方 */
+  .ct-actions > .btn { flex: 1 1 auto; min-width: 120px; justify-content: center; }
+  /* 工具按钮组（刷新 / 上传资源 / 新建分类，图库含「全部分类」）：移动端整组独占一行、三等分，不换行 */
+  .ct-util { flex: 1 1 100%; width: 100%; flex-wrap: nowrap; }
+  .ct-util > .btn,
+  .ct-util > .gallery-cat-sel { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; justify-content: center; }
+  /* 移入按钮组的搜索框：移动端占满一行（文章/动态/单页） */
+  .ct-actions #searchInput { width: 100%; flex: 1 1 100%; }
   .file-list { max-height: 64vh; overflow-y: auto; }
   .file-item .fi-actions { gap: 2px; }
   .fi-act { padding: 4px 7px; }
@@ -1474,6 +1474,7 @@ textarea { resize: vertical; }
 .ip-search { flex: 1 1 auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--card, #fff); color: var(--text, #222); }
 .ip-body { flex: 1 1 auto; min-height: 0; padding: 12px 16px; overflow: auto; }
 .ip-section { margin-bottom: 14px; }
+.ip-section[hidden] { display: none; }
 .ip-section-title { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
 .ip-search-info { font-weight: 400; color: var(--muted); }
 .ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
