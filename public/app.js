@@ -3538,6 +3538,16 @@
     } else if (_gcs && _gcs.parentElement !== document.querySelector(".list-tools")) {
       document.querySelector(".list-tools").appendChild(_gcs);
     }
+    // 刷新按钮：图库时移出 .ct-util 工具组、作为 .ct-actions 直接子节点与「批量删除」并列
+    // （移动端两枚各占第一行一半）；非图库时放回 .ct-util 组首（移动端与「上传资源 / 新建分类」同处一行）。
+    const _refresh = $("topRefreshBtn");
+    if (_refresh) {
+      if (isGallery && _util) {
+        if (_refresh.parentElement !== _cta) _cta.insertBefore(_refresh, _util);
+      } else if (_util && _refresh.parentElement !== _util) {
+        _util.insertBefore(_refresh, _util.firstChild);
+      }
+    }
     document.body.classList.toggle("section-gallery", isGallery);
     document.body.classList.toggle("section-content", ["posts", "dynamic", "spec"].includes(type));
 
