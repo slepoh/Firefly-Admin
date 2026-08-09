@@ -3766,6 +3766,10 @@
           loadList();
           return;
         }
+        // 概览打开文章/动态时，先把板块类型设为对应 section（posts/dynamic），
+        // 否则 state.type 仍为 "overview"，showEditor 会隐藏标题行与正文面板，
+        // 导致「标题显示成文件名」、与从列表进入不一致。返回逻辑已用 fromOverview 判断，不依赖此值。
+        state.type = type;
         openFile({ name, path, type: "file" }, { fromOverview: true });
       });
     });
