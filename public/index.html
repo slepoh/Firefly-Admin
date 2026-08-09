@@ -403,6 +403,11 @@
           <div class="editor-head">
             <span class="eh-icon" id="ehIcon">📝</span>
             <div class="eh-meta">
+              <!-- 第一行：标题（spec 单页 / 文章通用，置于文件名之上） -->
+              <div class="title-row" id="titleRow" hidden>
+                <input type="text" id="titleInput" class="title-input" placeholder="标题（留空则使用文件名）" />
+              </div>
+              <!-- 第二行：文件名 + 后缀 -->
               <div class="fn-row">
                 <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
                 <select id="extSelect" class="ext-select" aria-label="文件后缀" title="选择文件后缀"></select>
@@ -443,12 +448,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- 单页自定义标题（spec 通用路由页面，如后台新建页）；内置页 / 友情链接不显示 -->
-          <div class="spec-title-row" id="specTitleRow" hidden>
-            <label for="specTitleInput">页面标题</label>
-            <input type="text" id="specTitleInput" placeholder="留空则使用文件名作为标题" />
           </div>
 
           <!-- 编辑模式切换 -->
