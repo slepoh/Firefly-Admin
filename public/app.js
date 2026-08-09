@@ -1272,17 +1272,18 @@
       $("dynLocation").value = fm.location || "";
     }
 
-    // 单页（spec）自定义页面标题：仅对走通用路由 src/pages/[slug].astro 的非内置页显示
-    // （about/guestbook 走各自独立路由且标题由 i18n 决定，friends 走 notes 模式，均不显示）
-    const isSpecPage = state.type === "spec" && !state.friendsNotesMode && !isBuiltinPage(state.current);
-    const specTitleRow = $("specTitleRow");
-    specTitleRow.hidden = !isSpecPage;
-    if (isSpecPage) {
-      const ti = $("specTitleInput");
-      ti.value = (state.postData && state.postData.title != null ? state.postData.title : "") || "";
-      ti.oninput = () => {
+    // 顶部标题行：spec 单页（通用路由）与文章(posts) 均显示，置于文件名之上作为第一行。
+    // spec 内置页(about/guestbook) 走各自独立路由、friends 走 notes 模式，均不显示；动态/配置不显示。
+    const showTitleRow = (state.type === "spec" && !state.friendsNotesMode && !isBuiltinPage(state.current))
+                       || state.type === "posts";
+    const titleRow = $("titleRow");
+    const titleInput = $("titleInput");
+    titleRow.hidden = !showTitleRow;
+    if (showTitleRow) {
+      titleInput.value = (state.postData && state.postData.title != null ? state.postData.title : "") || "";
+      titleInput.oninput = () => {
         state.postData = state.postData || {};
-        state.postData.title = ti.value;
+        state.postData.title = titleInput.value;
       };
     }
 
@@ -1369,6 +1370,8 @@
       }
 
       g.fields.forEach((f) => {
+        // 标题已提到编辑器顶部统一标题行（#titleInput），postPanel 不再重复渲染，避免双输入冲突
+        if (f.key === "title") return;
         const wrap = document.createElement("div");
         wrap.className = "field" + (f.full ? " full" : "") + (f.span ? " s" + f.span : "") + (f.type === "checkbox" ? " checkbox" : "");
         const label = document.createElement("label");
@@ -1453,6 +1456,12 @@
         data[f.key] = v;
       }
     });
+    // 顶部标题行（文章通用）作为 title 唯一来源；postPanel 已不再渲染 title 字段
+    const tr = $("titleRow");
+    if (tr && !tr.hidden) {
+      const t = ($("titleInput").value || "").trim();
+      if (t) data.title = t;
+    }
     return data;
   }
 
