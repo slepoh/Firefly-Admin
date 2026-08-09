@@ -1653,9 +1653,9 @@ textarea { resize: vertical; }
 .ov-card--skeleton { cursor: default; opacity: .72; }
 .ov-card--skeleton .ov-card-val { font-size: 15px; font-weight: 600; color: var(--muted); }
 
-/* 最近内容：两列（文章 / 动态） */
-.ov-recent { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.ov-col { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 8px; }
+/* 最近内容：两列（文章 / 动态），用 minmax(0,1fr) 防止长标题撑破网格 */
+.ov-recent { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.ov-col { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 8px; min-width: 0; }
 .ov-col-h { font-size: 15px; font-weight: 700; color: #2b3038; margin-bottom: 8px; }
 .ov-list { list-style: none; margin: 0; padding: 0; }
 .ov-item {
@@ -1663,7 +1663,7 @@ textarea { resize: vertical; }
   padding: 10px 8px; border-radius: 8px; cursor: pointer; transition: background .12s ease;
 }
 .ov-item:hover { background: rgba(80,120,200,.08); }
-.ov-item-name { font-size: 14px; color: #2b3038; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-item-name { font-size: 14px; color: #2b3038; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-item-date { font-size: 12px; color: var(--muted); flex: none; }
 .ov-empty { font-size: 13px; color: var(--muted); padding: 8px; }
 /* 概览加载占位：加载中显示「正在统计中…」友好提示，加载完由真实数据重置 */
@@ -1699,9 +1699,16 @@ textarea { resize: vertical; }
   .ov-stats { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 720px) {
-  .ov-recent { grid-template-columns: 1fr; }
+  .ov-recent { grid-template-columns: minmax(0, 1fr); }
   .ov-info { grid-template-columns: 1fr; }
 }
+/* 移动端：标题行纵向堆叠，避免 标题/文件名/后缀 同行挤压溢出 */
+@media (max-width: 640px) {
+  .file-title-row { flex-direction: column; gap: 8px; }
+  .title-input { flex: 1 1 auto; width: 100%; }
+  .fn-inline { flex: 1 1 auto; width: 100%; }
+}
+
 @media (max-width: 560px) {
   .ov-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .ov-card { padding: 14px 8px; }
@@ -1709,6 +1716,10 @@ textarea { resize: vertical; }
   .ov-title { font-size: 18px; }
   .ov-author-qr { width: 80px; }
   .ov-author-qr img { width: 80px; height: 80px; }
+  /* 概览最近内容：标题与日期在小屏也允许换行收缩，杜绝溢出 */
+  .ov-item { flex-wrap: wrap; }
+  .ov-item-name { flex: 1 1 100%; }
+  .ov-item-date { flex: none; }
 }
 
 /* ===================== 数据备份视图 ===================== */
