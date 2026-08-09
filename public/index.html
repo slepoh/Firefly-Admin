@@ -403,14 +403,13 @@
           <div class="editor-head">
             <span class="eh-icon" id="ehIcon">📝</span>
             <div class="eh-meta">
-              <!-- 第一行：标题（spec 单页 / 文章通用，置于文件名之上） -->
-              <div class="title-row" id="titleRow" hidden>
-                <input type="text" id="titleInput" class="title-input" placeholder="标题（留空则使用文件名）" />
-              </div>
-              <!-- 第二行：文件名 + 后缀 -->
-              <div class="fn-row">
-                <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
-                <select id="extSelect" class="ext-select" aria-label="文件后缀" title="选择文件后缀"></select>
+              <!-- 标题 + 文件名 合并一行：标题占 4/5，文件名 + 后缀占 1/5 -->
+              <div class="file-title-row">
+                <input type="text" id="titleInput" class="title-input" placeholder="标题（留空则使用文件名）" hidden />
+                <div class="fn-inline">
+                  <input type="text" id="fileName" class="filename" placeholder="文件名（不含后缀）" />
+                  <select id="extSelect" class="ext-select" aria-label="文件后缀" title="文件后缀"></select>
+                </div>
               </div>
               <div class="eh-path" id="ehPath"></div>
             </div>

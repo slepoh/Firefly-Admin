@@ -486,17 +486,14 @@ textarea { resize: vertical; }
 }
 .eh-icon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; background: #fff3e8; border-radius: 10px; font-size: 18px; }
 .eh-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.editor-head .filename { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; border: none; background: transparent; padding: 2px 0; }
-.editor-head .filename:focus { border: none; box-shadow: none; }
-.fn-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .ext-select {
-  flex: none; width: auto; padding: 6px 26px 6px 10px; font-size: 13px; font-weight: 600;
-  color: var(--primary-d); background: #fff4ea; border: 1px solid #ffd9b8; border-radius: 8px;
-  cursor: pointer; appearance: none; -webkit-appearance: none;
+  color: var(--primary); cursor: pointer;
+  appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23d9621a' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
   background-repeat: no-repeat; background-position: right 9px center;
 }
-.ext-select:disabled { color: var(--muted); background: #f1f2f4; border-color: var(--border); cursor: default; }
+.ext-select:disabled { color: var(--muted); background-color: #f4f6f8; border-color: var(--border); cursor: default; }
+.file-title-row select.ext-select { padding-right: 24px; }
 .eh-path { font-size: 11px; color: var(--muted); font-family: ui-monospace, "SFMono-Regular", Consolas, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eh-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
 .ed-type-badge {
@@ -593,10 +590,38 @@ textarea { resize: vertical; }
 /* 可折叠元信息面板（文章 / 动态字段） */
 .meta-panel { border: 1px solid var(--border); border-radius: var(--radius); background: #fafbfc; overflow: hidden; }
 
-/* 单页自定义标题（spec 通用路由页面，如后台新建页） */
-.title-row { display: flex; align-items: center; gap: 8px; }
-.title-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; color: var(--text); }
-.title-row input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent); }
+/* 标题 + 文件名 合并一行（标题 4/5，文件名 1/5） */
+.file-title-row { display: flex; align-items: stretch; gap: 10px; }
+.title-input { flex: 4 1 0; min-width: 0; }
+.fn-inline { flex: 1 1 0; min-width: 0; display: flex; align-items: stretch; gap: 6px; }
+.filename { flex: 1 1 0; min-width: 0; }
+.ext-select { flex: 0 0 58px; width: 58px; min-width: 0; }
+
+/* 统一美化的输入框外观 */
+.file-title-row input,
+.file-title-row select {
+  height: 40px; box-sizing: border-box;
+  padding: 0 14px; font-size: 14px; line-height: 40px;
+  color: var(--text); background-color: #fff;
+  border: 1px solid var(--border); border-radius: 10px;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04) inset;
+}
+.file-title-row input::placeholder { color: #aab1bd; }
+.file-title-row input:hover:not(:read-only):not(:disabled),
+.file-title-row select:hover:not(:disabled) { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.file-title-row input:focus,
+.file-title-row select:focus {
+  outline: none; border-color: var(--primary); background-color: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+/* 标题框特殊强调（仅当它显示时） */
+.title-input:not([hidden]) { font-weight: 600; letter-spacing: .2px; }
+/* 只读 / 禁用态更浅 */
+.file-title-row input:read-only,
+.file-title-row select:disabled { background-color: #f4f6f8; color: #8a929e; cursor: default; }
+/* 标题隐藏时文件名自动占满整行 */
+.title-input[hidden] + .fn-inline { flex: 1 1 100%; }
 .panel-head {
   width: 100%; box-sizing: border-box; border: none; background: none; cursor: pointer;
   padding: 11px 14px; font-size: 14px; font-weight: 600; color: var(--text);

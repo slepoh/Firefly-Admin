@@ -1276,9 +1276,8 @@
     // spec 内置页(about/guestbook) 走各自独立路由、friends 走 notes 模式，均不显示；动态/配置不显示。
     const showTitleRow = (state.type === "spec" && !state.friendsNotesMode && !isBuiltinPage(state.current))
                        || state.type === "posts";
-    const titleRow = $("titleRow");
     const titleInput = $("titleInput");
-    titleRow.hidden = !showTitleRow;
+    titleInput.hidden = !showTitleRow;
     if (showTitleRow) {
       titleInput.value = (state.postData && state.postData.title != null ? state.postData.title : "") || "";
       titleInput.oninput = () => {
@@ -1457,9 +1456,9 @@
       }
     });
     // 顶部标题行（文章通用）作为 title 唯一来源；postPanel 已不再渲染 title 字段
-    const tr = $("titleRow");
-    if (tr && !tr.hidden) {
-      const t = ($("titleInput").value || "").trim();
+    const titleInput = $("titleInput");
+    if (titleInput && !titleInput.hidden) {
+      const t = (titleInput.value || "").trim();
       if (t) data.title = t;
     }
     return data;
