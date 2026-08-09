@@ -387,7 +387,14 @@
     state.forceMarkdown = isHtmlHeavy(md);
     if (editor) {
       try {
-        editor.setMarkdown(md || "", false);
+        if (!md || !md.trim()) {
+          // 空内容：先 reset 再 setMarkdown("")，确保 WYSIWYG 模式下旧正文被彻底清空，
+          // 避免「上一个文章的标题/正文首行」残留到新建文件的编辑器里
+          if (typeof editor.reset === "function") editor.reset();
+          editor.setMarkdown("", false);
+          return;
+        }
+        editor.setMarkdown(md, false);
         // 含裸 HTML 的帖子用 Markdown 模式（与官方文档一致），避免 WYSIWYG 转换崩溃导致「打不开」
         const want = state.forceMarkdown ? "markdown" : "wysiwyg";
         const cur = (typeof editor.getEditorType === "function") ? editor.getEditorType() : want;
@@ -1241,7 +1248,20 @@
   // ----------------------------------------------------------------------
   // 编辑器渲染
   // ----------------------------------------------------------------------
+  // 打开任意编辑器前，强制清空共享输入 DOM，杜绝上一个文件（文章/动态/单页）的
+  // 标题 / 正文 / 动态字段残留到下一个编辑器（即便 showEditor 后续会重新赋值，
+  // 先清空可消除任何中间态或编辑器实例未即时刷新的残留）
+  function resetEditorDom() {
+    const ti = $("titleInput");
+    if (ti) { ti.value = ""; ti.oninput = null; }
+    const dp = $("dynPublished"); if (dp) dp.value = "";
+    const dl = $("dynLocation"); if (dl) dl.value = "";
+    // 仅当正文编辑器已存在时才清空，避免为配置/纯文本文件提前创建富文本编辑器
+    if (editor || fallbackBody) setBodyMarkdown("");
+  }
+
   function showEditor(body, fm, name) {
+    resetEditorDom();
     showView("editor");
     // 资源上传面板：默认折叠（由 index.html 的 collapsed 类控制），
     // 仅在用户主动点击「上传」按钮（quickUploadBtn）时才展开，避免一直占用编辑区空间
