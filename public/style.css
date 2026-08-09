@@ -1033,6 +1033,8 @@ textarea { resize: vertical; }
   .ct-actions #searchInput { width: 100%; flex: 1 1 100%; }
   /* 移动端·图库素材：第一行「批量删除 + 刷新」各占一半，第二行「上传资源 + 全部分类 + 新建分类」三等分（由 .ct-util 规则保证） */
   body.section-gallery .ct-actions > .btn { flex: 1 1 0; min-width: 0; }
+  /* 移动端·图库素材第二行：上传资源 / 全部分类 / 新建分类 三等分（1:1:1）。覆盖桌面 .ct-actions #galleryCatSel 固定宽度 */
+  body.section-gallery .ct-util > #galleryCatSel { flex: 1 1 0; width: auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; justify-content: center; }
   .file-list { max-height: 64vh; overflow-y: auto; }
   .file-item .fi-actions { gap: 2px; }
   .fi-act { padding: 4px 7px; }
