@@ -1252,6 +1252,8 @@
     }
 
     state.postData = fm || {};
+    // 新建文件：清空上一次打开文件的 frontmatter 引号记录，避免把历史引号状态带到新编辑器
+    if (state.current.isNew) state.postDataQuoted = {};
     state.mode = "rich";
 
     const isPosts = state.type === "posts";
@@ -1278,12 +1280,18 @@
                        || state.type === "posts";
     const titleInput = $("titleInput");
     titleInput.hidden = !showTitleRow;
+    // 无论是否显示，都先清空标题输入框的值——避免从「文章」切到「动态/其它」时，
+    // 上一个编辑器的标题残留在共享的 #titleInput 中（state 未清导致历史记录被带到下一个编辑器）
+    titleInput.value = showTitleRow
+      ? ((state.postData && state.postData.title != null ? state.postData.title : "") || "")
+      : "";
     if (showTitleRow) {
-      titleInput.value = (state.postData && state.postData.title != null ? state.postData.title : "") || "";
       titleInput.oninput = () => {
         state.postData = state.postData || {};
         state.postData.title = titleInput.value;
       };
+    } else {
+      titleInput.oninput = null;
     }
 
     // 纯文本配置文件（如 .md）或结构化配置（.ts）不显示富文本/源代码切换；友情链接 notes 视图同样隐藏
@@ -1310,8 +1318,15 @@
     const k = editorKind();
     $("ehIcon").textContent = k.icon;
     const badge = $("edTypeBadge");
-    badge.textContent = k.label;
-    badge.className = "ed-type-badge kind-" + k.kind;
+    // 「Markdown 富文本」是内容类的默认冗余标签（位置也欠佳），直接隐藏；
+    // 仅对信息量更高的模式（友情链接 / 可视化配置 / HTML / 源代码）显示徽标
+    if (k.kind === "md") {
+      badge.hidden = true;
+    } else {
+      badge.hidden = false;
+      badge.textContent = k.label;
+      badge.className = "ed-type-badge kind-" + k.kind;
+    }
     $("ehPath").textContent = state.current.path || "";
 
     setModeButtons("rich");
