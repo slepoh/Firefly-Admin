@@ -548,6 +548,20 @@
       const q = `type=${state.type}` + (state.subdir ? `&path=${encodeURIComponent(state.subdir)}` : "");
       const { data } = await api("/api/list?" + q);
       state.files = data.items || [];
+      // 动态：预取每篇的发布时间（published/date），供列表按「最新发布」排序；
+      // 仅填充数据、不触发二次渲染，避免与 enrichTitles 形成递归重渲染
+      if (state.type === "dynamic") {
+        await Promise.all(state.files.filter(isArticleMd).map(async (f) => {
+          try {
+            const r = await api("/api/file?path=" + encodeURIComponent(f.path));
+            if (r.status === 200 && r.data && r.data.content != null) {
+              const fm = parseFrontmatter(r.data.content);
+              const pub = (fm.data && (fm.data.published || fm.data.date)) || "";
+              if (pub) f._published = pub;
+            }
+          } catch (e) { /* 单篇失败不影响整体排序 */ }
+        }));
+      }
       renderList();
       renderCrumb();
     } catch (e) {
@@ -629,13 +643,20 @@
       .filter((f) => !(state.type === "config" && f.name === "index.ts"))
       // 文章板块隐藏子目录（images / guide 等），这些统一由「图库」集中管理
       .filter((f) => !(state.type === "posts" && f.type === "dir"));
-    // 文章 / 动态板块：按文件创建日期降序排列（最近发布排第一），无日期的排末尾
-    if (state.type === "posts" || state.type === "dynamic") {
+    // 文章：按文件创建日期降序；动态：按 frontmatter 发布日期（published/date）降序，最新发布排第一
+    if (state.type === "posts") {
       _files.sort((a, b) => {
         const ta = a.created ? new Date(a.created).getTime() : 0;
         const tb = b.created ? new Date(b.created).getTime() : 0;
         return tb - ta;
       });
+    } else if (state.type === "dynamic") {
+      const pubTs = (f) => {
+        const p = f._published ? f._published : (f.created || "");
+        const t = p ? new Date(p).getTime() : 0;
+        return isNaN(t) ? 0 : t;
+      };
+      _files.sort((a, b) => pubTs(b) - pubTs(a));
     }
     // 图片与文档分开：图片走宫格预览，文档走可编辑列表
     const _docs = _files.filter((f) => !IMG_RE.test(f.name));
@@ -684,12 +705,13 @@
           if (!isArticleMd(f)) nameHtml += `<span class="fi-ext">${esc(ext)}</span>`;
         }
 
-        // 左侧可勾选（仅可修改且非内置页面，内置页面 about/friends/guestbook 不允许删除，故也不参与批量删除）
+        // 左侧可勾选（仅可修改、非内置页面，且当前板块支持批量删除；页面信息不支持批量操作）
         const rowModifiable = modifiable && !isBuiltinPage(f);
-        const check = rowModifiable
+        const showCheck = rowModifiable && state.batchEnabled;
+        const check = showCheck
           ? `<input type="checkbox" class="fi-check" data-path="${esc(f.path)}"${state.selected.has(f.path) ? " checked" : ""} />`
           : "";
-        if (rowModifiable) state.selectableCount++;
+        if (showCheck) state.selectableCount++;
 
         // 行内操作按钮：编辑常驻；重命名 / 删除仅可修改且非内置页面
         // 文字包入 .fi-act-label，移动端隐藏文字仅留图标，避免遮挡文件名
@@ -3357,9 +3379,13 @@
     const t = state.type;
     if (titleEl) titleEl.textContent = (UPLOAD_SECTION_NAMES[t] || "资源") + " · 资源上传";
     if (!sel) return;
-    const isContent = ["posts", "dynamic", "spec", "gallery"].includes(t);
-    if (!isContent) {
+    // 仅图库支持「选择上传分类（文件夹）」；文章/动态/页面信息不提供分类选择，统一上传到板块根目录
+    const ut = sel.closest(".upload-target");
+    const allowCat = t === "gallery";
+    if (ut) ut.hidden = !allowCat;
+    if (!allowCat) {
       sel.innerHTML = '<option value="">根目录（当前板块）</option>';
+      sel.value = "";
       if (hintEl) hintEl.textContent = "当前板块根目录";
       return;
     }
@@ -3419,6 +3445,8 @@
 
   // 切换板块：左侧导航选中，右侧显示对应视图（内容列表 / 站点外观 / 配置）
   function selectSection(type) {
+    // 切换板块时，资源上传浮层自动收起（避免停留在其他页面）
+    const _up = $("uploadPanel"); if (_up) _up.hidden = true;
     state.sectionType = type; // 记录真实点击的一级菜单，供导航去重（功能/页面/扩展/基础配置均映射为 config）
     const cfgGroupType = CFG_GROUP_FOR_TYPE[type];
     state.type = cfgGroupType ? "config" : type;
@@ -3450,9 +3478,11 @@
     const isGallery = type === "gallery";
     const _gcs = $("galleryCatSel"); if (_gcs && !isGallery) _gcs.hidden = true;
     const isOverview = type === "overview";
-    // 图库：启用 上传 / 新建分类 / 全选 / 批量删除（每项自带删除按钮）；隐藏 新建文件 与 搜索框
-    $("selectAllRow").hidden = isConfig || isOverview;
-    $("batchDelBtn").hidden = isConfig || isOverview;
+    // 批量删除 / 全选：仅文章、动态、图库支持；配置、概览、单页（页面信息）不支持
+    const batchEnabled = !isConfig && !isOverview && type !== "spec";
+    state.batchEnabled = batchEnabled;
+    $("selectAllRow").hidden = !batchEnabled;
+    $("batchDelBtn").hidden = !batchEnabled;
     $("newBtn").hidden = isConfig || isGallery || isOverview;
     $("quickUploadBtn").hidden = isConfig || isOverview;
     $("newCatBtn").hidden = isConfig || isOverview;
