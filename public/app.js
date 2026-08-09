@@ -1159,6 +1159,8 @@
     state.configStruct = false;
     state.forceMarkdown = false;
     state.friendsNotesMode = false;
+    state.friendsRaw = null;
+    state.friendsNotes = null;
     let base, body, fm = {};
     if (state.type === "dynamic") {
       base = tsFilename().replace(/\.md$/i, "");
@@ -1268,6 +1270,20 @@
     if (isDynamic) {
       $("dynPublished").value = dateToInput(fm.published || "");
       $("dynLocation").value = fm.location || "";
+    }
+
+    // 单页（spec）自定义页面标题：仅对走通用路由 src/pages/[slug].astro 的非内置页显示
+    // （about/guestbook 走各自独立路由且标题由 i18n 决定，friends 走 notes 模式，均不显示）
+    const isSpecPage = state.type === "spec" && !state.friendsNotesMode && !isBuiltinPage(state.current);
+    const specTitleRow = $("specTitleRow");
+    specTitleRow.hidden = !isSpecPage;
+    if (isSpecPage) {
+      const ti = $("specTitleInput");
+      ti.value = (state.postData && state.postData.title != null ? state.postData.title : "") || "";
+      ti.oninput = () => {
+        state.postData = state.postData || {};
+        state.postData.title = ti.value;
+      };
     }
 
     // 纯文本配置文件（如 .md）或结构化配置（.ts）不显示富文本/源代码切换；友情链接 notes 视图同样隐藏
@@ -2689,6 +2705,24 @@
   // 构建文件内容
   // ----------------------------------------------------------------------
   function buildContent() {
+    // 新建文件：绝不使用 friends / booknav / config 结构化构建，始终按类型输出通用内容，
+    // 避免把 friends.mdx 等其它文件内容误写入新文件（防御：即便 friendsNotesMode 等状态意外泄漏）
+    if (state.current && state.current.isNew) {
+      // 新建文件按「类型 + 编辑器模式」通用构建，绝不套用 friends/booknav/config 结构化构建器
+      if (state.htmlMode) return getHtmlContent();
+      if (state.plainRaw || state.mode === "raw") return $("rawEditor").value;
+      if (state.type === "posts") return serializeFrontmatter(collectPostData(), getBodyMarkdown(), state.postDataQuoted);
+      if (state.type === "dynamic") {
+        const data = {};
+        const pub = inputToDateStr($("dynPublished").value, true);
+        if (pub) data.published = pub;
+        const loc = $("dynLocation").value.trim();
+        if (loc) data.location = loc;
+        return serializeFrontmatter(data, getBodyMarkdown(), state.postDataQuoted);
+      }
+      // spec / 其它内容类：保留 frontmatter + 富文本正文
+      return serializeFrontmatter(state.postData || {}, getBodyMarkdown(), state.postDataQuoted);
+    }
     if (state.booknavMode) return buildBooknavContent();
     if (state.friendsNotesMode) return buildFriendsNotesContent();
     if (state.configStruct) return buildConfigContent();
@@ -2716,6 +2750,12 @@
   async function saveFile() {
     let content;
     const wasNew = state.current && state.current.isNew;
+    // 新建文件：强制退出结构化编辑模式，确保新文件内容按类型通用构建（不会误用 friends/booknav/config 内容）
+    if (wasNew) {
+      state.friendsNotesMode = false;
+      state.booknavMode = false;
+      state.configStruct = false;
+    }
     try {
       content = buildContent();
     } catch (e) {
@@ -2735,6 +2775,12 @@
       }
       const root = state.type === "config" ? "src/config" : CONTENT_ROOT + "/" + state.type;
       path = root + (state.subdir ? "/" + state.subdir : "") + "/" + fname;
+      // 安全护栏：禁止用「新建」覆盖系统内置页面（关于我 about.md / 友情链接 friends.mdx / 留言页 guestbook.md）
+      if (BUILTIN_PAGE_NAMES.has(fname) && state.type === "spec") {
+        setStatus("「" + fname + "」是系统内置页面，不能通过新建覆盖，请换一个文件名", "err");
+        okPopup("❌ 「" + fname + "」为系统内置页面，无法覆盖", false);
+        return;
+      }
     } else {
       path = state.current.path;
     }
