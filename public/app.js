@@ -544,7 +544,15 @@
     window.__repoInfo = { owner: state.owner, repo: state.repo, branch: state.branch };
     $("repoInfo").textContent = `${s.owner}/${s.repo}@${s.branch}`;
     bindEvents();
-    await selectSection("overview");
+    if (!window.__routeBound) { window.__routeBound = true; window.addEventListener("hashchange", onHashChange); }
+    // 启动即按 URL 路由还原页面（支持分享链接 / 刷新后直达）：有合法 hash 则进入对应板块，否则默认概览
+    const _r = parseRoute();
+    if (_r.type) {
+      selectSection(_r.type);
+      if (_r.file) openRouteFile(_r.file, _r.type);
+    } else {
+      selectSection("overview");
+    }
   }
 
   // ----------------------------------------------------------------------
@@ -3482,6 +3490,7 @@
 
   // 切换板块：左侧导航选中，右侧显示对应视图（内容列表 / 站点外观 / 配置）
   function selectSection(type) {
+    syncRouteHash(type); // 同步 URL（自身写入时由 _routeGuard 防止 hashchange 回环）
     // 切换板块时，资源上传浮层自动收起（避免停留在其他页面）
     const _up = $("uploadPanel"); if (_up) _up.hidden = true;
     state.sectionType = type; // 记录真实点击的一级菜单，供导航去重（功能/页面/扩展/基础配置均映射为 config）
@@ -3600,6 +3609,53 @@
     showListLoading();
     loadList();
     refreshUploadDirOptions();
+  }
+
+  // ----------------------------------------------------------------------
+  // URL 路由（hash 模式）：每个功能页拥有独立可分享 URL，刷新 / 前进后退不丢失
+  // 格式： #/<type>                  例如 #/posts、#/gallery、#/config
+  //        #/<type>?file=<path>      直接打开某文件，如 #/posts?file=src/content/posts/2026/xxx.md
+  // 采用 hash 而非 path：hash 不请求服务器，Cloudflare Pages 仍走现有 index.html，零部署改动。
+  // ----------------------------------------------------------------------
+  const ROUTE_TYPES = ["overview", "posts", "dynamic", "spec", "gallery", "config", "cfgfunc", "cfgpage", "cfgext", "readme", "about", "backup", "restore"];
+  const FILE_ROUTE_OK = ["posts", "dynamic", "spec", "gallery", "config"]; // 这些板块支持文件级直达
+  let _routeGuard = false; // 标记本次 hash 写入来自 selectSection 自身，避免 hashchange 回环重入
+
+  function parseRoute() {
+    const h = location.hash || "";
+    if (!h || h === "#" || h === "#/") return { type: null, file: null };
+    const raw = h.replace(/^#\/?/, "");           // 去掉 "#" 或 "#/"
+    const qIdx = raw.indexOf("?");
+    let path = raw, qs = "";
+    if (qIdx >= 0) { path = raw.slice(0, qIdx); qs = raw.slice(qIdx + 1); }
+    const type = (path.split("/").filter(Boolean)[0]) || null;
+    let file = null;
+    if (qs) {
+      const m = qs.match(/(?:^|&)file=([^&]+)/);
+      if (m) { try { file = decodeURIComponent(m[1]); } catch (e) { file = null; } }
+    }
+    return { type: ROUTE_TYPES.includes(type) ? type : null, file };
+  }
+
+  function syncRouteHash(type, file) {
+    let target = "#/" + type;
+    if (file) target += "?file=" + encodeURIComponent(file);
+    if (location.hash === target) return; // 已一致则不写，避免无谓触发 hashchange
+    _routeGuard = true;                   // 写入后由 onHashChange 识别并忽略
+    location.hash = target;
+  }
+
+  function onHashChange() {
+    if (_routeGuard) { _routeGuard = false; return; } // selectSection 自身写入，忽略回环
+    const r = parseRoute();
+    if (!r.type) return;                            // 非法 / 空 hash：保持当前页
+    selectSection(r.type);
+    if (r.file) openRouteFile(r.file, r.type);
+  }
+
+  function openRouteFile(filePath, type) {
+    if (!FILE_ROUTE_OK.includes(type) || !filePath) return;
+    openFile({ path: filePath, name: filePath.split("/").pop() });
   }
 
   // ----------------------------------------------------------------------
