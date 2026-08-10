@@ -267,7 +267,7 @@ body {
 /* 搜索框 / 图库分类下拉移入按钮组后（位于按钮左边），定宽避免被全局 input width:100% 撑满 */
 .ct-actions #searchInput { flex: 0 1 auto; width: 200px; min-width: 140px; }
 .ct-actions #galleryCatSel { flex: 0 1 auto; width: 180px; min-width: 120px; }
-.content-view .list-tools { padding: 10px 16px 4px; }
+.content-view .list-tools { padding: 0 16px 0; }
 .content-view .list-tools2 { padding: 0 16px 8px; }
 
 /* 站点外观面板 */
